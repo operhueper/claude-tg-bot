@@ -1,41 +1,59 @@
 /**
  * Command handlers for Claude Telegram Bot.
  *
- * /start, /new, /stop, /status, /resume, /restart
+ * /start, /new, /stop, /status, /resume, /restart, /retry
+ *
+ * Per-user session lookup via getSession(userId). Restricted users (guests)
+ * are blocked from /restart.
  */
 
 import type { Context } from "grammy";
-import { session } from "../session";
-import { WORKING_DIR, ALLOWED_USERS, RESTART_FILE } from "../config";
+import { getSession } from "../session";
+import { ALLOWED_USERS, RESTART_FILE, getUserProfile } from "../config";
 import { isAuthorized } from "../security";
+
+/** Reject command if the profile doesn't permit it. */
+function commandAllowed(userId: number, command: string): boolean {
+  return getUserProfile(userId).allowedCommands.has(command);
+}
 
 /**
  * /start - Show welcome message and status.
  */
 export async function handleStart(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
-  const username = ctx.from?.username || "unknown";
 
-  if (!isAuthorized(userId, ALLOWED_USERS)) {
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
     await ctx.reply("Unauthorized. Contact the bot owner for access.");
     return;
   }
 
+  const profile = getUserProfile(userId);
+  const session = getSession(userId);
   const status = session.isActive ? "Active session" : "No active session";
-  const workDir = WORKING_DIR;
+
+  const commandLines = [
+    "/new - Start fresh session",
+    "/stop - Stop current query",
+    "/status - Show detailed status",
+    "/resume - Resume last session",
+    "/retry - Retry last message",
+  ];
+  if (profile.allowedCommands.has("restart")) {
+    commandLines.push("/restart - Restart the bot");
+  }
+
+  const greeting = profile.isGuest
+    ? `🤖 <b>Привет, Ксения!</b>\n\nЯ твой персональный ассистент.`
+    : `🤖 <b>Claude Telegram Bot</b>`;
 
   await ctx.reply(
-    `🤖 <b>Claude Telegram Bot</b>\n\n` +
+    `${greeting}\n\n` +
       `Status: ${status}\n` +
-      `Working directory: <code>${workDir}</code>\n\n` +
+      `Working directory: <code>${profile.workingDir}</code>\n\n` +
       `<b>Commands:</b>\n` +
-      `/new - Start fresh session\n` +
-      `/stop - Stop current query\n` +
-      `/status - Show detailed status\n` +
-      `/resume - Resume last session\n` +
-      `/retry - Retry last message\n` +
-      `/restart - Restart the bot\n\n` +
-      `<b>Tips:</b>\n` +
+      commandLines.join("\n") +
+      `\n\n<b>Tips:</b>\n` +
       `• Prefix with <code>!</code> to interrupt current query\n` +
       `• Use "think" keyword for extended reasoning\n` +
       `• Send photos, voice, or documents`,
@@ -49,12 +67,13 @@ export async function handleStart(ctx: Context): Promise<void> {
 export async function handleNew(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
 
-  if (!isAuthorized(userId, ALLOWED_USERS)) {
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
     await ctx.reply("Unauthorized.");
     return;
   }
 
-  // Stop any running query
+  const session = getSession(userId);
+
   if (session.isRunning) {
     const result = await session.stop();
     if (result) {
@@ -63,7 +82,6 @@ export async function handleNew(ctx: Context): Promise<void> {
     }
   }
 
-  // Clear session
   await session.kill();
 
   await ctx.reply("🆕 Session cleared. Next message starts fresh.");
@@ -75,21 +93,20 @@ export async function handleNew(ctx: Context): Promise<void> {
 export async function handleStop(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
 
-  if (!isAuthorized(userId, ALLOWED_USERS)) {
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
     await ctx.reply("Unauthorized.");
     return;
   }
 
+  const session = getSession(userId);
+
   if (session.isRunning) {
     const result = await session.stop();
     if (result) {
-      // Wait for the abort to be processed, then clear stopRequested so next message can proceed
       await Bun.sleep(100);
       session.clearStopRequested();
     }
-    // Silent stop - no message shown
   }
-  // If nothing running, also stay silent
 }
 
 /**
@@ -98,21 +115,21 @@ export async function handleStop(ctx: Context): Promise<void> {
 export async function handleStatus(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
 
-  if (!isAuthorized(userId, ALLOWED_USERS)) {
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
     await ctx.reply("Unauthorized.");
     return;
   }
 
+  const profile = getUserProfile(userId);
+  const session = getSession(userId);
   const lines: string[] = ["📊 <b>Bot Status</b>\n"];
 
-  // Session status
   if (session.isActive) {
     lines.push(`✅ Session: Active (${session.sessionId?.slice(0, 8)}...)`);
   } else {
     lines.push("⚪ Session: None");
   }
 
-  // Query status
   if (session.isRunning) {
     const elapsed = session.queryStarted
       ? Math.floor((Date.now() - session.queryStarted.getTime()) / 1000)
@@ -128,7 +145,6 @@ export async function handleStatus(ctx: Context): Promise<void> {
     }
   }
 
-  // Last activity
   if (session.lastActivity) {
     const ago = Math.floor(
       (Date.now() - session.lastActivity.getTime()) / 1000
@@ -136,7 +152,6 @@ export async function handleStatus(ctx: Context): Promise<void> {
     lines.push(`\n⏱️ Last activity: ${ago}s ago`);
   }
 
-  // Usage stats
   if (session.lastUsage) {
     const usage = session.lastUsage;
     lines.push(
@@ -151,7 +166,6 @@ export async function handleStatus(ctx: Context): Promise<void> {
     }
   }
 
-  // Error status
   if (session.lastError) {
     const ago = session.lastErrorTime
       ? Math.floor((Date.now() - session.lastErrorTime.getTime()) / 1000)
@@ -159,8 +173,7 @@ export async function handleStatus(ctx: Context): Promise<void> {
     lines.push(`\n⚠️ Last error (${ago}s ago):`, `   ${session.lastError}`);
   }
 
-  // Working directory
-  lines.push(`\n📁 Working dir: <code>${WORKING_DIR}</code>`);
+  lines.push(`\n📁 Working dir: <code>${profile.workingDir}</code>`);
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
 }
@@ -171,17 +184,18 @@ export async function handleStatus(ctx: Context): Promise<void> {
 export async function handleResume(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
 
-  if (!isAuthorized(userId, ALLOWED_USERS)) {
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
     await ctx.reply("Unauthorized.");
     return;
   }
+
+  const session = getSession(userId);
 
   if (session.isActive) {
     await ctx.reply("Sessione già attiva. Usa /new per iniziare da capo.");
     return;
   }
 
-  // Get saved sessions
   const sessions = session.getSessionList();
 
   if (sessions.length === 0) {
@@ -189,9 +203,7 @@ export async function handleResume(ctx: Context): Promise<void> {
     return;
   }
 
-  // Build inline keyboard with session list
   const buttons = sessions.map((s) => {
-    // Format date: "18/01 10:30"
     const date = new Date(s.saved_at);
     const dateStr = date.toLocaleDateString("it-IT", {
       day: "2-digit",
@@ -202,7 +214,6 @@ export async function handleResume(ctx: Context): Promise<void> {
       minute: "2-digit",
     });
 
-    // Truncate title for button (max ~40 chars to fit)
     const titlePreview =
       s.title.length > 35 ? s.title.slice(0, 32) + "..." : s.title;
 
@@ -214,29 +225,38 @@ export async function handleResume(ctx: Context): Promise<void> {
     ];
   });
 
-  await ctx.reply("📋 <b>Sessioni salvate</b>\n\nSeleziona una sessione da riprendere:", {
-    parse_mode: "HTML",
-    reply_markup: {
-      inline_keyboard: buttons,
-    },
-  });
+  await ctx.reply(
+    "📋 <b>Sessioni salvate</b>\n\nSeleziona una sessione da riprendere:",
+    {
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: buttons,
+      },
+    }
+  );
 }
 
 /**
- * /restart - Restart the bot process.
+ * /restart - Restart the bot process. Owner only.
  */
 export async function handleRestart(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
   const chatId = ctx.chat?.id;
 
-  if (!isAuthorized(userId, ALLOWED_USERS)) {
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
     await ctx.reply("Unauthorized.");
+    return;
+  }
+
+  if (!commandAllowed(userId, "restart")) {
+    await ctx.reply(
+      "🚫 Эта команда доступна только владельцу бота."
+    );
     return;
   }
 
   const msg = await ctx.reply("🔄 Restarting bot...");
 
-  // Save message info so we can update it after restart
   if (chatId && msg.message_id) {
     try {
       await Bun.write(
@@ -252,10 +272,8 @@ export async function handleRestart(ctx: Context): Promise<void> {
     }
   }
 
-  // Give time for the message to send
   await Bun.sleep(500);
 
-  // Exit - launchd will restart us
   process.exit(0);
 }
 
@@ -265,31 +283,30 @@ export async function handleRestart(ctx: Context): Promise<void> {
 export async function handleRetry(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
 
-  if (!isAuthorized(userId, ALLOWED_USERS)) {
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
     await ctx.reply("Unauthorized.");
     return;
   }
 
-  // Check if there's a message to retry
+  const session = getSession(userId);
+
   if (!session.lastMessage) {
     await ctx.reply("❌ No message to retry.");
     return;
   }
 
-  // Check if something is already running
   if (session.isRunning) {
     await ctx.reply("⏳ A query is already running. Use /stop first.");
     return;
   }
 
   const message = session.lastMessage;
-  await ctx.reply(`🔄 Retrying: "${message.slice(0, 50)}${message.length > 50 ? "..." : ""}"`);
+  await ctx.reply(
+    `🔄 Retrying: "${message.slice(0, 50)}${message.length > 50 ? "..." : ""}"`
+  );
 
-  // Simulate sending the message again by emitting a fake text message event
-  // We do this by directly calling the text handler logic
   const { handleText } = await import("./text");
 
-  // Create a modified context with the last message
   const fakeCtx = {
     ...ctx,
     message: {
