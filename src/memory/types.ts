@@ -1,7 +1,8 @@
 export type NodeType =
   | "person" | "project" | "fact" | "event"
   | "health" | "goal" | "achievement" | "preference"
-  | "place" | "topic";
+  | "place" | "topic"
+  | "infra" | "incident" | "runbook_step" | "deploy_quirk";
 
 export interface MemoryNode {
   id: string;

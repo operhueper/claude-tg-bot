@@ -15,7 +15,7 @@ const ANALYZER_SYSTEM_PROMPT = `Ты — экстрактор фактов из 
 Схема JSON:
 {
   "upsert_nodes": [
-    { "type": "person|project|fact|event|health|goal|achievement|preference|place|topic", "label": "...", "data": {}, "tags": [], "importance": 0.0-1.0 }
+    { "type": "person|project|fact|event|health|goal|achievement|preference|place|topic|infra|incident|runbook_step|deploy_quirk", "label": "...", "data": {}, "tags": [], "importance": 0.0-1.0 }
   ],
   "upsert_edges": [
     { "from_label": "...", "from_type": "...", "to_label": "...", "to_type": "...", "relation": "knows|works_on|likes|dislikes|owns|part_of|related_to|happened_at|linked_to|achieves|blocks|supports", "weight": 0.0-1.0 }
@@ -32,9 +32,19 @@ const ANALYZER_SYSTEM_PROMPT = `Ты — экстрактор фактов из 
 
 Правила:
 - importance: 0.9 для имён людей, 0.8 для проектов/целей, 0.5 для фактов/предпочтений, 0.3 для разовых событий
+- importance для инфра-типов: infra=0.8, runbook_step=0.9 (ценное переиспользуемое знание), incident=0.7, deploy_quirk=0.85
 - Минимум нод: только реально значимые факты
 - label всегда на том языке, на котором упомянуто (обычно русский)
 - Если диалог технический/о боте — topic node "разработка бота"
+
+Когда извлекать инфра-факты (типы infra/incident/runbook_step/deploy_quirk):
+- Упоминания серверов, сервисов, доменов, БД → infra. Пример: «прод на Hetzner называется jinru», «сервис claude-tg-bot.service на порту 3000»
+- Конкретные сбои с датой или симптомом → incident. Пример: «бот падает с EOF когда bun install перезаписывает бинарь», «после обновления SDK subprocess выходит с кодом 1»
+- Рецепты фикса, которые нужно повторять → runbook_step. Пример: «после bun install нужно копировать SDK бинарь из /root/.local/share/claude/versions/X», «Restart=always критично для /restart», «для перезапуска бота попросить юзера прислать /restart, а не дёргать systemctl»
+- Нетривиальные особенности деплоя/окружения → deploy_quirk. Пример: «bun резолвит musl-linked бинарь, но Ubuntu использует glibc», «nginx location должен быть ^~ /ksyusha иначе regex перехватывает картинки»
+
+Пример извлечения инфра-факта из диалога:
+Если пользователь говорит «на проде после bun install ломается musl/glibc, надо подменить SDK бинарь» — это runbook_step с label «Recovery from musl/glibc trap after bun install» и data полями command/steps, плюс incident с label «musl/glibc несовместимость после bun install» и data.symptom.
 `;
 
 export async function analyzeSession(
