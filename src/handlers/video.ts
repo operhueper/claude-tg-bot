@@ -5,7 +5,7 @@
  */
 
 import type { Context } from "grammy";
-import { session } from "../session";
+import { getSession } from "../session";
 import { ALLOWED_USERS, TEMP_DIR } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
@@ -96,6 +96,8 @@ export async function handleVideo(ctx: Context): Promise<void> {
     );
     return;
   }
+
+  const session = getSession(userId);
 
   // 5. Process video
   const stopProcessing = session.startProcessing();

@@ -40,7 +40,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       {
         name: "send_file",
         description:
-          "Send a file to the user via Telegram. Supports images (png, jpg, gif, webp), videos (mp4, mov, avi, webm, mkv), audio (mp3, wav, ogg, flac, m4a), and any other file type. The file is delivered automatically based on its extension. This is fire-and-forget — you can continue generating after calling this tool.",
+          "Send a file to the user via Telegram. Supports images (png, jpg, gif, webp), videos (mp4, mov, avi, webm, mkv), audio (mp3, wav, ogg, flac, m4a), and any other file type. The file is delivered automatically based on its extension. Use as_document=true to send images/videos as a file (preserves full quality, no Telegram compression). This is fire-and-forget — you can continue generating after calling this tool.",
         inputSchema: {
           type: "object" as const,
           properties: {
@@ -53,6 +53,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: "string",
               description:
                 "Optional caption to display with the file in Telegram",
+            },
+            as_document: {
+              type: "boolean",
+              description:
+                "Send as a document (file) instead of photo/video. Preserves full quality — Telegram won't compress the image. Default: false",
             },
           },
           required: ["file_path"],
@@ -71,10 +76,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const args = request.params.arguments as {
     file_path?: string;
     caption?: string;
+    as_document?: boolean;
   };
 
   const filePath = args.file_path || "";
   const caption = args.caption || "";
+  const asDocument = args.as_document || false;
 
   if (!filePath) {
     return {
@@ -151,6 +158,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     request_id: requestUuid,
     file_path: filePath,
     caption,
+    as_document: asDocument,
     status: "pending",
     chat_id: chatId,
     created_at: new Date().toISOString(),

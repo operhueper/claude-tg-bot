@@ -4,7 +4,7 @@
 
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
-import { session } from "../session";
+import { getSession } from "../session";
 import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import {
@@ -51,6 +51,8 @@ export async function handleVoice(ctx: Context): Promise<void> {
     );
     return;
   }
+
+  const session = getSession(userId);
 
   // 4. Mark processing started (allows /stop to work during transcription/classification)
   const stopProcessing = session.startProcessing();

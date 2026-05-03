@@ -11,7 +11,7 @@ import type { PendingMediaGroup } from "../types";
 import { MEDIA_GROUP_TIMEOUT } from "../config";
 import { rateLimiter } from "../security";
 import { auditLogRateLimit } from "../utils";
-import { session } from "../session";
+import { getSession } from "../session";
 
 /**
  * Configuration for a media group handler.
@@ -195,7 +195,10 @@ export async function handleProcessingError(
   const errorStr = String(error);
   if (errorStr.includes("abort") || errorStr.includes("cancel")) {
     // Only show "Query stopped" if it was an explicit stop, not an interrupt from a new message
-    const wasInterrupt = session.consumeInterruptFlag();
+    const userId = ctx.from?.id;
+    const wasInterrupt = userId
+      ? getSession(userId).consumeInterruptFlag()
+      : false;
     if (!wasInterrupt) {
       await ctx.reply("🛑 Query stopped.");
     }

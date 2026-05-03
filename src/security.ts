@@ -1,52 +1,44 @@
 /**
  * Security module for Claude Telegram Bot.
  *
- * Rate limiting, path validation, command safety.
+ * Rate limiting, path validation, command safety. All path/command checks accept
+ * an explicit `allowedPaths` argument to support per-user (owner vs guest) policies.
  */
 
 import { resolve, normalize } from "path";
 import { realpathSync } from "fs";
 import type { RateLimitBucket } from "./types";
 import {
-  ALLOWED_PATHS,
+  ALLOWED_PATHS as DEFAULT_ALLOWED_PATHS,
   BLOCKED_PATTERNS,
-  RATE_LIMIT_ENABLED,
-  RATE_LIMIT_REQUESTS,
-  RATE_LIMIT_WINDOW,
   TEMP_PATHS,
+  getUserProfile,
 } from "./config";
 
-// ============== Rate Limiter ==============
+// ============== Rate Limiter (per-user, per-profile) ==============
 
 class RateLimiter {
   private buckets = new Map<number, RateLimitBucket>();
-  private maxTokens: number;
-  private refillRate: number; // tokens per second
-
-  constructor() {
-    this.maxTokens = RATE_LIMIT_REQUESTS;
-    this.refillRate = RATE_LIMIT_REQUESTS / RATE_LIMIT_WINDOW;
-  }
 
   check(userId: number): [allowed: boolean, retryAfter?: number] {
-    if (!RATE_LIMIT_ENABLED) {
+    const profile = getUserProfile(userId);
+    if (!profile.rateLimitEnabled) {
       return [true];
     }
+
+    const maxTokens = profile.rateLimitRequests;
+    const refillRate = profile.rateLimitRequests / profile.rateLimitWindow;
 
     const now = Date.now();
     let bucket = this.buckets.get(userId);
 
     if (!bucket) {
-      bucket = { tokens: this.maxTokens, lastUpdate: now };
+      bucket = { tokens: maxTokens, lastUpdate: now };
       this.buckets.set(userId, bucket);
     }
 
-    // Refill tokens based on time elapsed
     const elapsed = (now - bucket.lastUpdate) / 1000;
-    bucket.tokens = Math.min(
-      this.maxTokens,
-      bucket.tokens + elapsed * this.refillRate
-    );
+    bucket.tokens = Math.min(maxTokens, bucket.tokens + elapsed * refillRate);
     bucket.lastUpdate = now;
 
     if (bucket.tokens >= 1) {
@@ -54,8 +46,7 @@ class RateLimiter {
       return [true];
     }
 
-    // Calculate time until next token
-    const retryAfter = (1 - bucket.tokens) / this.refillRate;
+    const retryAfter = (1 - bucket.tokens) / refillRate;
     return [false, retryAfter];
   }
 
@@ -64,11 +55,12 @@ class RateLimiter {
     max: number;
     refillRate: number;
   } {
+    const profile = getUserProfile(userId);
     const bucket = this.buckets.get(userId);
     return {
-      tokens: bucket?.tokens ?? this.maxTokens,
-      max: this.maxTokens,
-      refillRate: this.refillRate,
+      tokens: bucket?.tokens ?? profile.rateLimitRequests,
+      max: profile.rateLimitRequests,
+      refillRate: profile.rateLimitRequests / profile.rateLimitWindow,
     };
   }
 }
@@ -77,13 +69,15 @@ export const rateLimiter = new RateLimiter();
 
 // ============== Path Validation ==============
 
-export function isPathAllowed(path: string): boolean {
+/**
+ * Check whether a filesystem path is allowed under a specific allowlist.
+ * Always permits TEMP_PATHS (bot-internal scratch space).
+ */
+export function isPathAllowedFor(path: string, allowedPaths: string[]): boolean {
   try {
-    // Expand ~ and resolve to absolute path
     const expanded = path.replace(/^~/, process.env.HOME || "");
     const normalized = normalize(expanded);
 
-    // Try to resolve symlinks (may fail if path doesn't exist yet)
     let resolved: string;
     try {
       resolved = realpathSync(normalized);
@@ -91,15 +85,13 @@ export function isPathAllowed(path: string): boolean {
       resolved = resolve(normalized);
     }
 
-    // Always allow temp paths (for bot's own files)
     for (const tempPath of TEMP_PATHS) {
       if (resolved.startsWith(tempPath)) {
         return true;
       }
     }
 
-    // Check against allowed paths using proper containment
-    for (const allowed of ALLOWED_PATHS) {
+    for (const allowed of allowedPaths) {
       const allowedResolved = resolve(allowed);
       if (
         resolved === allowedResolved ||
@@ -115,39 +107,41 @@ export function isPathAllowed(path: string): boolean {
   }
 }
 
+/**
+ * Backwards-compatible wrapper that uses the owner's allowed paths.
+ * Prefer isPathAllowedFor with an explicit allowlist for new code.
+ */
+export function isPathAllowed(path: string): boolean {
+  return isPathAllowedFor(path, DEFAULT_ALLOWED_PATHS);
+}
+
 // ============== Command Safety ==============
 
 export function checkCommandSafety(
-  command: string
+  command: string,
+  allowedPaths: string[] = DEFAULT_ALLOWED_PATHS
 ): [safe: boolean, reason: string] {
   const lowerCommand = command.toLowerCase();
 
-  // Check blocked patterns
   for (const pattern of BLOCKED_PATTERNS) {
     if (lowerCommand.includes(pattern.toLowerCase())) {
       return [false, `Blocked pattern: ${pattern}`];
     }
   }
 
-  // Special handling for rm commands - validate paths
   if (lowerCommand.includes("rm ")) {
     try {
-      // Simple parsing: extract arguments after rm
       const rmMatch = command.match(/rm\s+(.+)/i);
       if (rmMatch) {
         const args = rmMatch[1]!.split(/\s+/);
         for (const arg of args) {
-          // Skip flags
           if (arg.startsWith("-") || arg.length <= 1) continue;
-
-          // Check if path is allowed
-          if (!isPathAllowed(arg)) {
+          if (!isPathAllowedFor(arg, allowedPaths)) {
             return [false, `rm target outside allowed paths: ${arg}`];
           }
         }
       }
     } catch {
-      // If parsing fails, be cautious
       return [false, "Could not parse rm command for safety check"];
     }
   }

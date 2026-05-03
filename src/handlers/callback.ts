@@ -6,7 +6,7 @@
 
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
-import { session } from "../session";
+import { getSession } from "../session";
 import { ALLOWED_USERS } from "../config";
 import { isAuthorized } from "../security";
 import { auditLog, startTypingIndicator } from "../utils";
@@ -31,6 +31,8 @@ export async function handleCallback(ctx: Context): Promise<void> {
     await ctx.answerCallbackQuery({ text: "Unauthorized" });
     return;
   }
+
+  const session = getSession(userId);
 
   // 2. Handle resume callbacks: resume:{session_id}
   if (callbackData.startsWith("resume:")) {
@@ -168,6 +170,8 @@ async function handleResumeCallback(
     await ctx.answerCallbackQuery({ text: "ID sessione non valido" });
     return;
   }
+
+  const session = getSession(userId);
 
   // Check if session is already active
   if (session.isActive) {

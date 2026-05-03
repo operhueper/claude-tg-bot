@@ -6,7 +6,7 @@
  */
 
 import type { Context } from "grammy";
-import { session } from "../session";
+import { getSession } from "../session";
 import { ALLOWED_USERS, TEMP_DIR } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
@@ -96,6 +96,22 @@ async function extractText(
     } catch (error) {
       console.error("PDF parsing failed:", error);
       return "[PDF parsing failed - ensure pdftotext is installed: brew install poppler]";
+    }
+  }
+
+  // DOCX extraction via mammoth
+  if (
+    extension === ".docx" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    try {
+      const mammoth = await import("mammoth");
+      const result = await mammoth.extractRawText({ path: filePath });
+      return result.value.slice(0, 100000);
+    } catch (error) {
+      console.error("DOCX parsing failed:", error);
+      return "[DOCX parsing failed - install mammoth: bun add mammoth]";
     }
   }
 
@@ -217,6 +233,7 @@ async function processArchive(
   username: string,
   chatId: number
 ): Promise<void> {
+  const session = getSession(userId);
   const stopProcessing = session.startProcessing();
   const typing = startTypingIndicator(ctx);
 
@@ -317,6 +334,8 @@ async function processDocuments(
   username: string,
   chatId: number
 ): Promise<void> {
+  const session = getSession(userId);
+
   // Mark processing started
   const stopProcessing = session.startProcessing();
 
@@ -439,12 +458,16 @@ export async function handleDocument(ctx: Context): Promise<void> {
   const fileName = doc.file_name || "";
   const extension = "." + (fileName.split(".").pop() || "").toLowerCase();
   const isPdf = doc.mime_type === "application/pdf" || extension === ".pdf";
+  const isDocx =
+    extension === ".docx" ||
+    doc.mime_type ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   const isText =
     TEXT_EXTENSIONS.includes(extension) || doc.mime_type?.startsWith("text/");
   const isArchiveFile = isArchive(fileName);
 
   // Check if it's an audio file sent as a document
-  if (!isPdf && !isText && !isArchiveFile && isAudioFile(fileName, doc.mime_type)) {
+  if (!isPdf && !isDocx && !isText && !isArchiveFile && isAudioFile(fileName, doc.mime_type)) {
     console.log(`Received audio document: ${fileName} from @${username}`);
 
     // Rate limit check
@@ -471,10 +494,10 @@ export async function handleDocument(ctx: Context): Promise<void> {
     return;
   }
 
-  if (!isPdf && !isText && !isArchiveFile) {
+  if (!isPdf && !isDocx && !isText && !isArchiveFile) {
     await ctx.reply(
       `❌ Unsupported file type: ${extension || doc.mime_type}\n\n` +
-        `Supported: PDF, archives (${ARCHIVE_EXTENSIONS.join(
+        `Supported: PDF, DOCX, archives (${ARCHIVE_EXTENSIONS.join(
           ", "
         )}), ${TEXT_EXTENSIONS.join(", ")}`
     );

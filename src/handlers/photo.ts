@@ -5,7 +5,7 @@
  */
 
 import type { Context } from "grammy";
-import { session } from "../session";
+import { getSession } from "../session";
 import { ALLOWED_USERS, TEMP_DIR } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
@@ -56,6 +56,8 @@ async function processPhotos(
   username: string,
   chatId: number
 ): Promise<void> {
+  const session = getSession(userId);
+
   // Mark processing started
   const stopProcessing = session.startProcessing();
 

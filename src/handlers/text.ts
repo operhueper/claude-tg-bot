@@ -3,7 +3,7 @@
  */
 
 import type { Context } from "grammy";
-import { session } from "../session";
+import { getSession } from "../session";
 import { ALLOWED_USERS } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import {
@@ -33,8 +33,10 @@ export async function handleText(ctx: Context): Promise<void> {
     return;
   }
 
+  const session = getSession(userId);
+
   // 2. Check for interrupt prefix
-  message = await checkInterrupt(message);
+  message = await checkInterrupt(message, userId);
   if (!message.trim()) {
     return;
   }

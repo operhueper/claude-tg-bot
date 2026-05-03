@@ -201,22 +201,17 @@ export function startTypingIndicator(ctx: Context): TypingController {
 
 // ============== Message Interrupt ==============
 
-// Import session lazily to avoid circular dependency
-let sessionModule: {
-  session: {
-    isRunning: boolean;
-    stop: () => Promise<"stopped" | "pending" | false>;
-    markInterrupt: () => void;
-    clearStopRequested: () => void;
-  };
-} | null = null;
+// Lazy import to avoid circular dependency
+let sessionModule: typeof import("./session") | null = null;
 
-export async function checkInterrupt(text: string): Promise<string> {
+export async function checkInterrupt(
+  text: string,
+  userId: number
+): Promise<string> {
   if (!text || !text.startsWith("!")) {
     return text;
   }
 
-  // Lazy import to avoid circular dependency
   if (!sessionModule) {
     sessionModule = await import("./session");
   }
@@ -224,17 +219,15 @@ export async function checkInterrupt(text: string): Promise<string> {
   const strippedText = text.slice(1).trimStart();
   const normalizedInterrupt = strippedText.trim().toLowerCase();
 
-  if (sessionModule.session.isRunning) {
-    console.log("! prefix - interrupting current query");
-    sessionModule.session.markInterrupt();
-    await sessionModule.session.stop();
+  const userSession = sessionModule.getSession(userId);
+  if (userSession.isRunning) {
+    console.log(`[${userSession.profile.label}] ! prefix - interrupting current query`);
+    userSession.markInterrupt();
+    await userSession.stop();
     await Bun.sleep(100);
-    // Clear stopRequested so the new message can proceed
-    sessionModule.session.clearStopRequested();
+    userSession.clearStopRequested();
   }
 
-  // Treat !stop as a pure stop alias (same behavior as /stop):
-  // cancel current work and do not forward "stop" as a new prompt.
   if (normalizedInterrupt === "stop" || normalizedInterrupt === "/stop") {
     return "";
   }
