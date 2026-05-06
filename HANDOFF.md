@@ -1,10 +1,33 @@
 # HANDOFF.md
 
-Бегущий лог сессий — контекст, который не попал в CLAUDE.md.
+Бегущий лог сессий — контекст, который не попал в CLAUDE.md. Последние сессии сверху.
 
 ---
 
-## 2026-05-06 — Подготовка к миграции на proboi.site (Фаза A)
+### Сессия 2026-05-06 (вторая половина дня) — анти-галлюцинация, отключение WebSearch у гостей, обновление токена Hetzner
+
+**Что обнаружено:** бот дважды галлюцинировал причины отказа инструментов.
+
+1. Галлюцинация «российский IP» — на самом деле сервер Hetzner Singapore, IPv6 `2a01:4ff:2f0:1ab0::1`, country=SG, ASN AS215859. Никакой блокировки по IP нет.
+2. Галлюцинация «нет прав на запись в память» у Ксении — на самом деле права 755, файлы пишутся, в логах есть Edit graph.json в 09:57.
+
+Корневая причина: при запросе к `api.deepseek.com/anthropic` Claude Code пытался вызвать WebSearch (серверный tool Anthropic). DeepSeek этот эндпоинт не проксирует и возвращает `deepseek-reasoner does not support this tool_choice`. Вместо того чтобы сообщить об ошибке инструмента, бот придумывал правдоподобную причину.
+
+**Что сделано:**
+
+1. `src/config.ts` (`buildOwnerSafetyPrompt`) — добавлен блок ANTI-HALLUCINATION ON ERRORS: при ошибке инструмента сообщать точную техническую причину, не придумывать объяснений.
+2. `src/config.ts` (`buildNewGuestSafetyPrompt`) — добавлен блок «Анти-галлюцинация ошибок» (по-русски): та же логика для гостевого промпта.
+3. `src/templates/guest-claude-md.ts` — добавлен раздел «Анти-галлюцинация ошибок» в шаблон CLAUDE.md гостя (дублирование в памяти).
+4. `src/config.ts` (`getUserProfile`) — для DeepSeek-гостей (все кроме Ксении) проставляется `disallowedTools: ["WebSearch"]`. `UserProfile` получил опциональное поле `disallowedTools?: string[]`. В `src/session.ts` поле пробрасывается в опции SDK `query()`.
+5. Токен Hetzner обновлён в `~/.claude.json` → `mcpServers.hetzner.env.HETZNER_API_TOKEN`. Прямой curl к Hetzner API подтвердил валидность: видит jinru-web (sin) и tg-bots (hel1). MCP подхватит после перезапуска Claude Code.
+
+**Деплой не делался** — ждём команды владельца.
+
+**Следующий шаг:** ребут Claude Code на ноуте чтобы Hetzner MCP подцепил новый токен, затем деплой: `rsync + bun install + systemctl restart claude-tg-bot` + обязательный musl→glibc swap бинаря Claude CLI после `bun install` (см. CLAUDE.md → Production Deployment).
+
+---
+
+### Сессия 2026-05-06 — подготовка миграции на proboi.site (Фаза A)
 
 ### Что обсудили и решили
 

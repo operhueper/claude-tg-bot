@@ -348,6 +348,13 @@ YOUR CAPABILITIES — you definitely have:
 - Install any package without asking: npm install, pip install, bun add, apt-get install
 - NEVER say "I don't have internet access" or "I can't install packages" — you can. Report specific errors if they occur.
 
+ANTI-HALLUCINATION ON ERRORS — mandatory:
+- If any tool (Bash, WebSearch, WebFetch, Edit, Write, etc.) fails, quote the exact error text verbatim and stop. Do not paraphrase or interpret.
+- NEVER invent reasons for failure: server geolocation, IP blocks, regional restrictions, provider limitations, "no write permission", "no internet access", "doesn't work from non-US IP" — none of these unless literally stated in the error output. If it is not in the error text, it does not exist.
+- On "does not support this tool_choice" or similar errors from the underlying model provider: write "tool not supported on this model" and immediately try a fallback (for WebSearch → WebFetch on specific URLs; for others — whatever applies). Draw no conclusions about sites, regions, or providers.
+- If file/directory access is genuinely denied, quote the full stderr. Never write "no permission" in general terms if that phrase does not appear in the error.
+- If you do not know the cause, write "unknown cause, need logs" and ask the user via mcp__ask-user.
+
 YOUR RESOURCES:
 - No container limits (owner profile); standard host resources available.
 - For heavy builds, check free -m and df -h before starting.
@@ -433,13 +440,20 @@ sessions/ — история по темам:
 
 ТВОИ ВОЗМОЖНОСТИ — у тебя ТОЧНО ЕСТЬ:
 - WebFetch — читать любую страницу в интернете, без оговорок
-- WebSearch — искать в интернете
+- WebSearch может падать (бэкенд DeepSeek не поддерживает серверные tools Anthropic). Используй WebFetch для конкретных URL, или Bash + curl на поисковые HTML-страницы (например: curl -sA "Mozilla/5.0" "https://html.duckduckgo.com/html/?q=ЗАПРОС" | grep result__a — и далее WebFetch на найденные ссылки).
 - Bash с полным интернет-доступом — curl, wget, ping, nslookup, любые HTTP-запросы
 - Установка пакетов любым менеджером БЕЗ ВОПРОСОВ: bun add, npm install, pip install, apt-get install, cargo install
 - Не спрашивай разрешения у пользователя на установку — просто ставь
 - Предустановлено в твоём контейнере: Bun, Node.js 20, Python 3, git, nginx, sqlite3, build-essential
 
 НИКОГДА не отвечай "у меня нет доступа к интернету", "я не могу установить пакет", "у меня нет инструмента для этого" — это враньё, у тебя всё есть. Если столкнулся с реальной ошибкой — сообщи о конкретной ошибке, не отказывайся в общем виде.
+
+АНТИ-ГАЛЛЮЦИНАЦИЯ ОШИБОК — обязательно:
+- Если инструмент (Bash, WebSearch, WebFetch, Edit, Write и т.д.) падает — приводи дословный текст ошибки от инструмента и останавливайся. Не пересказывай и не интерпретируй.
+- ЗАПРЕЩЕНО выдумывать причины отказа: геолокация сервера, блокировка по IP, региональные ограничения, провайдер, «нет прав на запись», «нет доступа в интернет», «не работает с не-US IP» — ничего из этого. Если такая причина не указана буквально в тексте ошибки — её не существует.
+- При ошибке "does not support this tool_choice" или похожей — буквально пишешь «инструмент не поддерживается на этой модели» и сразу пробуешь альтернативу (для WebSearch → WebFetch + curl на конкретные URL).
+- Если права на файл/директорию реально отказаны — приводишь stderr целиком; не пиши «нет прав» в общем виде если этого нет в ошибке.
+- Если не знаешь причину — пиши «не знаю причину, нужны логи» и говори пользователю что застрял.
 
 АНТИПЕТЛЯ:
 - Не запускай одну команду дважды — при неудаче меняй подход
@@ -567,6 +581,13 @@ export interface UserProfile {
    * For all pre-existing users this is always true so onboarding never triggers.
    */
   onboardingComplete: boolean;
+  /**
+   * Tools to block at the SDK level via --disallowedTools.
+   * Used to prevent DeepSeek guests from calling Anthropic-only tools like WebSearch
+   * which cause "does not support this tool_choice" errors.
+   * Owner profile leaves this undefined (no restrictions).
+   */
+  disallowedTools?: string[];
 }
 
 const RATE_LIMIT_REQUESTS_DEFAULT = parseInt(
@@ -715,6 +736,9 @@ export function getUserProfile(userId: number): UserProfile {
       deepseekEnv,
       containerEnabled: node?.containerEnabled ?? false,
       onboardingComplete,
+      // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
+      // to prevent "does not support this tool_choice" errors. Ksenia uses Claude so no restriction.
+      disallowedTools: isKsenia ? undefined : ["WebSearch"],
     };
   }
 

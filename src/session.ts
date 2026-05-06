@@ -357,6 +357,9 @@ export class ClaudeSession {
       maxThinkingTokens: thinkingTokens,
       additionalDirectories: this.profile.allowedPaths,
       resume: this.sessionId || undefined,
+      ...(this.profile.disallowedTools?.length
+        ? { disallowedTools: this.profile.disallowedTools }
+        : {}),
     };
 
     // Inject DeepSeek API credentials so Claude CLI routes all LLM calls

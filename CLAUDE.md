@@ -72,6 +72,7 @@ The bot serves **two classes of users** with isolated state:
 5. Per-profile system prompt — guests get an explicit "you are a regular user, refuse bot-modification requests" prompt
 6. Per-profile command allowlist — `/restart` is rejected for guests in `commands.ts`
 7. Audit logging
+8. Per-profile `disallowedTools` — DeepSeek guests do not receive WebSearch (architecturally incompatible with the DeepSeek Anthropic-compatible API: `api.deepseek.com/anthropic` does not proxy Anthropic server-side tools and returns `does not support this tool_choice`)
 
 ### Configuration
 
@@ -158,6 +159,8 @@ Existing users (Евгений, Ксения, Артём, testers) have no `onbo
 **Type checking**: Run `bun run typecheck` periodically while editing TypeScript files. Fix any type errors before committing.
 
 **Error handling in handlers**: Use `replyFriendly(ctx, error, "<context label>")` from `src/utils.ts` instead of raw `ctx.reply("❌ Error: ${error}")`. `replyFriendly` logs the full error to `console.error` and sends a static human-readable message to the user. Add it to every `catch` block in new handlers — this is the established pattern across `text.ts`, `audio.ts`, `voice.ts`, `document.ts`, `commands.ts`, and `callback.ts`.
+
+**Adding a guest-only tool restriction**: add the tool name to `profile.disallowedTools` inside `getUserProfile()` in `src/config.ts`. The field is picked up automatically by `src/session.ts` and passed to SDK `query()`. Use this for tools that are structurally incompatible with a guest's model/endpoint (not for permission-level restrictions, which belong in `/root/.claude/settings.json`).
 
 **After code changes**: Restart the bot so changes can be tested. Locally use `bun run start` or `launchctl kickstart -k gui/$(id -u)/com.claude-telegram-ts`. On the server use `ssh root@5.223.82.96 'systemctl restart claude-tg-bot'` (see Production Deployment).
 
