@@ -38,6 +38,7 @@ import {
 } from "./handlers";
 import { getRecentlyActiveUsers } from "./session-registry";
 import { setBotUsername } from "./group-filter";
+import { containerManager } from "./containers/manager";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
@@ -119,6 +120,11 @@ console.log("Starting bot...");
 const botInfo = await bot.api.getMe();
 console.log(`Bot started: @${botInfo.username}`);
 setBotUsername(botInfo.username || "");
+
+// Init container manager for all known users
+const containerProfiles = ALLOWED_USERS.map((id) => getUserProfile(id)).filter((p) => p.containerEnabled);
+await containerManager.init(containerProfiles);
+console.log(`Container manager initialized for ${containerProfiles.length} user(s)`);
 
 // Register side menu commands. /restart resets only the user's own session
 // (safe for everyone). /reloadbot performs a full systemd restart and is owner-only.

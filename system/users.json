@@ -16,7 +16,8 @@
     "settingSources": ["project"],
     "rateLimitEnabled": false,
     "model": "claude-sonnet-4-6",
-    "vaultDir": "workspace-ksenia"
+    "vaultDir": "workspace-ksenia",
+    "containerEnabled": true
   },
   {
     "userId": 403360614,
@@ -26,6 +27,7 @@
     "settingSources": ["project"],
     "rateLimitEnabled": false,
     "model": "deepseek-chat",
-    "vaultDir": "/opt/vault/403360614"
+    "vaultDir": "/opt/vault/403360614",
+    "containerEnabled": true
   }
 ]

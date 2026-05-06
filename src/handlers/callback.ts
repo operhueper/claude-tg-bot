@@ -11,6 +11,9 @@ import { ALLOWED_USERS } from "../config";
 import { isAuthorized } from "../security";
 import { auditLog, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
+import { getPendingInvite, removePendingInvite } from "../containers/invites";
+import { addUser } from "../user-registry";
+import { NEW_GUEST_USERS } from "../config";
 
 /**
  * Handle callback queries from inline keyboards.
@@ -29,6 +32,12 @@ export async function handleCallback(ctx: Context): Promise<void> {
   // 1. Authorization check
   if (!isAuthorized(userId, ALLOWED_USERS)) {
     await ctx.answerCallbackQuery({ text: "Unauthorized" });
+    return;
+  }
+
+  // 2a. Invite callbacks (owner-only actions, no session needed)
+  if (callbackData.startsWith("invite_approve_") || callbackData.startsWith("invite_deny_")) {
+    await handleInviteCallback(ctx, callbackData);
     return;
   }
 
@@ -157,6 +166,80 @@ export async function handleCallback(ctx: Context): Promise<void> {
     }
   } finally {
     typing.stop();
+  }
+}
+
+/**
+ * Handle invite approve/deny callbacks.
+ * callback_data: invite_approve_{userId} | invite_deny_{userId}
+ */
+async function handleInviteCallback(ctx: Context, callbackData: string): Promise<void> {
+  const isApprove = callbackData.startsWith("invite_approve_");
+  const rawId = callbackData.replace(isApprove ? "invite_approve_" : "invite_deny_", "");
+  const targetUserId = parseInt(rawId, 10);
+
+  if (isNaN(targetUserId)) {
+    await ctx.answerCallbackQuery({ text: "Неверный ID пользователя" });
+    return;
+  }
+
+  const invite = await getPendingInvite(targetUserId);
+
+  if (!invite) {
+    await ctx.answerCallbackQuery({ text: "Запрос не найден" });
+    try {
+      await ctx.editMessageText("⚠️ Запрос не найден (возможно, уже обработан).");
+    } catch {}
+    return;
+  }
+
+  if (isApprove) {
+    try {
+      await addUser({
+        userId: targetUserId,
+        role: "new_guest",
+        label: invite.firstName || invite.username || String(targetUserId),
+        timezone: "Europe/Moscow",
+        settingSources: ["project"],
+        rateLimitEnabled: false,
+        model: "deepseek-chat",
+      });
+      // Also add to in-memory NEW_GUEST_USERS so getUserProfile picks it up immediately
+      if (!NEW_GUEST_USERS.includes(targetUserId)) {
+        NEW_GUEST_USERS.push(targetUserId);
+      }
+    } catch (err) {
+      console.error("[invites] Failed to add user:", err);
+      await ctx.answerCallbackQuery({ text: "Ошибка при добавлении пользователя" });
+      try {
+        await ctx.editMessageText(`❌ Ошибка при добавлении пользователя: ${String(err).slice(0, 100)}`);
+      } catch {}
+      return;
+    }
+
+    await removePendingInvite(targetUserId);
+
+    const displayName = invite.firstName || invite.username || String(targetUserId);
+    try {
+      await ctx.editMessageText(`✅ Пользователь ${displayName} одобрен`);
+    } catch {}
+    await ctx.answerCallbackQuery({ text: "Пользователь одобрен!" });
+
+    try {
+      await ctx.api.sendMessage(
+        targetUserId,
+        "✅ Доступ открыт! Напишите что-нибудь чтобы начать работу."
+      );
+    } catch (err) {
+      console.error("[invites] Failed to notify approved user:", err);
+    }
+  } else {
+    // Deny
+    await removePendingInvite(targetUserId);
+    try {
+      await ctx.editMessageText("❌ Пользователь отклонён");
+    } catch {}
+    await ctx.answerCallbackQuery({ text: "Пользователь отклонён." });
   }
 }
 

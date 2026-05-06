@@ -4,8 +4,9 @@
 
 import type { Context } from "grammy";
 import { getSession, getGroupSession } from "../session-registry";
-import { ALLOWED_USERS } from "../config";
+import { ALLOWED_USERS, GUEST_USERS } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
+import { getPendingInvite, savePendingInvite } from "../containers/invites";
 import {
   auditLog,
   auditLogRateLimit,
@@ -48,8 +49,52 @@ export async function handleText(ctx: Context): Promise<void> {
   // 1. Authorization check
   if (!isAuthorized(userId, ALLOWED_USERS)) {
     // In group chats, silently ignore unauthorized users (no spam)
-    if (!isGroupChat(ctx)) {
-      await ctx.reply("Unauthorized. Contact the bot owner for access.");
+    if (isGroupChat(ctx)) {
+      return;
+    }
+
+    // Invite flow: notify owner, save pending invite
+    const existing = await getPendingInvite(userId);
+    if (existing) {
+      await ctx.reply("Ваш запрос уже на рассмотрении.");
+      return;
+    }
+
+    const firstName = ctx.from?.first_name;
+    const userUsername = ctx.from?.username;
+
+    await savePendingInvite({
+      userId,
+      username: userUsername,
+      firstName,
+      firstMessage: message,
+      timestamp: Date.now(),
+    });
+
+    await ctx.reply("🔒 Доступ закрыт. Ваш запрос отправлен администратору.");
+
+    // Find the owner (first non-guest in ALLOWED_USERS)
+    const ownerId = ALLOWED_USERS.find((id) => !GUEST_USERS.includes(id));
+    if (ownerId) {
+      const displayName = firstName || userUsername || String(userId);
+      try {
+        await ctx.api.sendMessage(
+          ownerId,
+          `🔔 Новый запрос доступа\n👤 ${displayName}\n🆔 ${userId}\n💬 «${message.slice(0, 100)}»`,
+          {
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: "✅ Одобрить", callback_data: `invite_approve_${userId}` },
+                  { text: "❌ Отклонить", callback_data: `invite_deny_${userId}` },
+                ],
+              ],
+            },
+          }
+        );
+      } catch (err) {
+        console.error("[invites] Failed to notify owner:", err);
+      }
     }
     return;
   }

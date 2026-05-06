@@ -11,6 +11,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { STREAMING_THROTTLE_MS } from "../config";
 import type { UserProfile } from "../config";
+import { containerManager } from "../containers/manager";
 import { escapeHtml } from "../formatting";
 import { checkCommandSafety, isPathAllowedFor } from "../security";
 import type { StatusCallback } from "../types";
@@ -314,6 +315,27 @@ export async function executeToolAsync(
       const cmd = args.command || "";
       const [isSafe, reason] = checkCommandSafety(cmd, profile.allowedPaths);
       if (!isSafe) return `Error: command blocked — ${reason}`;
+
+      // Container-enabled users: route bash through their Docker sandbox.
+      // The container's /workspace is the user's persistent volume, so we
+      // ignore profile.workingDir here — the container's WORKDIR (set in
+      // buildRunArgs to /workspace) is the correct cwd.
+      if (profile.containerEnabled) {
+        // Make sure the container is up before exec — and reset the idle
+        // watchdog so it doesn't get paused mid-task.
+        await containerManager.getOrStart(profile);
+        containerManager.resetIdleTimer(profile.userId, profile);
+        const result = await containerManager.exec(profile.userId, cmd, {
+          timeout: 30_000,
+        });
+        const combined = (result.stdout || "") + (result.stderr || "");
+        if (result.exitCode !== 0 && !combined) {
+          return `Command failed (exit ${result.exitCode})`;
+        }
+        return combined.slice(0, 8000) || "(no output)";
+      }
+
+      // Host-mode (legacy / owner): run directly in the bot process.
       try {
         const out = execSync(cmd, {
           cwd: profile.workingDir,

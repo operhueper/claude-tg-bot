@@ -595,6 +595,12 @@ export interface UserProfile {
    * Undefined for owner (uses Anthropic directly).
    */
   deepseekEnv?: Record<string, string>;
+  /**
+   * If true, bash commands for this user run inside a per-user Docker
+   * sandbox via `docker exec`, not directly on the host. Driven by the
+   * `containerEnabled` field in system/users.json. Default false.
+   */
+  containerEnabled?: boolean;
 }
 
 const RATE_LIMIT_REQUESTS_DEFAULT = parseInt(
@@ -686,6 +692,7 @@ export function getUserProfile(userId: number): UserProfile {
       allowedCommands: GUEST_COMMANDS,
       label: node?.label ?? "Ксения",
       timezone: node?.timezone ?? "Europe/Moscow",
+      containerEnabled: node?.containerEnabled ?? false,
     };
   }
 
@@ -725,6 +732,7 @@ export function getUserProfile(userId: number): UserProfile {
       timezone: node?.timezone ?? "Europe/Moscow",
       deepseekApiKey: deepseekKey || undefined,
       deepseekEnv: dsEnv,
+      containerEnabled: node?.containerEnabled ?? false,
     };
   }
 
@@ -745,6 +753,7 @@ export function getUserProfile(userId: number): UserProfile {
     allowedCommands: OWNER_COMMANDS,
     label: node?.label ?? "owner",
     timezone: node?.timezone ?? "Asia/Shanghai",
+    containerEnabled: node?.containerEnabled ?? false,
   };
 }
 

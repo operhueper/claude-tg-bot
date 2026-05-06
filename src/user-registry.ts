@@ -27,6 +27,13 @@ export interface UserNode {
   visionModel?: string;
   complexModel?: string;
   lightModel?: string;
+  /**
+   * If true, this user gets a per-user Docker sandbox container; bash
+   * commands route to `docker exec` instead of running on the host.
+   * Defaults: false for owner, true for guests/new_guests with containers
+   * provisioned. Read at startup and on each profile lookup.
+   */
+  containerEnabled?: boolean;
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");
@@ -79,4 +86,19 @@ export class UserRegistry {
   static reload(): void {
     _cache = null;
   }
+}
+
+/**
+ * Add a new user to system/users.json.
+ * Throws if a user with the same userId already exists.
+ */
+export async function addUser(user: UserNode): Promise<void> {
+  const users = UserRegistry.getAllUsers();
+  if (users.some((u) => u.userId === user.userId)) {
+    throw new Error(`User ${user.userId} already exists in registry`);
+  }
+  users.push(user);
+  writeFileSync(USERS_FILE, JSON.stringify(users, null, 2) + "\n");
+  // Reset cache so next load picks up the new entry
+  UserRegistry.reload();
 }
