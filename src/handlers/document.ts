@@ -9,7 +9,7 @@ import type { Context } from "grammy";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
-import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
+import { auditLog, auditLogRateLimit, replyFriendly, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { createMediaGroupBuffer, handleProcessingError } from "./media-group";
 import { isAudioFile, processAudioFile } from "./audio";
@@ -363,16 +363,13 @@ async function processArchive(
       // Ignore deletion errors
     }
   } catch (error) {
-    console.error("Archive processing error:", error);
     // Delete status message on error
     try {
       await ctx.api.deleteMessage(statusMsg.chat.id, statusMsg.message_id);
     } catch {
       // Ignore
     }
-    await ctx.reply(
-      `❌ Failed to process archive: ${String(error).slice(0, 100)}`
-    );
+    await replyFriendly(ctx, error, "распаковка архива");
   } finally {
     stopProcessing();
     typing.stop();
@@ -652,12 +649,9 @@ export async function handleDocument(ctx: Context): Promise<void> {
         chatId
       );
     } catch (error) {
-      console.error("Failed to extract document:", error);
       // Clean up file on failure
       try { await Bun.$`rm -f ${docPath}`.quiet(); } catch {}
-      await ctx.reply(
-        `❌ Failed to process document: ${String(error).slice(0, 100)}`
-      );
+      await replyFriendly(ctx, error, "обработка документа");
     }
     return;
   }

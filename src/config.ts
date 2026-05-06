@@ -53,15 +53,14 @@ export const ALLOWED_USERS: number[] = parseUserList(
   process.env.TELEGRAM_ALLOWED_USERS || ""
 );
 
-// Restricted (guest) users: subset of ALLOWED_USERS who get the Ksenia profile.
-// Defaults to 893951298 if unset, since that's the canonical guest in this deployment.
-const guestEnv = process.env.TELEGRAM_GUEST_USERS;
-export const GUEST_USERS: number[] =
-  guestEnv !== undefined ? parseUserList(guestEnv) : [893951298];
-
-// New guest users: per-user OpenRouter key, Deepseek+Gemini, full memory features.
-// Each gets their own vault at /opt/vault/{userId}/.
-export const NEW_GUEST_USERS: number[] = parseUserList(process.env.NEW_GUEST_USERS || "");
+// New guest users: per-user vault at /opt/vault/{userId}/, DeepSeek (or Claude for Ksenia).
+// Default list includes Ksenia (893951298) and all known testers.
+// Override via NEW_GUEST_USERS env var (comma-separated IDs).
+const newGuestEnv = process.env.NEW_GUEST_USERS;
+export const NEW_GUEST_USERS: number[] =
+  newGuestEnv !== undefined && newGuestEnv.trim() !== ""
+    ? parseUserList(newGuestEnv)
+    : [893951298, 403360614, 299753724, 307773800, 5615267984, 946882308, 517872933];
 
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
@@ -78,23 +77,18 @@ export function getNewGuestVaultDir(userId: number): string {
 export function getNewGuestOpenRouterKey(userId: number): string {
   const keyFile = `${getNewGuestVaultDir(userId)}/openrouter-key.txt`;
   try {
-    return readFileSync(keyFile, "utf-8").trim();
-  } catch {
-    return "";
-  }
+    const perUser = readFileSync(keyFile, "utf-8").trim();
+    if (perUser) return perUser;
+  } catch {}
+  return process.env.OPENROUTER_API_KEY || "";
 }
 
 /**
- * Returns the DeepSeek API key for a new guest user (from vault deepseek-key.txt).
+ * Returns the shared DeepSeek API key from process.env.DEEPSEEK_API_KEY.
  * Returns empty string if not provisioned.
  */
-export function getNewGuestDeepSeekKey(userId: number): string {
-  const keyFile = `${getNewGuestVaultDir(userId)}/deepseek-key.txt`;
-  try {
-    return readFileSync(keyFile, "utf-8").trim();
-  } catch {
-    return "";
-  }
+export function getDeepSeekApiKey(): string {
+  return process.env.DEEPSEEK_API_KEY || "";
 }
 
 export function isNewGuestOnboarded(userId: number): boolean {
@@ -207,7 +201,7 @@ function bootstrapNewGuestDir(userId: number): void {
   }
 }
 
-// Bootstrap each new guest's vault at startup
+// Bootstrap each new guest's vault at startup (includes Ksenia 893951298)
 for (const uid of NEW_GUEST_USERS) {
   bootstrapNewGuestDir(uid);
 }
@@ -249,77 +243,6 @@ export { MCP_SERVERS };
 
 const OWNER_WORKING_DIR = process.env.CLAUDE_WORKING_DIR || HOME;
 
-const KSENIA_DIR = process.env.GUEST_WORKING_DIR || `${HOME}/Ксения`;
-
-// Bootstrap guest directory + starter CLAUDE.md so her sessions land in a real place.
-// Also seeds .claude/settings.json so her project-scoped settingSources have an
-// allow-list for MCP tools (pollinations-image, send-file, ask-user) and the
-// standard toolset. Without this, MCP calls silently fail because the owner's
-// ~/.claude/settings.json is intentionally not loaded for guests.
-function bootstrapGuestDir(): void {
-  try {
-    if (!existsSync(KSENIA_DIR)) {
-      mkdirSync(KSENIA_DIR, { recursive: true });
-      console.log(`Created guest dir: ${KSENIA_DIR}`);
-    }
-    const guestClaudeMd = `${KSENIA_DIR}/CLAUDE.md`;
-    if (!existsSync(guestClaudeMd)) {
-      writeFileSync(
-        guestClaudeMd,
-        `# Ксения
-
-Это твой персональный рабочий каталог. Здесь живут твои файлы, заметки, проекты и память.
-
-- Ассистент работает в этой папке и её подпапках.
-- Доступ к системным файлам бота и чужим директориям закрыт.
-- Файлы можно отправлять и получать через Telegram.
-`
-      );
-      console.log(`Created ${guestClaudeMd}`);
-    }
-
-    const guestClaudeDir = `${KSENIA_DIR}/.claude`;
-    const guestSettings = `${guestClaudeDir}/settings.json`;
-    if (!existsSync(guestSettings)) {
-      mkdirSync(guestClaudeDir, { recursive: true });
-      writeFileSync(
-        guestSettings,
-        JSON.stringify(
-          {
-            permissions: {
-              defaultMode: "acceptEdits",
-              allow: [
-                "Bash",
-                "Write",
-                "Edit",
-                "MultiEdit",
-                "Read",
-                "Glob",
-                "Grep",
-                "WebSearch",
-                "WebFetch",
-                "NotebookEdit",
-                "TodoWrite",
-                "Task",
-                "mcp__ask-user",
-                "mcp__send-file",
-                "mcp__pollinations-image",
-              ],
-            },
-          },
-          null,
-          2
-        ) + "\n"
-      );
-      console.log(`Created ${guestSettings}`);
-    }
-  } catch (error) {
-    console.warn(`Failed to bootstrap guest dir: ${error}`);
-  }
-}
-
-bootstrapGuestDir();
-
 // ============== Group Chat Configuration ==============
 
 export const GROUP_CHAT_ID: number = parseInt(
@@ -359,6 +282,12 @@ ${personaText}
 - Личные vault'ы пользователей (workspace-ksenia, /opt/vault/*) тебе недоступны — не пытайся их читать или редактировать.
 - Не удаляй файлы без явного подтверждения.
 - Не выполняй системные команды, не модифицируй исходный код бота (/opt/claude-tg-bot/src/).
+
+ТВОИ ВОЗМОЖНОСТИ:
+- WebFetch и WebSearch — полный доступ в интернет
+- Bash с интернет-доступом — curl, wget, любые HTTP-запросы
+- Установка пакетов без вопросов: npm install, pip install, bun add, apt-get install
+- НИКОГДА не отвечай «у меня нет доступа к интернету» — у тебя есть. Сообщай о конкретных ошибках.
 `;
 }
 
@@ -368,14 +297,13 @@ export function isGroupChat(chatId: number): boolean {
 
 // ============== Owner default allowed paths ==============
 
-// Owner default allowed paths (current behavior + guest dir for cross-access)
+// Owner default allowed paths
 const ownerDefaultAllowedPaths = [
   OWNER_WORKING_DIR,
   `${HOME}/Documents`,
   `${HOME}/Downloads`,
   `${HOME}/Desktop`,
   `${HOME}/.claude`,
-  KSENIA_DIR, // owner can read guest files
 ];
 
 const ownerAllowedPathsStr = process.env.ALLOWED_PATHS || "";
@@ -385,9 +313,6 @@ const OWNER_ALLOWED_PATHS: string[] = ownerAllowedPathsStr
       .map((p) => p.trim())
       .filter(Boolean)
   : ownerDefaultAllowedPaths;
-
-// Guest paths: ONLY her dir. Bot repo, ~/.claude, owner files all blocked.
-const GUEST_ALLOWED_PATHS: string[] = [KSENIA_DIR];
 
 // ============== System Prompts ==============
 
@@ -416,42 +341,19 @@ ${pathsList}
 4. For any destructive or irreversible action, ALWAYS ask for confirmation first.
 
 You are running via Telegram, so the user cannot easily undo mistakes. Be extra careful!
+
+YOUR CAPABILITIES — you definitely have:
+- WebFetch and WebSearch — full internet access, no caveats
+- Bash with full internet — curl, wget, any HTTP requests
+- Install any package without asking: npm install, pip install, bun add, apt-get install
+- NEVER say "I don't have internet access" or "I can't install packages" — you can. Report specific errors if they occur.
+
+YOUR RESOURCES:
+- No container limits (owner profile); standard host resources available.
+- For heavy builds, check free -m and df -h before starting.
 `;
 }
 
-function buildGuestSafetyPrompt(workingDir: string): string {
-  return `
-КТО ТЫ: Ты персональный ИИ-ассистент Ксюши. Работаешь через Telegram. У тебя есть долгосрочная память и инструменты для любых задач. Никогда не говори «я не умею» — сначала попробуй.
-Рабочая директория: ${workingDir}
-
-РАЗРЕШЕНО — полная песочница:
-- Писать и запускать скрипты (Python, JS, Bash и т.д.)
-- Работа с файлами в ${workingDir}: чтение, создание, редактирование
-- Веб-поиск: WebSearch и WebFetch
-- Внешние подключения: OAuth, API, curl, wget — всё что нужно для задачи
-- Установка зависимостей: pip install, bun add, npm install, apt-get — без вопросов
-- Генерация изображений: mcp__pollinations-image
-- Отправка файлов в Telegram: mcp__send-file
-- Анализ фото, документов, голосовых, видео
-- Субагенты через Task tool для параллельных и сложных задач
-
-САМО-РАСШИРЕНИЕ — никогда не говори «я не умею»:
-- Нужна библиотека — pip/bun/npm install без вопросов
-- Нужен инструмент — apt-get install
-- Нужен скрипт — создай в ${workingDir}/tools/ и запусти
-- Сначала попробуй, потом говори что не получается
-
-ЗАПРЕЩЕНО (только это):
-1. Читать/писать файлы вне ${workingDir} (и /tmp/telegram-bot)
-   — исключение: /opt/vault/shared/ (совместное пространство с Евгением)
-2. Модифицировать исходный код бота: /opt/claude-tg-bot/src/, mcp-config.ts, .env, systemd
-3. Читать данные других пользователей: /opt/vault/<чужой_id>/
-4. Удалять файлы без явного «да, удали»
-5. rm -rf, форматирование диска
-
-Ты помощник, не ограниченный пользователь. Будь дружелюбной, краткой, полезной.
-`;
-}
 
 function buildNewGuestSafetyPrompt(vaultDir: string, userId: number): string {
   return `
@@ -522,6 +424,23 @@ sessions/ — история по темам:
 - Нужен скрипт — создай в ${vaultDir}/tools/ и запусти
 - Сначала попробуй, потом говори что не получается
 
+ТВОИ РЕСУРСЫ:
+- 512 MB RAM, 1 ядро CPU, swap 512 MB
+- Диск — общий с сервером, твоя папка ${vaultDir}
+- Перед запуском тяжёлого процесса (большой npm/pip install, тренировка модели, постоянный сервер, сборка проекта) сделай free -m и df -h
+- Оцени влезет ли. Если процесс превышает 400 MB RAM — он упадёт по OOM
+- Если не уверен — спроси пользователя
+
+ТВОИ ВОЗМОЖНОСТИ — у тебя ТОЧНО ЕСТЬ:
+- WebFetch — читать любую страницу в интернете, без оговорок
+- WebSearch — искать в интернете
+- Bash с полным интернет-доступом — curl, wget, ping, nslookup, любые HTTP-запросы
+- Установка пакетов любым менеджером БЕЗ ВОПРОСОВ: bun add, npm install, pip install, apt-get install, cargo install
+- Не спрашивай разрешения у пользователя на установку — просто ставь
+- Предустановлено в твоём контейнере: Bun, Node.js 20, Python 3, git, nginx, sqlite3, build-essential
+
+НИКОГДА не отвечай "у меня нет доступа к интернету", "я не могу установить пакет", "у меня нет инструмента для этого" — это враньё, у тебя всё есть. Если столкнулся с реальной ошибкой — сообщи о конкретной ошибке, не отказывайся в общем виде.
+
 АНТИПЕТЛЯ:
 - Не запускай одну команду дважды — при неудаче меняй подход
 - Pip/apt зависает → стопни, объясни, жди инструкций
@@ -541,13 +460,54 @@ sessions/ — история по темам:
 `;
 }
 
+// ============== Onboarding ==============
+
+export function buildOnboardingPrompt(userId: number, vaultDir: string): string {
+  return `Ты — ИИ-ассистент в Telegram. Это первая встреча с новым пользователем. Твоя задача — провести знакомство и помочь человеку начать работу с тобой.
+
+ПЛАН ЗНАКОМСТВА (6 шагов, веди один за другим, не задавай несколько вопросов сразу):
+
+1. Поздоровайся, представься коротко («я твой персональный ИИ-помощник»). Спроси как к тебе обращаться (имя или ник).
+
+2. Спроси чем человек занимается в жизни — работа, учёба, хобби. Это поможет тебе понимать контекст его задач.
+
+3. Расскажи коротко что ты умеешь:
+   - читать и писать текст, отвечать на вопросы
+   - искать в интернете, читать сайты
+   - распознавать голос, фото, документы (PDF, Word, Excel)
+   - писать и запускать код, делать сайты
+   - запоминать важное в твоей памяти
+   - у тебя есть твоя публичная страничка по адресу: https://proboi.site/u/${userId}/
+   - есть веб-дашборд с твоей статистикой
+   Спроси какие из этих возможностей ему интереснее всего, чтобы ты понимал, на чём фокусироваться.
+
+4. Спроси какие задачи он хотел бы решать с твоей помощью — рабочие, личные, учебные. Любые примеры. Запиши конкретно.
+
+5. Спроси про предпочтения в общении: на ты или на вы, отвечать коротко или развёрнуто, использовать ли эмодзи. Скажи что эти настройки можно поменять в любой момент.
+
+6. Скажи что готов начать. Спроси с чего хочет попробовать — например первая задача. Если человек не знает — предложи 2-3 простых варианта (например «давай напишем тебе короткую заметку, или поищу что-то в интернете, или сделаю тебе простую страничку»).
+
+ВАЖНО:
+- По ходу ответов сохраняй важное в файл ${vaultDir}/memory/${userId}/profile.md (создай папку если нужно через bash).
+- Один шаг — одно сообщение, не вали всё сразу.
+- Адаптируйся: если человек отвечает коротко — будь короче, если развёрнуто — отзеркаливай.
+- Если человек явно не хочет проходить опрос («давай по делу», «я тороплюсь», «потом») — уважительно прерви, скажи «понял, в любой момент можешь спросить меня "что ты умеешь" или зайти в веб-дашборд», и заверши онбординг.
+
+КОГДА ОНБОРДИНГ ЗАВЕРШЁН (либо все 6 шагов прошли, либо пользователь попросил прервать):
+- В САМОМ КОНЦЕ своего последнего сообщения добавь на отдельной строке маркер: [ONBOARDING_COMPLETE]
+- Этот маркер пользователь не увидит, бот его уберёт. Не объясняй пользователю про маркер.`;
+}
+
 // ============== User Profile ==============
 
 export interface UserProfile {
   userId: number;
   isOwner: boolean;
+  /** Deprecated: use !isOwner instead. Kept for handler backwards compat. */
   isGuest: boolean;
   workingDir: string;
+  /** Root directory for all memory files (graph, sessions, transcripts). */
+  memoryRoot: string;
   allowedPaths: string[];
   settingSources: Array<"user" | "project" | "local">;
   systemPrompt: string;
@@ -601,6 +561,12 @@ export interface UserProfile {
    * `containerEnabled` field in system/users.json. Default false.
    */
   containerEnabled?: boolean;
+  /**
+   * Whether the user has completed the onboarding dialogue.
+   * False only for new users added via the invite flow who haven't yet finished onboarding.
+   * For all pre-existing users this is always true so onboarding never triggers.
+   */
+  onboardingComplete: boolean;
 }
 
 const RATE_LIMIT_REQUESTS_DEFAULT = parseInt(
@@ -615,7 +581,6 @@ const RATE_LIMIT_ENABLED_DEFAULT =
   (process.env.RATE_LIMIT_ENABLED || "true").toLowerCase() === "true";
 
 const OWNER_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
-const GUEST_MODEL = process.env.GUEST_CLAUDE_MODEL || "claude-sonnet-4-6";
 
 const OWNER_COMMANDS = new Set([
   "start",
@@ -643,10 +608,6 @@ const GUEST_COMMANDS = new Set([
 
 const OWNER_SAFETY_PROMPT = buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS);
 
-export function isGuest(userId: number): boolean {
-  return GUEST_USERS.includes(userId);
-}
-
 const GROUP_COMMANDS = new Set(["new", "stop", "status"]);
 
 export function getGroupProfile(): UserProfile {
@@ -655,6 +616,7 @@ export function getGroupProfile(): UserProfile {
     isOwner: false,
     isGuest: false,
     workingDir: SHARED_DIR,
+    memoryRoot: SHARED_DIR,
     allowedPaths: GROUP_ALLOWED_PATHS,
     settingSources: ["project"],
     systemPrompt: buildGroupSystemPrompt(),
@@ -666,82 +628,104 @@ export function getGroupProfile(): UserProfile {
     allowedCommands: GROUP_COMMANDS,
     label: "Клод (группа)",
     timezone: "Asia/Shanghai",
+    onboardingComplete: true,
   };
 }
+
+const KSENIA_USER_ID = 893951298;
 
 export function getUserProfile(userId: number): UserProfile {
   // Registry-first: if this userId is in system/users.json, use its metadata
   // to override defaults. Falls back to env-var / hardcoded logic below.
   const node = UserRegistry.getUser(userId);
 
-  const guest = isGuest(userId);
-  if (guest) {
+  if (isNewGuest(userId)) {
+    const vaultDir = getNewGuestVaultDir(userId);
+
+    // Ksenia (893951298) uses Claude (sonnet-4-6) via owner CLI credentials — no DeepSeek.
+    // She gets access to owner working dir in addition to her vault.
+    const isKsenia = userId === KSENIA_USER_ID;
+
+    let deepseekApiKey: string | undefined;
+    let deepseekEnv: Record<string, string> | undefined;
+    let model: string;
+    let complexModel: string;
+    let lightModel: string;
+    let visionModel: string | undefined;
+    let allowedPaths: string[];
+
+    if (isKsenia) {
+      // Claude credentials — no DeepSeek
+      model = node?.model ?? "claude-sonnet-4-6";
+      complexModel = node?.complexModel ?? "claude-sonnet-4-6";
+      lightModel = node?.lightModel ?? "claude-sonnet-4-6";
+      visionModel = node?.visionModel;
+      allowedPaths = [vaultDir, OWNER_WORKING_DIR, "/tmp/telegram-bot"];
+    } else {
+      // DeepSeek model tiers (via Anthropic-compatible API):
+      //   model       = deepseek-chat     → V3 (fast, everyday tasks, subagents)
+      //   complexModel= deepseek-reasoner → R1 DeepThink (strategy, architecture, heavy analysis)
+      //   lightModel  = deepseek-chat     → V3 (cheap background: topic detect, memory analysis)
+      //   visionModel = google/gemini-2.5-flash via OpenRouter (DeepSeek has no vision)
+      const dsKey = getDeepSeekApiKey();
+      deepseekApiKey = dsKey || undefined;
+      deepseekEnv = dsKey
+        ? {
+            ...process.env as Record<string, string>,
+            ANTHROPIC_API_KEY: dsKey,
+            ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+            ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
+            ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
+            ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
+            ANTHROPIC_MODEL: "deepseek-chat",
+          }
+        : undefined;
+      model = node?.model ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
+      complexModel = node?.complexModel ?? (dsKey ? "deepseek-reasoner" : "deepseek/deepseek-r1");
+      lightModel = node?.lightModel ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
+      visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
+      allowedPaths = [vaultDir, "/tmp/telegram-bot"];
+    }
+
+    // onboardingComplete: if node exists and field is explicitly false → false.
+    // If field is absent (pre-existing users migrated from before onboarding) → true.
+    const onboardingComplete = node?.onboardingComplete === false ? false : true;
+
     return {
       userId,
       isOwner: false,
       isGuest: true,
-      workingDir: KSENIA_DIR,
-      allowedPaths: GUEST_ALLOWED_PATHS,
-      settingSources: node?.settingSources ?? ["project"], // do NOT load owner's ~/.claude
-      systemPrompt: buildGuestSafetyPrompt(KSENIA_DIR),
-      rateLimitEnabled: node?.rateLimitEnabled ?? false, // no limits for guest, per spec
-      rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
-      rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
-      model: node?.model ?? GUEST_MODEL,
-      sessionFile: `/tmp/claude-telegram-session-${userId}.json`,
-      allowedCommands: GUEST_COMMANDS,
-      label: node?.label ?? "Ксения",
-      timezone: node?.timezone ?? "Europe/Moscow",
-      containerEnabled: node?.containerEnabled ?? false,
-    };
-  }
-
-  if (isNewGuest(userId)) {
-    const vaultDir = getNewGuestVaultDir(userId);
-    const deepseekKey = getNewGuestDeepSeekKey(userId);
-
-    // DeepSeek model tiers (via Anthropic-compatible API):
-    //   model       = deepseek-chat     → V3 (fast, everyday tasks, subagents)
-    //   complexModel= deepseek-reasoner → R1 DeepThink (strategy, architecture, heavy analysis)
-    //   lightModel  = deepseek-chat     → V3 (cheap background: topic detect, memory analysis)
-    //   visionModel = google/gemini-2.5-flash via OpenRouter (DeepSeek has no vision)
-    //
-    // Without a DeepSeek key: fall back to OpenRouter free tier.
-    const dsEnv: Record<string, string> | undefined = deepseekKey
-      ? { ...process.env as Record<string, string>, ANTHROPIC_API_KEY: deepseekKey, ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic" }
-      : undefined;
-
-    return {
-      userId,
-      isOwner: false,
-      isGuest: false,
       workingDir: vaultDir,
-      allowedPaths: [vaultDir, "/tmp/telegram-bot"],
+      memoryRoot: vaultDir,
+      allowedPaths,
       settingSources: node?.settingSources ?? ["project"] as Array<"user" | "project" | "local">,
       systemPrompt: buildNewGuestSafetyPrompt(vaultDir, userId),
       rateLimitEnabled: node?.rateLimitEnabled ?? false,
       rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
       rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
-      model: node?.model ?? (deepseekKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash"),
-      complexModel: node?.complexModel ?? (deepseekKey ? "deepseek-reasoner" : "deepseek/deepseek-r1"),
-      lightModel: node?.lightModel ?? (deepseekKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash"),
-      visionModel: node?.visionModel ?? "google/gemini-2.5-flash",
+      model,
+      complexModel,
+      lightModel,
+      visionModel,
       sessionFile: `/tmp/claude-telegram-session-${userId}.json`,
-      allowedCommands: new Set(["start", "dashboard", "new", "stop", "status", "resume", "retry", "restart"]),
-      label: node?.label ?? `guest-${userId}`,
+      allowedCommands: GUEST_COMMANDS,
+      label: node?.label ?? (isKsenia ? "Ксения" : `guest-${userId}`),
       timezone: node?.timezone ?? "Europe/Moscow",
-      deepseekApiKey: deepseekKey || undefined,
-      deepseekEnv: dsEnv,
+      deepseekApiKey,
+      deepseekEnv,
       containerEnabled: node?.containerEnabled ?? false,
+      onboardingComplete,
     };
   }
 
   // Owner profile: registry overrides label, timezone, settingSources, model.
+  const ownerVaultDir = `/opt/vault/${userId}`;
   return {
     userId,
     isOwner: true,
     isGuest: false,
     workingDir: OWNER_WORKING_DIR,
+    memoryRoot: ownerVaultDir,
     allowedPaths: OWNER_ALLOWED_PATHS,
     settingSources: node?.settingSources ?? ["user", "project"],
     systemPrompt: OWNER_SAFETY_PROMPT,
@@ -754,6 +738,7 @@ export function getUserProfile(userId: number): UserProfile {
     label: node?.label ?? "owner",
     timezone: node?.timezone ?? "Asia/Shanghai",
     containerEnabled: node?.containerEnabled ?? false,
+    onboardingComplete: true,
   };
 }
 
@@ -875,5 +860,5 @@ if (ALLOWED_USERS.length === 0) {
 }
 
 console.log(
-  `Config loaded: ${ALLOWED_USERS.length} allowed users (${GUEST_USERS.length} guest), owner dir: ${OWNER_WORKING_DIR}, guest dir: ${KSENIA_DIR}`
+  `Config loaded: ${ALLOWED_USERS.length} allowed users (${NEW_GUEST_USERS.length} new guest), owner dir: ${OWNER_WORKING_DIR}`
 );

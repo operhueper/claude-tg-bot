@@ -11,6 +11,7 @@ import * as path from "path";
 import { execSync } from "child_process";
 import { STREAMING_THROTTLE_MS } from "../config";
 import type { UserProfile } from "../config";
+import { recordUsage } from "../metering";
 import { containerManager } from "../containers/manager";
 import { escapeHtml } from "../formatting";
 import { checkCommandSafety, isPathAllowedFor } from "../security";
@@ -760,9 +761,16 @@ export async function queryOpenRouter(
     // Continue loop — model will respond after seeing tool results
   }
 
-  // Suppress unused variable warnings
-  void totalPromptTokens;
-  void totalCompletionTokens;
+  // Record metering for the entire agentic loop
+  if (totalPromptTokens > 0 || totalCompletionTokens > 0) {
+    recordUsage({
+      userId: profile.userId,
+      source: "bot-openrouter",
+      model,
+      inputTokens: totalPromptTokens,
+      outputTokens: totalCompletionTokens,
+    });
+  }
 
   return finalText;
 }

@@ -28,30 +28,36 @@ Telegram message → Handler → Auth check → Rate limit → Claude session �
 - **`src/session.ts`** - `ClaudeSession` class wrapping the Agent SDK `query()` API with streaming and defense-in-depth safety checks. **Sessions are per-user**: use `getSession(userId)` — there is NO singleton. Each user has an isolated session file: `/tmp/claude-telegram-session-${userId}.json`
 - **`src/security.ts`** - `RateLimiter` (token bucket, per-profile), `isPathAllowedFor(path, allowedPaths)`, `checkCommandSafety(cmd, allowedPaths)` — both take an explicit allowlist so callers pass the active user's paths
 - **`src/formatting.ts`** - Markdown→HTML conversion for Telegram, tool status emoji formatting
-- **`src/utils.ts`** - Audit logging, voice transcription (OpenAI), typing indicators, `checkInterrupt(text, userId)`
+- **`src/utils.ts`** - Audit logging, voice transcription (OpenAI), typing indicators, `checkInterrupt(text, userId)`, `replyFriendly(ctx, error, context)` (user-facing error replies)
 - **`src/types.ts`** - Shared TypeScript types
+- **`src/metering.ts`** - Token usage accounting backed by SQLite (`metering.sqlite`). Functions: `recordUsage()`, `getUserTotals()`, `getAllUsersTotals()`. Model prices are hardcoded. Request sources are tagged: `bot-anthropic`, `bot-deepseek`, `bot-openrouter`, `open-design` (reserved). DB path is `METERING_DB_PATH` (default `./metering.sqlite`); the file is created automatically on first run.
+- **`src/dashboard-server.ts`** - Embedded HTTP server (port `DASHBOARD_PORT`, default 3848), started from `src/index.ts` alongside the health-webhook on port 3847. Routes: `GET /` (landing stub), `GET /dashboard` (Mini App), `POST /api/me` (per-user stats), `POST /api/admin/all` (all users, owner only). Telegram `initData` is verified with HMAC-SHA256 + 24h `auth_date` check.
+- **`src/containers/metrics.ts`** - Guest container metrics: `getContainerMetrics(userId)`, `getAllContainerMetrics()`. Reads `docker stats` and `du`. Safe to call without Docker (returns zeros locally).
+- **`src/templates/landing.ts`** - `renderLanding()` — placeholder landing page for proboi.site.
+- **`src/templates/user-dashboard.ts`** - `renderDashboard()` — Mini App HTML: token totals, container resources, admin table (owner only). Supports `?mock=1` for layout preview without auth.
 
 ### Handlers (`src/handlers/`)
 
 Each message type has a dedicated async handler:
 - **`commands.ts`** - `/start`, `/new`, `/stop`, `/status`, `/resume`, `/restart`, `/retry`
-- **`text.ts`** - Text messages with intent filtering
+- **`text.ts`** - Text messages with intent filtering. If `profile.onboardingComplete === false`, the first message uses `buildOnboardingPrompt(userId, vaultDir)` instead of the normal system prompt. When Claude replies with `[ONBOARDING_COMPLETE]`, the marker is stripped from the text and `markOnboardingComplete(userId)` is called, switching the user to the regular flow.
 - **`voice.ts`** - Voice→text via OpenAI, then same flow as text
 - **`audio.ts`** - Audio file transcription via OpenAI (mp3, m4a, ogg, wav, etc.), also handles audio sent as documents
 - **`photo.ts`** - Image analysis with media group buffering (1s timeout for albums)
 - **`document.ts`** - PDF extraction (pdftotext CLI), text files, archives, routes audio files to `audio.ts`
 - **`video.ts`** - Video messages and video notes
-- **`callback.ts`** - Inline keyboard button handling for ask_user MCP
-- **`streaming.ts`** - Shared `StreamingState` and status callback factory
+- **`callback.ts`** - Inline keyboard button handling for ask_user MCP. Also handles `invite_approve` button (owner approves new guests): sets `onboardingComplete: false`, notifies the new user. The approve action is idempotent — repeated taps do not crash.
+- **`streaming.ts`** - Shared `StreamingState` and status callback factory. `StreamingState` has a `maxSegmentId` field; on `done` all intermediate text messages are deleted, keeping only the final segment (eliminates mid-stream "noise" messages).
 
 ### User Profiles (owner vs guest)
 
 The bot serves **two classes of users** with isolated state:
 
-- **Owner** (any ID in `TELEGRAM_ALLOWED_USERS` not also in `TELEGRAM_GUEST_USERS`) — full access: `CLAUDE_WORKING_DIR`, broad `ALLOWED_PATHS`, `settingSources: ["user", "project"]` (loads `~/.claude/CLAUDE.md`), all commands including `/restart`, configurable rate limit.
-- **Guest** (e.g. `893951298` — Ксения) — sandboxed: `cwd = GUEST_WORKING_DIR` (default `~/Ксения`, on prod `/opt/claude-tg-bot/workspace-ksenia`), `allowedPaths = [GUEST_WORKING_DIR]` only, `settingSources: ["project"]` (the owner's `~/.claude` is NOT loaded — no memory/skills cross-contamination), no `/restart`, no rate limit, dedicated guest system prompt that refuses requests to modify the bot/config/MCPs/skills.
+- **Owner** (`292228713` — Евгений) — full access: `CLAUDE_WORKING_DIR` (`workspace/`), broad `ALLOWED_PATHS`, `settingSources: ["user", "project"]` (loads `~/.claude/CLAUDE.md`), all commands including `/restart` and `/reloadbot`, configurable rate limit, Claude Sonnet model.
+- **Guest** (all other IDs in `TELEGRAM_ALLOWED_USERS`) — sandboxed: `cwd = /opt/vault/{userId}/`, `settingSources: ["project"]` (the owner's `~/.claude` is NOT loaded — no memory/skills cross-contamination), no `/restart` or `/reloadbot`, no rate limit, dedicated guest system prompt. Model is deepseek-chat by default via OpenRouter.
+  - **Ксения (`893951298`)** — special case within Guest: uses claude-sonnet-4-6 instead of deepseek-chat, and is explicitly allowed to read `CLAUDE_WORKING_DIR` (owner workspace) in her `allowedPaths`.
 
-`getUserProfile(userId)` is the single source of truth — handlers, sessions, and security checks all consume the resulting `UserProfile`. Guest dir is auto-bootstrapped (mkdir + starter `CLAUDE.md`) on startup.
+`getUserProfile(userId)` is the single source of truth — handlers, sessions, and security checks all consume the resulting `UserProfile`. Vault dir (`/opt/vault/{userId}/`) is auto-bootstrapped on first access.
 
 ### Side Menu
 
@@ -70,19 +76,20 @@ The bot serves **two classes of users** with isolated state:
 ### Configuration
 
 All config via `.env` (copy from `.env.example`). Key variables:
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (required; comma-separated IDs — include guests too)
-- `TELEGRAM_GUEST_USERS` - Subset of allowed users with restricted profile. Default: `893951298`. Set to empty string to disable guest mode entirely
-- `GUEST_WORKING_DIR` - Working dir for guest profile (default `~/Ксения`)
-- `GUEST_CLAUDE_MODEL` - Override model for guests (default `claude-sonnet-4-6`)
-- `CLAUDE_WORKING_DIR` - Working directory for owner
-- `ALLOWED_PATHS` - Directories owner can access (comma-separated). Note: this only affects the owner profile; guests are always pinned to `[GUEST_WORKING_DIR]`
-- `OPENAI_API_KEY` - For voice transcription
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (required; comma-separated IDs — include all guests)
+- `CLAUDE_WORKING_DIR` - Working directory for owner (e.g. `/opt/claude-tg-bot/workspace/`)
+- `ALLOWED_PATHS` - Directories owner can access (comma-separated). Guests are always pinned to `/opt/vault/{userId}/`
+- `DEEPSEEK_API_KEY` - Single shared DeepSeek API key used for all guest sessions
+- `OPENROUTER_API_KEY` - For OpenRouter routing (DeepSeek via OpenRouter, openrouter-image MCP — owner only)
+- `OPENAI_API_KEY` - For voice transcription (Whisper)
 - `HF_API_TOKEN` - Hugging Face API token. Required when `hf-image` / `hf-llm` MCPs are enabled in `mcp-config.ts`
 - `CLAUDE_MODEL` - Override owner Claude model (default `claude-sonnet-4-6`)
 - `SHOW_TOOL_USE`, `SHOW_THINKING` - UI verbosity. Both default false: tool calls and thinking blocks are hidden, only final assistant text reaches the chat
 - `TRANSCRIPTION_CONTEXT_FILE` - Path to text file appended to Whisper prompt (proper nouns, jargon)
 - `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW` - Token bucket settings (owner only; guests have no limit)
 - `AUDIT_LOG_PATH`, `AUDIT_LOG_JSON`
+- `METERING_DB_PATH` - Path to the SQLite token-accounting database (default `./metering.sqlite`). Created automatically on first run.
+- `DASHBOARD_PORT` - Port for the embedded dashboard web server (default `3848`).
 
 MCP servers defined in `mcp-config.ts`, which is **gitignored** — each host (your laptop, the prod server) keeps its own copy seeded from `mcp-config.example.ts`. The example file has all servers commented out; the prod box runs a customised version with `ask-user`, `send-file`, `hf-image`, `hf-llm` enabled. When deploying to a fresh host, copy `mcp-config.example.ts → mcp-config.ts` and uncomment what you need — otherwise no MCPs load.
 
@@ -107,6 +114,38 @@ Four MCPs ship with this repo and have first-class integration in `src/session.t
 - `/tmp/telegram-bot/` - Downloaded photos/documents (in `TEMP_PATHS`, always allowed for both profiles)
 - `/tmp/claude-telegram-audit.log` - Audit log
 - `/tmp/ask-user-*.json`, `/tmp/send-file-*.json` - MCP file-drop boxes (see Bundled MCPs)
+- `metering.sqlite`, `metering.sqlite-shm`, `metering.sqlite-wal` - SQLite token-accounting database (repo root, gitignored). Auto-created by `src/metering.ts` on first `recordUsage()` call. WAL files appear when SQLite is opened with WAL journal mode.
+- Port 3848 — dashboard web server (`src/dashboard-server.ts`), bound on startup alongside the health-webhook on port 3847.
+
+### Metering
+
+Token usage is recorded in `metering.sqlite` (SQLite, repo root) via `src/metering.ts`. Every completed request calls `recordUsage(userId, model, source, inputTokens, outputTokens)` — callers are `src/session.ts` (sources `bot-anthropic`, `bot-deepseek`) and `src/engines/openrouter.ts` (source `bot-openrouter`). Source `open-design` is reserved for future proxy attribution. Model prices are hardcoded in `metering.ts`; update them when adding new models. The DB file is gitignored. On a fresh server it is created automatically — no migration step needed.
+
+Query helpers:
+- `getUserTotals(userId)` — per-model token/cost breakdown for one user
+- `getAllUsersTotals()` — same, across all users (used by the admin dashboard view)
+
+### Dashboard
+
+`src/dashboard-server.ts` starts an HTTP server at `DASHBOARD_PORT` (default 3848). It is launched from `src/index.ts` at bot startup. The server exposes:
+
+- `GET /` — landing page stub (`src/templates/landing.ts`)
+- `GET /dashboard` — Mini App HTML (`src/templates/user-dashboard.ts`). Add `?mock=1` to bypass auth and preview layout.
+- `POST /api/me` — returns the authenticated user's token totals (JSON)
+- `POST /api/admin/all` — returns all users' totals; responds 403 unless `userId === 292228713`
+- `GET /healthz` — plain-text liveness check
+
+Authentication: the client posts `initData` from `window.Telegram.WebApp.initData`. The server verifies the HMAC-SHA256 signature using the bot token (per Telegram Mini App spec) and rejects requests where `auth_date` is older than 24 hours.
+
+The bot currently opens the dashboard via a `web_app` button pointing to `https://ksenyaenbom.ru/dashboard` (`src/handlers/commands.ts:400`). This URL will be updated when the domain moves to proboi.site.
+
+### Onboarding
+
+When an owner approves a new guest via the invite inline button (`callback.ts`), `addUser()` sets `onboardingComplete: false` in `users.json`. The new user receives "Напиши мне любое сообщение, чтобы начать."
+
+On their first message (`text.ts`), the bot detects `profile.onboardingComplete === false` and calls `buildOnboardingPrompt(userId, vaultDir)` (defined in `src/config.ts`) as the system prompt override. This prompt drives a 6-step introduction sequence. When Claude finishes and appends `[ONBOARDING_COMPLETE]` to its reply, `text.ts` strips the marker from the displayed text and calls `markOnboardingComplete(userId)` (`src/user-registry.ts`), setting the flag to `true`. Subsequent messages use the normal guest system prompt.
+
+Existing users (Евгений, Ксения, Артём, testers) have no `onboardingComplete` key in `users.json`, which is treated as `true` — they skip onboarding entirely.
 
 ## Patterns
 
@@ -117,6 +156,8 @@ Four MCPs ship with this repo and have first-class integration in `src/session.t
 **Streaming pattern**: All handlers use `createStatusCallback()` from `streaming.ts` and `session.sendMessageStreaming()` for live updates.
 
 **Type checking**: Run `bun run typecheck` periodically while editing TypeScript files. Fix any type errors before committing.
+
+**Error handling in handlers**: Use `replyFriendly(ctx, error, "<context label>")` from `src/utils.ts` instead of raw `ctx.reply("❌ Error: ${error}")`. `replyFriendly` logs the full error to `console.error` and sends a static human-readable message to the user. Add it to every `catch` block in new handlers — this is the established pattern across `text.ts`, `audio.ts`, `voice.ts`, `document.ts`, `commands.ts`, and `callback.ts`.
 
 **After code changes**: Restart the bot so changes can be tested. Locally use `bun run start` or `launchctl kickstart -k gui/$(id -u)/com.claude-telegram-ts`. On the server use `ssh root@5.223.82.96 'systemctl restart claude-tg-bot'` (see Production Deployment).
 
@@ -149,14 +190,16 @@ Do not add "Generated with Claude Code" footers or "Co-Authored-By" trailers to 
 The bot runs on jinru server as a systemd service. This is the canonical runtime — local execution is dev-only.
 
 - Host: `root@5.223.82.96`, repo root: `/opt/claude-tg-bot/`
-- Workspace passed as `CLAUDE_WORKING_DIR`: `/opt/claude-tg-bot/workspace/` (owner) and `/opt/claude-tg-bot/workspace-ksenia/` (guest, set via `GUEST_WORKING_DIR`). Each contains its own `CLAUDE.md` Claude reads at session start
-- Allowlist: `TELEGRAM_ALLOWED_USERS=292228713,893951298` (owner Евгений + guest Ксения). Guest list defaults to `893951298` if `TELEGRAM_GUEST_USERS` is unset
+- Owner workspace: `CLAUDE_WORKING_DIR=/opt/claude-tg-bot/workspace/` (contains owner's `CLAUDE.md`)
+- Guest workdirs: `/opt/vault/{userId}/` — auto-bootstrapped per user, each with its own `CLAUDE.md`
+- Allowlist: `TELEGRAM_ALLOWED_USERS=292228713,893951298,403360614,...` (owner Евгений + all guests)
 - Service: `systemctl {status,restart,stop} claude-tg-bot`
 - Logs: `/var/log/claude-tg-bot.log`, `/var/log/claude-tg-bot.err.log`
 - Native Claude CLI: `/root/.local/share/claude/versions/2.1.126`
 - OAuth credentials: `/root/.claude/.credentials.json` (already provisioned)
 - Claude Code permissions live in `/root/.claude/settings.json` — `defaultMode: "acceptEdits"` plus a broad `permissions.allow` list (Bash, Write, Edit, WebSearch, etc.). This is how the bot avoids interactive permission prompts; do NOT pass `permissionMode`/`allowDangerouslySkipPermissions` from the SDK side (see SDK Permission Mode below).
 - `ALLOWED_PATHS` on the server is broad (`/opt,/root,/home,/tmp,/var/tmp,/usr/local,/etc`) so the bot can manage its own filesystem freely. Tighten only with reason.
+- `metering.sqlite` is created automatically in the repo root (`/opt/claude-tg-bot/`) on the first request after deployment. No migration or seed step required. The file is gitignored; do not commit it.
 
 Deploy after local edits:
 

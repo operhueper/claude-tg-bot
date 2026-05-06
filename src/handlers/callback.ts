@@ -9,7 +9,7 @@ import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS } from "../config";
 import { isAuthorized } from "../security";
-import { auditLog, startTypingIndicator } from "../utils";
+import { auditLog, auditLogError, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { getPendingInvite, removePendingInvite } from "../containers/invites";
 import { addUser } from "../user-registry";
@@ -162,7 +162,9 @@ export async function handleCallback(ctx: Context): Promise<void> {
         await ctx.reply("🛑 Query stopped.");
       }
     } else {
-      await ctx.reply(`❌ Error: ${String(error).slice(0, 200)}`);
+      console.error("[callback] Unhandled error:", error);
+      await auditLogError(userId, username, String(error), "callback handler");
+      await ctx.reply("Не удалось обработать действие, попробуй ещё раз.");
     }
   } finally {
     typing.stop();
@@ -194,44 +196,42 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
   }
 
   if (isApprove) {
-    try {
-      await addUser({
-        userId: targetUserId,
-        role: "new_guest",
-        label: invite.firstName || invite.username || String(targetUserId),
-        timezone: "Europe/Moscow",
-        settingSources: ["project"],
-        rateLimitEnabled: false,
-        model: "deepseek-chat",
-      });
-      // Also add to in-memory NEW_GUEST_USERS so getUserProfile picks it up immediately
-      if (!NEW_GUEST_USERS.includes(targetUserId)) {
-        NEW_GUEST_USERS.push(targetUserId);
-      }
-    } catch (err) {
-      console.error("[invites] Failed to add user:", err);
-      await ctx.answerCallbackQuery({ text: "Ошибка при добавлении пользователя" });
-      try {
-        await ctx.editMessageText(`❌ Ошибка при добавлении пользователя: ${String(err).slice(0, 100)}`);
-      } catch {}
-      return;
+    const isNew = await addUser({
+      userId: targetUserId,
+      role: "new_guest",
+      label: invite.firstName || invite.username || String(targetUserId),
+      timezone: "Europe/Moscow",
+      settingSources: ["project"],
+      rateLimitEnabled: false,
+      model: "deepseek-chat",
+      onboardingComplete: false,
+    });
+    // Also add to in-memory NEW_GUEST_USERS so getUserProfile picks it up immediately
+    if (!NEW_GUEST_USERS.includes(targetUserId)) {
+      NEW_GUEST_USERS.push(targetUserId);
     }
+    const alreadyExisted = !isNew;
 
     await removePendingInvite(targetUserId);
 
     const displayName = invite.firstName || invite.username || String(targetUserId);
+    const statusText = alreadyExisted
+      ? `✅ Пользователь ${displayName} уже был одобрен ранее`
+      : `✅ Пользователь ${displayName} одобрен`;
     try {
-      await ctx.editMessageText(`✅ Пользователь ${displayName} одобрен`);
+      await ctx.editMessageText(statusText);
     } catch {}
-    await ctx.answerCallbackQuery({ text: "Пользователь одобрен!" });
+    await ctx.answerCallbackQuery({ text: alreadyExisted ? "Уже одобрен ранее" : "Пользователь одобрен!" });
 
-    try {
-      await ctx.api.sendMessage(
-        targetUserId,
-        "✅ Доступ открыт! Напишите что-нибудь чтобы начать работу."
-      );
-    } catch (err) {
-      console.error("[invites] Failed to notify approved user:", err);
+    if (!alreadyExisted) {
+      try {
+        await ctx.api.sendMessage(
+          targetUserId,
+          "✅ Доступ открыт! Напиши мне любое сообщение, чтобы начать."
+        );
+      } catch (err) {
+        console.error("[invites] Failed to notify approved user:", err);
+      }
     }
   } else {
     // Deny

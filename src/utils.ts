@@ -199,6 +199,37 @@ export function startTypingIndicator(ctx: Context): TypingController {
   };
 }
 
+// ============== Friendly Error Reply ==============
+
+const FRIENDLY_MESSAGES: Record<string, string> = {
+  "обработка текста": "Не получилось обработать сообщение — попробуй ещё раз.",
+  "транскрипция аудио": "Не удалось распознать аудио — попробуй ещё раз.",
+  "транскрипция голоса": "Не удалось распознать голосовое сообщение — попробуй ещё раз.",
+  "обработка альбома": "Не получилось обработать фото из альбома — попробуй ещё раз.",
+  "распаковка архива": "Не удалось обработать архив — проверь файл и попробуй ещё раз.",
+  "обработка документа": "Не удалось обработать документ — попробуй ещё раз.",
+  "перезапуск сервиса": "Не удалось перезапустить сервис — проверь права и попробуй вручную.",
+};
+
+export async function replyFriendly(
+  ctx: Context,
+  error: unknown,
+  context: string
+): Promise<void> {
+  const errorStr = error instanceof Error
+    ? `${error.message}\n${error.stack ?? ""}`
+    : String(error);
+  console.error(`[${context}] ${errorStr}`);
+  await auditLogError(
+    ctx.from?.id ?? 0,
+    ctx.from?.username ?? "unknown",
+    errorStr,
+    context
+  );
+  const friendly = FRIENDLY_MESSAGES[context] ?? "Что-то пошло не так — попробуй ещё раз.";
+  await ctx.reply(`❌ ${friendly}`);
+}
+
 // ============== Message Interrupt ==============
 
 // Lazy import to avoid circular dependency

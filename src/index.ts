@@ -10,7 +10,7 @@ import {
   TELEGRAM_TOKEN,
   WORKING_DIR,
   ALLOWED_USERS,
-  GUEST_USERS,
+  NEW_GUEST_USERS,
   RESTART_FILE,
   getUserProfile,
 } from "./config";
@@ -39,6 +39,7 @@ import {
 import { getRecentlyActiveUsers } from "./session-registry";
 import { setBotUsername } from "./group-filter";
 import { containerManager } from "./containers/manager";
+import { startDashboardServer } from "./dashboard-server";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
@@ -146,9 +147,9 @@ try {
   // Default menu = guest menu (safe baseline for any user, including new ones).
   await bot.api.setMyCommands(baseCommands);
 
-  // Per-chat override for each owner (everyone in ALLOWED_USERS who is NOT a guest).
+  // Per-chat override for each owner (everyone in ALLOWED_USERS who is NOT a new guest).
   for (const userId of ALLOWED_USERS) {
-    if (GUEST_USERS.includes(userId)) continue;
+    if (NEW_GUEST_USERS.includes(userId)) continue;
     try {
       await bot.api.setMyCommands(ownerCommands, {
         scope: { type: "chat", chat_id: userId },
@@ -193,7 +194,7 @@ if (existsSync(RESTART_FILE)) {
   const recentUsers = getRecentlyActiveUsers(TEN_MINUTES);
   for (const { userId, chatId } of recentUsers) {
     // Skip owner — they triggered the restart and already see "✅ Bot restarted"
-    if (!GUEST_USERS.includes(userId)) continue;
+    if (!NEW_GUEST_USERS.includes(userId)) continue;
     try {
       await bot.api.sendMessage(
         chatId,
@@ -210,28 +211,27 @@ if (existsSync(RESTART_FILE)) {
 for (const userId of ALLOWED_USERS) {
   try {
     const profile = getUserProfile(userId);
-    ensureMemoryStructure(profile.workingDir, profile.userId);
+    ensureMemoryStructure(profile.memoryRoot, profile.userId);
 
     // Ensure graph.json exists (even empty) so ls shows it immediately
-    const gFile = graphFile(profile.workingDir, profile.userId);
+    const gFile = graphFile(profile.memoryRoot, profile.userId);
     if (!existsSync(gFile)) {
-      const store = new GraphStore(profile.workingDir, profile.userId);
+      const store = new GraphStore(profile.memoryRoot, profile.userId);
       const emptyGraph = store.load(); // returns empty graph
       store.save(emptyGraph);
       console.log(`[memory] Created empty graph.json for ${profile.label}`);
     }
 
-    const profileMdPath = path.join(profile.workingDir, "memory", String(profile.userId), "profile.md");
+    const profileMdPath = path.join(profile.memoryRoot, "memory", String(profile.userId), "profile.md");
 
     if (!existsSync(profileMdPath)) {
       // For owner: try to seed from legacy evgeniy/profile.md
       const legacyProfilePath = path.join(profile.workingDir, "evgeniy", "profile.md");
-      if (!profile.isGuest && existsSync(legacyProfilePath)) {
+      if (profile.isOwner && existsSync(legacyProfilePath)) {
         const legacyContent = readFileSync(legacyProfilePath, "utf8");
         writeFileSync(profileMdPath, legacyContent, "utf8");
         console.log(`[memory] Seeded profile.md for ${profile.label} from legacy evgeniy/profile.md`);
       } else {
-        const name = profile.isGuest ? "Ксения" : profile.label;
         const template = `# Профиль пользователя
 
 Этот файл — стабильное досье. Бот читает его при старте каждой сессии.
@@ -244,7 +244,7 @@ for (const userId of ALLOWED_USERS) {
 
 ## Базовая инфа
 - Telegram ID: ${userId}
-- Имя: ${name}
+- Имя: ${profile.label}
 
 ## Стабильные предпочтения
 - (заполняется по мере диалогов: язык, стиль ответов, важные привычки)
@@ -262,7 +262,7 @@ for (const userId of ALLOWED_USERS) {
 
 const HEALTH_SECRET = process.env.HEALTH_WEBHOOK_SECRET || "";
 const HEALTH_PORT = parseInt(process.env.HEALTH_WEBHOOK_PORT || "3847", 10);
-const HEALTH_OWNER_ID = ALLOWED_USERS.find((id) => !GUEST_USERS.includes(id));
+const HEALTH_OWNER_ID = ALLOWED_USERS.find((id) => !NEW_GUEST_USERS.includes(id));
 
 if (HEALTH_SECRET && HEALTH_OWNER_ID) {
   Bun.serve({
@@ -306,6 +306,10 @@ if (HEALTH_SECRET && HEALTH_OWNER_ID) {
   });
   console.log(`Health webhook listening on port ${HEALTH_PORT}`);
 }
+
+// ============== Dashboard Server ==============
+
+startDashboardServer();
 
 // Start with concurrent runner (commands work immediately)
 const runner = run(bot);

@@ -10,7 +10,7 @@ import type { Message } from "grammy/types";
 import type { PendingMediaGroup } from "../types";
 import { MEDIA_GROUP_TIMEOUT } from "../config";
 import { rateLimiter } from "../security";
-import { auditLogRateLimit } from "../utils";
+import { auditLogRateLimit, replyFriendly } from "../utils";
 import { getSession } from "../session-registry";
 
 /**
@@ -203,6 +203,6 @@ export async function handleProcessingError(
       await ctx.reply("🛑 Query stopped.");
     }
   } else {
-    await ctx.reply(`❌ Error: ${errorStr.slice(0, 200)}`);
+    await replyFriendly(ctx, error, "обработка альбома");
   }
 }

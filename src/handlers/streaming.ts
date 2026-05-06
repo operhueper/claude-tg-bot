@@ -160,6 +160,7 @@ export class StreamingState {
   toolMessages: Message[] = []; // ephemeral tool status messages
   lastEditTimes = new Map<number, number>(); // segment_id -> last edit time
   lastContent = new Map<number, string>(); // segment_id -> last sent content
+  maxSegmentId: number = -1; // highest segment_id seen so far
 }
 
 /**
@@ -246,6 +247,7 @@ export function createStatusCallback(
             state.textMessages.set(segmentId, msg);
             state.lastContent.set(segmentId, formatted);
           }
+          state.maxSegmentId = Math.max(state.maxSegmentId, segmentId);
           state.lastEditTimes.set(segmentId, now);
         } else if (now - lastEdit > STREAMING_THROTTLE_MS) {
           // Update existing segment message (throttled)
@@ -333,12 +335,22 @@ export function createStatusCallback(
           }
         }
       } else if (statusType === "done") {
-        // Delete tool messages - text messages stay
+        // Delete tool messages
         for (const toolMsg of state.toolMessages) {
           try {
             await ctx.api.deleteMessage(toolMsg.chat.id, toolMsg.message_id);
           } catch (error) {
             console.debug("Failed to delete tool message:", error);
+          }
+        }
+        // Delete intermediate text segments (all except the last one)
+        for (const [sid, textMsg] of state.textMessages) {
+          if (sid !== state.maxSegmentId) {
+            try {
+              await ctx.api.deleteMessage(textMsg.chat.id, textMsg.message_id);
+            } catch (error) {
+              console.debug("Failed to delete intermediate text message:", error);
+            }
           }
         }
       }

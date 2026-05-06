@@ -15,7 +15,6 @@ import * as fs from "fs";
 import * as path from "path";
 import type { Context } from "grammy";
 import {
-  MCP_SERVERS,
   SHOW_THINKING,
   SHOW_TOOL_USE,
   STREAMING_THROTTLE_MS,
@@ -51,6 +50,8 @@ import {
   type OpenRouterMessage,
 } from "./engines/openrouter";
 import { persistUserActivity } from "./session-registry";
+import { mcpServersForProfile } from "./mcp-filter";
+import { recordUsage, type UsageSource } from "./metering";
 
 /**
  * Determine thinking token budget based on message keywords.
@@ -190,7 +191,8 @@ export class ClaudeSession {
     statusCallback: StatusCallback,
     chatId?: number,
     ctx?: Context,
-    mediaHint?: boolean
+    mediaHint?: boolean,
+    systemPromptOverride?: string
   ): Promise<string> {
     // Track activity for restart notifications
     if (chatId) {
@@ -226,12 +228,12 @@ export class ClaudeSession {
     }
 
     // Inject memory context into system prompt for new sessions
-    let systemPromptWithMemory = this.profile.systemPrompt;
+    let systemPromptWithMemory = systemPromptOverride ?? this.profile.systemPrompt;
     if (isNewSession) {
       try {
         // 1. Prepend static profile.md if it exists
         const profileMdPath = path.join(
-          this.profile.workingDir,
+          this.profile.memoryRoot,
           "memory",
           String(this.profile.userId),
           "profile.md"
@@ -250,11 +252,11 @@ export class ClaudeSession {
 
         // 2. Append dynamic graph/goals context
         const graphStore = new GraphStore(
-          this.profile.workingDir,
+          this.profile.memoryRoot,
           this.profile.userId
         );
         const goalsStore = new GoalsStore(
-          this.profile.workingDir,
+          this.profile.memoryRoot,
           this.profile.userId
         );
         const graph = graphStore.load();
@@ -351,7 +353,7 @@ export class ClaudeSession {
       cwd: this.profile.workingDir,
       settingSources: this.profile.settingSources,
       systemPrompt: systemPromptWithMemory,
-      mcpServers: MCP_SERVERS,
+      mcpServers: mcpServersForProfile(this.profile),
       maxThinkingTokens: thinkingTokens,
       additionalDirectories: this.profile.allowedPaths,
       resume: this.sessionId || undefined,
@@ -441,7 +443,7 @@ export class ClaudeSession {
           // Initialize transcript recorder (for both new and resumed sessions)
           try {
             this.transcriptRecorder = new TranscriptRecorder(
-              this.profile.workingDir,
+              this.profile.memoryRoot,
               this.sessionId!,
               this.profile.userId
             );
@@ -623,6 +625,19 @@ export class ClaudeSession {
                 u.cache_read_input_tokens || 0
               } cache_create=${u.cache_creation_input_tokens || 0}`
             );
+            // Metering: determine source based on whether DeepSeek env is injected
+            const source: UsageSource = this.profile.deepseekEnv
+              ? "bot-deepseek"
+              : "bot-anthropic";
+            recordUsage({
+              userId: this.profile.userId,
+              source,
+              model: this.profile.model,
+              inputTokens: u.input_tokens || 0,
+              outputTokens: u.output_tokens || 0,
+              cacheReadTokens: u.cache_read_input_tokens,
+              cacheCreationTokens: u.cache_creation_input_tokens,
+            });
           }
         }
       }
@@ -868,7 +883,7 @@ async function runBackgroundAnalysis(
 ): Promise<void> {
   if (transcript.turns.length < 2) return;
 
-  const store = new GraphStore(profile.workingDir, profile.userId);
+  const store = new GraphStore(profile.memoryRoot, profile.userId);
   const graph = store.load();
 
   const result = await analyzeSession(transcript, graph, {
@@ -881,11 +896,11 @@ async function runBackgroundAnalysis(
   store.save(graph);
 
   // Write session summary markdown
-  const outFile = summaryFile(profile.workingDir, new Date(), profile.userId);
+  const outFile = summaryFile(profile.memoryRoot, new Date(), profile.userId);
   fs.writeFileSync(outFile, result.summary_md, "utf8");
 
   // Rebuild topics index so Claude can find sessions by topic
-  rebuildTopicsIndex(profile.workingDir, profile.userId);
+  rebuildTopicsIndex(profile.memoryRoot, profile.userId);
 
   console.log(
     `[${profile.label}] Memory analysis complete — ` +

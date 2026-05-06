@@ -13,6 +13,7 @@ import { isAuthorized, rateLimiter } from "../security";
 import {
   auditLog,
   auditLogRateLimit,
+  replyFriendly,
   transcribeVoice,
   startTypingIndicator,
 } from "../utils";
@@ -124,15 +125,13 @@ export async function processAudioFile(
     // Audit log
     await auditLog(userId, username, "AUDIO", transcript, claudeResponse);
   } catch (error) {
-    console.error("Error processing audio:", error);
-
     if (String(error).includes("abort") || String(error).includes("cancel")) {
       const wasInterrupt = session.consumeInterruptFlag();
       if (!wasInterrupt) {
         await ctx.reply("🛑 Query stopped.");
       }
     } else {
-      await ctx.reply(`❌ Error: ${String(error).slice(0, 200)}`);
+      await replyFriendly(ctx, error, "транскрипция аудио");
     }
   } finally {
     stopProcessing();

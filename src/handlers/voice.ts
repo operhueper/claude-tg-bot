@@ -10,6 +10,7 @@ import { isAuthorized, rateLimiter } from "../security";
 import {
   auditLog,
   auditLogRateLimit,
+  replyFriendly,
   transcribeVoice,
   startTypingIndicator,
 } from "../utils";
@@ -126,8 +127,6 @@ export async function handleVoice(ctx: Context): Promise<void> {
     // 12. Audit log
     await auditLog(userId, username, "VOICE", transcript, claudeResponse);
   } catch (error) {
-    console.error("Error processing voice:", error);
-
     if (String(error).includes("abort") || String(error).includes("cancel")) {
       // Only show "Query stopped" if it was an explicit stop, not an interrupt from a new message
       const wasInterrupt = session.consumeInterruptFlag();
@@ -135,7 +134,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
         await ctx.reply("🛑 Query stopped.");
       }
     } else {
-      await ctx.reply(`❌ Error: ${String(error).slice(0, 200)}`);
+      await replyFriendly(ctx, error, "транскрипция голоса");
     }
   } finally {
     stopProcessing();

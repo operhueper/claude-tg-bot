@@ -34,6 +34,12 @@ export interface UserNode {
    * provisioned. Read at startup and on each profile lookup.
    */
   containerEnabled?: boolean;
+  /**
+   * Whether this user has completed the onboarding dialogue.
+   * Explicitly false for users added via invite flow.
+   * Absent (treated as true) for pre-existing users so they are never re-onboarded.
+   */
+  onboardingComplete?: boolean;
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");
@@ -89,16 +95,41 @@ export class UserRegistry {
 }
 
 /**
- * Add a new user to system/users.json.
- * Throws if a user with the same userId already exists.
+ * Mark onboarding as complete for a user. No-op if user is not in the registry.
  */
-export async function addUser(user: UserNode): Promise<void> {
+export function markOnboardingComplete(userId: number): void {
   const users = UserRegistry.getAllUsers();
-  if (users.some((u) => u.userId === user.userId)) {
-    throw new Error(`User ${user.userId} already exists in registry`);
+  const node = users.find((u) => u.userId === userId);
+  if (!node) return;
+  node.onboardingComplete = true;
+  UserRegistry.saveUser(node);
+}
+
+/**
+ * Add a new user to system/users.json.
+ * If a user with the same userId already exists, merges missing fields
+ * (upsert) and returns false. Returns true when a new entry is created.
+ */
+export async function addUser(user: UserNode): Promise<boolean> {
+  const users = UserRegistry.getAllUsers();
+  const existing = users.find((u) => u.userId === user.userId);
+  if (existing) {
+    // Fill in any fields that are missing from the existing record
+    let changed = false;
+    for (const key of Object.keys(user) as Array<keyof UserNode>) {
+      if (existing[key] === undefined && user[key] !== undefined) {
+        (existing as unknown as Record<string, unknown>)[key] = user[key];
+        changed = true;
+      }
+    }
+    if (changed) {
+      UserRegistry.saveUser(existing);
+    }
+    return false;
   }
   users.push(user);
   writeFileSync(USERS_FILE, JSON.stringify(users, null, 2) + "\n");
   // Reset cache so next load picks up the new entry
   UserRegistry.reload();
+  return true;
 }

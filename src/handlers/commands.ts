@@ -20,6 +20,7 @@ import {
   markNewGuestOnboarded,
 } from "../config";
 import { isAuthorized } from "../security";
+import { replyFriendly } from "../utils";
 
 /** Reject command if the profile doesn't permit it. */
 function commandAllowed(userId: number, command: string): boolean {
@@ -73,11 +74,8 @@ export async function handleStart(ctx: Context): Promise<void> {
     commandLines.push("/reloadbot - Перезапустить сервис бота");
   }
 
-  const isNewGuestUser = isNewGuest(userId);
   const greeting = profile.isGuest
-    ? `🤖 <b>Привет, Ксения!</b>\n\nЯ твой персональный ассистент.`
-    : isNewGuestUser
-    ? `🤖 <b>Твой персональный ассистент</b>\n\nРаботаю на DeepSeek (текст) + Gemini Flash (медиа). Полный набор фич: память, RAG, MCP плагины.`
+    ? `🤖 <b>Твой персональный ассистент</b>\n\nПолный набор фич: память, RAG, MCP плагины.`
     : `🤖 <b>Claude Telegram Bot</b>`;
 
   await ctx.reply(
@@ -376,9 +374,8 @@ export async function handleReloadBot(ctx: Context): Promise<void> {
     execSync("/bin/systemctl restart claude-tg-bot", { stdio: "ignore" });
   } catch (e) {
     // If systemctl returns we never got killed — likely missing privileges.
-    console.warn("[/reloadbot] systemctl restart failed:", e);
     try {
-      await ctx.reply(`❌ Не удалось перезапустить сервис: ${e}`);
+      await replyFriendly(ctx, e, "перезапуск сервиса");
     } catch {}
   }
 }
