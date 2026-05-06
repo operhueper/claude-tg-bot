@@ -3,7 +3,7 @@
  */
 
 import type { Context } from "grammy";
-import { getSession } from "../session";
+import { getSession, getGroupSession } from "../session-registry";
 import { ALLOWED_USERS } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import {
@@ -13,6 +13,8 @@ import {
   startTypingIndicator,
 } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
+import { isGroupChat, shouldRespondInGroup } from "../group-filter";
+import { maybeAutoNew } from "./topic-helper";
 
 /**
  * Handle incoming text messages.
@@ -27,17 +29,139 @@ export async function handleText(ctx: Context): Promise<void> {
     return;
   }
 
+  // Prepend replied-to message context if user is replying to something
+  const replyMsg = ctx.message?.reply_to_message;
+  if (replyMsg) {
+    const replyText =
+      "text" in replyMsg && replyMsg.text
+        ? replyMsg.text
+        : "caption" in replyMsg && replyMsg.caption
+        ? replyMsg.caption
+        : null;
+    if (replyText) {
+      const replyFrom = replyMsg.from?.first_name || replyMsg.from?.username || "unknown";
+      const truncated = replyText.length > 500 ? replyText.slice(0, 497) + "..." : replyText;
+      message = `[В ответ на сообщение от ${replyFrom}: «${truncated}»]\n\n${message}`;
+    }
+  }
+
   // 1. Authorization check
   if (!isAuthorized(userId, ALLOWED_USERS)) {
-    await ctx.reply("Unauthorized. Contact the bot owner for access.");
+    // In group chats, silently ignore unauthorized users (no spam)
+    if (!isGroupChat(ctx)) {
+      await ctx.reply("Unauthorized. Contact the bot owner for access.");
+    }
     return;
   }
 
-  const session = getSession(userId);
+  // 1b. Group chat filter — decide if Claude should respond
+  if (isGroupChat(ctx)) {
+    const shouldRespond = await shouldRespondInGroup(ctx);
+    if (!shouldRespond) {
+      return;
+    }
+  }
+
+  const inGroup = isGroupChat(ctx);
+
+  // Task detection in group chat (only in the family group chat)
+  if (inGroup && chatId === -5115756668) {
+    const {
+      detectTaskIntent,
+      detectAssignee,
+      savePendingTask,
+      USER_TELEGRAM_NAMES,
+    } = await import("../tasks");
+    if (detectTaskIntent(message)) {
+      const fromUserId = userId;
+      const assigneeId = detectAssignee(message, fromUserId);
+
+      if (!assigneeId) {
+        await ctx.reply("Кому поставить задачу — Евгению или Ксюше?");
+        return;
+      }
+
+      const taskId = crypto.randomUUID().replace(/-/g, "");
+      const now = new Date().toLocaleDateString("ru-RU", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+
+      // Simple deadline extraction
+      let deadline: string | undefined;
+      const deadlineMatch = message.match(/до\s+([^,.!?\n]{2,30})(?:[,.!?\n]|$)/iu);
+      if (deadlineMatch) deadline = deadlineMatch[1]?.trim();
+
+      // Extract task text — remove the trigger phrase
+      const taskText = message
+        .replace(
+          /поставь задачу|запомни задачу|задача для \w+:|задача:|запиши задачу|добавь задачу/gi,
+          ""
+        )
+        .trim();
+
+      const finalTaskText = taskText.trim();
+      if (!finalTaskText || finalTaskText.length < 3) {
+        await ctx.reply("Напиши текст задачи — что именно нужно сделать?");
+        return;
+      }
+
+      const task = {
+        id: taskId,
+        text: finalTaskText,
+        deadline,
+        assignedBy: fromUserId,
+        assignedTo: assigneeId,
+        createdAt: now,
+      };
+
+      savePendingTask(task);
+
+      const tgName = USER_TELEGRAM_NAMES[assigneeId] ?? "пользователь";
+      const deadlineText = deadline
+        ? `📅 Дедлайн: ${deadline}`
+        : "📅 Дедлайн: не указан";
+
+      await ctx.reply(
+        `${tgName}, тебе поставили задачу:\n\n📋 ${task.text}\n${deadlineText}\n\nПринять?`,
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                {
+                  text: "✅ Принять",
+                  callback_data: `task_confirm:${taskId}:accept`,
+                },
+                {
+                  text: "❌ Отклонить",
+                  callback_data: `task_confirm:${taskId}:reject`,
+                },
+              ],
+            ],
+          },
+        }
+      );
+      return; // Don't send to Claude
+    }
+  }
+  const session = inGroup ? getGroupSession() : getSession(userId);
 
   // 2. Check for interrupt prefix
   message = await checkInterrupt(message, userId);
   if (!message.trim()) {
+    return;
+  }
+
+  // 2b. If generation is running and message is NOT an interrupt (already handled above),
+  // queue it as pending context and acknowledge with a reaction.
+  if (session.isRunning) {
+    session.addPendingContext(message);
+    try {
+      await ctx.react("👌");
+    } catch {
+      // Reaction may fail (e.g. old clients) — ignore silently
+    }
     return;
   }
 
@@ -53,6 +177,21 @@ export async function handleText(ctx: Context): Promise<void> {
 
   // 4. Store message for retry
   session.lastMessage = message;
+
+  // Auto-reset on topic change (only personal chats, active sessions)
+  if (!inGroup && session.isActive && !session.isRunning) {
+    const topicChanged = await maybeAutoNew(session, message, ctx);
+    if (topicChanged) {
+      const title = message.length > 50 ? message.slice(0, 47) + "..." : message;
+      session.conversationTitle = title;
+    }
+  }
+
+  // In group chats, prepend sender name so Claude knows who's writing
+  if (inGroup) {
+    const firstName = ctx.from?.first_name || username;
+    message = `[${firstName}]: ${message}`;
+  }
 
   // 5. Set conversation title from first message (if new session)
   if (!session.isActive) {
@@ -88,6 +227,39 @@ export async function handleText(ctx: Context): Promise<void> {
 
       // 10. Audit log
       await auditLog(userId, username, "TEXT", message, response);
+
+      // 10b. Drain pending context queue accumulated during generation
+      const pendingMsg = session.consumePendingContext();
+      if (pendingMsg) {
+        // Remove the ⏳ reaction on all pending messages is not trivial,
+        // so we simply send the accumulated context as a new turn.
+        stopProcessing();
+        typing.stop();
+
+        // Re-enter full send flow for the pending context
+        const pendingState = new StreamingState();
+        const pendingCallback = createStatusCallback(ctx, pendingState);
+        const pendingTyping = startTypingIndicator(ctx);
+        const stopPendingProcessing = session.startProcessing();
+        try {
+          const pendingResponse = await session.sendMessageStreaming(
+            pendingMsg,
+            username,
+            userId,
+            pendingCallback,
+            chatId,
+            ctx
+          );
+          await auditLog(userId, username, "TEXT", pendingMsg, pendingResponse);
+        } catch (pendingError) {
+          console.error("Error processing pending context:", pendingError);
+        } finally {
+          stopPendingProcessing();
+          pendingTyping.stop();
+        }
+        return; // stopProcessing and typing already called above
+      }
+
       break; // Success - exit retry loop
     } catch (error) {
       const errorStr = String(error);

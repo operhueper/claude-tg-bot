@@ -7,7 +7,7 @@
  */
 
 import type { Context } from "grammy";
-import { getSession } from "../session";
+import { getSession } from "../session-registry";
 import { ALLOWED_USERS } from "../config";
 import { isAuthorized } from "../security";
 import { GoalsStore } from "../memory/goals";

@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(*)",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "NotebookEdit",
+      "TodoWrite",
+      "Task",
+      "mcp__ask-user",
+      "mcp__send-file",
+      "mcp__pollinations-image"
+    ]
+  }
+}

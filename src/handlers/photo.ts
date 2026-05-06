@@ -5,7 +5,7 @@
  */
 
 import type { Context } from "grammy";
-import { getSession } from "../session";
+import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
@@ -96,7 +96,8 @@ async function processPhotos(
       userId,
       statusCallback,
       chatId,
-      ctx
+      ctx,
+      true // mediaHint: photo content
     );
 
     await auditLog(userId, username, "PHOTO", prompt, response);
@@ -106,6 +107,21 @@ async function processPhotos(
     stopProcessing();
     typing.stop();
   }
+}
+
+/**
+ * Process an image file sent as a document (PNG, JPG, etc.)
+ * Routes through the same vision pipeline as regular photos.
+ */
+export async function processImageDocument(
+  ctx: Context,
+  filePath: string,
+  caption: string | undefined,
+  userId: number,
+  username: string,
+  chatId: number
+): Promise<void> {
+  await processPhotos(ctx, [filePath], caption, userId, username, chatId);
 }
 
 /**

@@ -11,7 +11,7 @@ import type { PendingMediaGroup } from "../types";
 import { MEDIA_GROUP_TIMEOUT } from "../config";
 import { rateLimiter } from "../security";
 import { auditLogRateLimit } from "../utils";
-import { getSession } from "../session";
+import { getSession } from "../session-registry";
 
 /**
  * Configuration for a media group handler.

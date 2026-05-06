@@ -1,8 +1,17 @@
 export type NodeType =
-  | "person" | "project" | "fact" | "event"
-  | "health" | "goal" | "achievement" | "preference"
-  | "place" | "topic"
-  | "infra" | "incident" | "runbook_step" | "deploy_quirk";
+  | "person"
+  | "place"
+  | "trip"
+  | "project"
+  | "goal"
+  | "task"
+  | "event"
+  | "purchase"
+  | "preference"
+  | "health"
+  | "infra"
+  | "topic"
+  | "fact";
 
 export interface MemoryNode {
   id: string;
@@ -19,9 +28,18 @@ export interface MemoryNode {
 }
 
 export type RelationType =
-  | "knows" | "works_on" | "likes" | "dislikes" | "owns"
-  | "part_of" | "related_to" | "happened_at" | "linked_to"
-  | "achieves" | "blocks" | "supports";
+  | "part_of"
+  | "located_in"
+  | "visits"
+  | "owns"
+  | "works_on"
+  | "knows"
+  | "prefers"
+  | "achieves"
+  | "blocks"
+  | "about"
+  | "uses"
+  | "scheduled_at";
 
 export interface MemoryEdge {
   id: string;
@@ -35,6 +53,7 @@ export interface MemoryEdge {
 
 export interface MemoryGraph {
   version: 1;
+  schema_version?: number;
   user_id: number;
   nodes: Record<string, MemoryNode>;
   edges: Record<string, MemoryEdge>;

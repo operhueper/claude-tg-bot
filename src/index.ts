@@ -25,7 +25,9 @@ import {
   handleStatus,
   handleResume,
   handleRestart,
+  handleReloadBot,
   handleRetry,
+  handleDashboard,
   handleText,
   handleVoice,
   handlePhoto,
@@ -34,6 +36,8 @@ import {
   handleVideo,
   handleCallback,
 } from "./handlers";
+import { getRecentlyActiveUsers } from "./session-registry";
+import { setBotUsername } from "./group-filter";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
@@ -67,7 +71,9 @@ bot.command("stop", handleStop);
 bot.command("status", handleStatus);
 bot.command("resume", handleResume);
 bot.command("restart", handleRestart);
+bot.command("reloadbot", handleReloadBot);
 bot.command("retry", handleRetry);
+bot.command("dashboard", handleDashboard);
 
 // ============== Message Handlers ==============
 
@@ -112,18 +118,22 @@ console.log("Starting bot...");
 // Get bot info first
 const botInfo = await bot.api.getMe();
 console.log(`Bot started: @${botInfo.username}`);
+setBotUsername(botInfo.username || "");
 
-// Register side menu commands. Guests see a menu without /restart; owners see all.
+// Register side menu commands. /restart resets only the user's own session
+// (safe for everyone). /reloadbot performs a full systemd restart and is owner-only.
 const baseCommands = [
+  { command: "dashboard", description: "🧠 Second Brain — задачи и календарь" },
   { command: "new", description: "Start fresh session" },
   { command: "stop", description: "Stop current query" },
   { command: "status", description: "Show detailed status" },
   { command: "resume", description: "Resume saved session" },
   { command: "retry", description: "Retry last message" },
+  { command: "restart", description: "Сбросить сессию" },
 ];
 const ownerCommands = [
   ...baseCommands,
-  { command: "restart", description: "Restart the bot" },
+  { command: "reloadbot", description: "Перезапустить бот" },
 ];
 
 try {
@@ -166,6 +176,26 @@ if (existsSync(RESTART_FILE)) {
   } catch (e) {
     console.warn("Failed to update restart message:", e);
     try { unlinkSync(RESTART_FILE); } catch {}
+  }
+}
+
+// ============== Restart notifications ==============
+// Notify users who were active in the last 10 minutes that the bot restarted.
+
+{
+  const TEN_MINUTES = 10 * 60 * 1000;
+  const recentUsers = getRecentlyActiveUsers(TEN_MINUTES);
+  for (const { userId, chatId } of recentUsers) {
+    // Skip owner — they triggered the restart and already see "✅ Bot restarted"
+    if (!GUEST_USERS.includes(userId)) continue;
+    try {
+      await bot.api.sendMessage(
+        chatId,
+        "Извини, я только что перезапустился 🔄\n\nПамять сохранена — напиши мне, и я восстановлю контекст нашего разговора."
+      );
+    } catch (e) {
+      console.warn(`Failed to send restart notification to ${userId}: ${e}`);
+    }
   }
 }
 
@@ -220,6 +250,55 @@ for (const userId of ALLOWED_USERS) {
   } catch (err) {
     console.warn(`[memory] Bootstrap failed for userId=${userId}: ${err}`);
   }
+}
+
+// ============== Health Webhook (Apple Watch → Bot) ==============
+
+const HEALTH_SECRET = process.env.HEALTH_WEBHOOK_SECRET || "";
+const HEALTH_PORT = parseInt(process.env.HEALTH_WEBHOOK_PORT || "3847", 10);
+const HEALTH_OWNER_ID = ALLOWED_USERS.find((id) => !GUEST_USERS.includes(id));
+
+if (HEALTH_SECRET && HEALTH_OWNER_ID) {
+  Bun.serve({
+    port: HEALTH_PORT,
+    async fetch(req) {
+      if (req.method !== "POST") {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
+
+      // Auth
+      const auth = req.headers.get("x-secret");
+      if (auth !== HEALTH_SECRET) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+
+      let body: Record<string, unknown>;
+      try {
+        const parsed = await req.json();
+        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+          return new Response("Bad JSON", { status: 400 });
+        }
+        body = parsed as Record<string, unknown>;
+      } catch {
+        return new Response("Bad JSON", { status: 400 });
+      }
+
+      // Format health data into a readable message
+      const lines: string[] = ["📊 Данные Apple Watch:"];
+      if (body.steps !== undefined) lines.push(`👟 Шаги: ${body.steps}`);
+      if (body.heart_rate !== undefined) lines.push(`❤️ Пульс (средний): ${body.heart_rate} уд/мин`);
+      if (body.active_calories !== undefined) lines.push(`🔥 Активные калории: ${body.active_calories} ккал`);
+      if (body.sleep !== undefined) lines.push(`😴 Сон: ${body.sleep}`);
+      if (body.weight !== undefined) lines.push(`⚖️ Вес: ${body.weight} кг`);
+      if (body.period !== undefined) lines.push(`📅 Период: ${body.period}`);
+
+      const message = lines.join("\n");
+
+      await bot.api.sendMessage(HEALTH_OWNER_ID, message);
+      return new Response("OK", { status: 200 });
+    },
+  });
+  console.log(`Health webhook listening on port ${HEALTH_PORT}`);
 }
 
 // Start with concurrent runner (commands work immediately)

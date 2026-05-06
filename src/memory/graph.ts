@@ -6,8 +6,24 @@ function ulid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
 }
 
+const LABEL_ALIASES: Record<string, string> = {
+  "shenzhen": "шэньчжэнь",
+  "深圳": "шэньчжэнь",
+  "yangshuo": "яншо",
+  "阳朔": "яншо",
+  "guilin": "гуйлинь",
+  "桂林": "гуйлинь",
+  "china": "китай",
+  "китайская народная республика": "китай",
+  "кнр": "китай",
+  "russia": "россия",
+  "российская федерация": "россия",
+  "рф": "россия",
+};
+
 function normalizeLabel(label: string): string {
-  return label.toLowerCase().trim();
+  const norm = label.toLowerCase().trim();
+  return LABEL_ALIASES[norm] ?? norm;
 }
 
 export class GraphStore {
@@ -129,6 +145,53 @@ export class GraphStore {
     }
   }
 
+  /**
+   * Merge nodes that have the same (type, normalizedLabel) — accumulate duplicates
+   * that can form when the analyzer creates slightly different labels for the same entity.
+   * Returns the number of nodes merged.
+   */
+  mergeDuplicateNodes(g: MemoryGraph): number {
+    const groups = new Map<string, MemoryNode[]>();
+    for (const node of Object.values(g.nodes)) {
+      const key = `${node.type}:${normalizeLabel(node.label)}`;
+      const group = groups.get(key) ?? [];
+      group.push(node);
+      groups.set(key, group);
+    }
+
+    let merged = 0;
+    for (const [, group] of groups) {
+      if (group.length < 2) continue;
+      // Keep node with highest importance; absorb the rest into it
+      group.sort((a, b) => b.importance - a.importance);
+      const primary = group[0]!;
+      for (let i = 1; i < group.length; i++) {
+        const dup = group[i]!;
+        Object.assign(primary.data, dup.data);
+        primary.tags = [...new Set([...primary.tags, ...dup.tags])];
+        if (dup.importance > primary.importance) primary.importance = dup.importance;
+        primary.mention_count += dup.mention_count;
+        if (dup.last_mentioned_at > primary.last_mentioned_at) {
+          primary.last_mentioned_at = dup.last_mentioned_at;
+        }
+        primary.source_sessions = [...new Set([...primary.source_sessions, ...dup.source_sessions])];
+        // Repoint all edges from dup → primary
+        for (const edge of Object.values(g.edges)) {
+          if (edge.from === dup.id) edge.from = primary.id;
+          if (edge.to === dup.id) edge.to = primary.id;
+        }
+        // Remove dup from nodes and label_index
+        delete g.nodes[dup.id];
+        const normKey = normalizeLabel(dup.label);
+        if (g.label_index[normKey]) {
+          g.label_index[normKey] = g.label_index[normKey]!.filter(id => id !== dup.id);
+        }
+        merged++;
+      }
+    }
+    return merged;
+  }
+
   applyAnalysisPatch(g: MemoryGraph, patch: AnalysisPatch, sessionId: string): {
     addedNodes: MemoryNode[];
     updatedNodes: MemoryNode[];
@@ -166,7 +229,37 @@ export class GraphStore {
       }
     }
 
+    // Merge any duplicates that accumulated (same type+label, different id)
+    const mergeCount = this.mergeDuplicateNodes(g);
+    if (mergeCount > 0) console.log(`[graph] Merged ${mergeCount} duplicate node(s)`);
+
     return { addedNodes, updatedNodes, addedEdges };
+  }
+
+  upsertTask(g: MemoryGraph, task: { text: string; deadline?: string; assignedBy?: number; assignedTo?: number }): MemoryNode {
+    return this.upsertNode(g, {
+      type: "task",
+      label: task.text,
+      data: {
+        deadline: task.deadline,
+        assignedBy: task.assignedBy,
+        assignedTo: task.assignedTo,
+        status: "pending" as const,
+      },
+      tags: ["task"],
+      importance: 0.7,
+    });
+  }
+
+  getTaskNodes(g: MemoryGraph): MemoryNode[] {
+    return Object.values(g.nodes).filter(n => n.type === "task");
+  }
+
+  markTaskDone(g: MemoryGraph, nodeId: string): void {
+    const node = g.nodes[nodeId];
+    if (!node || node.type !== "task") return;
+    (node.data as Record<string, unknown>).status = "done";
+    node.updated_at = new Date().toISOString();
   }
 
   topRelevant(g: MemoryGraph, opts: { limit: number; recencyWeight: number }): MemoryNode[] {

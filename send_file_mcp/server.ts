@@ -138,6 +138,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   // Get chat context from environment
   const chatId = process.env.TELEGRAM_CHAT_ID || "";
+  const userId = process.env.TELEGRAM_USER_ID || "";
   if (!chatId) {
     return {
       content: [
@@ -161,6 +162,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     as_document: asDocument,
     status: "pending",
     chat_id: chatId,
+    user_id: userId,
     created_at: new Date().toISOString(),
   };
 

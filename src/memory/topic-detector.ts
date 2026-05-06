@@ -93,7 +93,7 @@ export function heuristicTopicCheck(
 export async function llmTopicCheck(
   recentTurns: TranscriptTurn[],
   newMessage: string,
-  opts: { model: string; cwd: string }
+  opts: { model: string; cwd: string; env?: Record<string, string> }
 ): Promise<TopicCheckResult> {
   const MAX_TURNS = 4;
   const MAX_CHARS_PER_TURN = 300;
@@ -120,6 +120,7 @@ export async function llmTopicCheck(
         cwd: opts.cwd,
         mcpServers: {},
         maxThinkingTokens: 0,
+        ...(opts.env ? { env: opts.env } : {}),
       },
     })) {
       if (event.type === "assistant" && event.message?.content) {

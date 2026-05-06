@@ -5,7 +5,7 @@
  */
 
 import type { Context } from "grammy";
-import { getSession } from "../session";
+import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
@@ -134,7 +134,8 @@ export async function handleVideo(ctx: Context): Promise<void> {
       userId,
       statusCallback,
       chatId,
-      ctx
+      ctx,
+      true // mediaHint: video content
     );
 
     await auditLog(userId, username, "VIDEO", caption || "[video]", response);

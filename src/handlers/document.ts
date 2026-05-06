@@ -6,13 +6,17 @@
  */
 
 import type { Context } from "grammy";
-import { getSession } from "../session";
+import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { createMediaGroupBuffer, handleProcessingError } from "./media-group";
 import { isAudioFile, processAudioFile } from "./audio";
+import { processImageDocument } from "./photo";
+
+// LAS/LAZ point cloud extensions
+const LAS_EXTENSIONS = [".las", ".laz"];
 
 // Supported text file extensions
 const TEXT_EXTENSIONS = [
@@ -39,8 +43,17 @@ const TEXT_EXTENSIONS = [
 // Supported archive extensions
 const ARCHIVE_EXTENSIONS = [".zip", ".tar", ".tar.gz", ".tgz"];
 
-// Max file size (10MB)
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+// Image extensions that should be processed via vision
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+
+function isImageFile(fileName: string, mimeType?: string): boolean {
+  const lower = fileName.toLowerCase();
+  return IMAGE_EXTENSIONS.some((ext) => lower.endsWith(ext)) ||
+    (mimeType?.startsWith("image/") ?? false);
+}
+
+// Max file size (500MB)
+const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
 // Max content from archive (50K chars total)
 const MAX_ARCHIVE_CONTENT = 50000;
@@ -87,6 +100,48 @@ async function extractText(
 ): Promise<string> {
   const fileName = filePath.split("/").pop() || "";
   const extension = "." + (fileName.split(".").pop() || "").toLowerCase();
+
+  // LAS/LAZ point cloud files - extract metadata via laspy
+  if (LAS_EXTENSIONS.includes(extension)) {
+    try {
+      const script = `
+import laspy, json, sys
+las = laspy.read(sys.argv[1])
+h = las.header
+info = {
+  "format": f"LAS {h.version_major}.{h.version_minor}",
+  "point_format": int(h.point_format.id),
+  "point_count": int(h.point_count),
+  "scale": list(h.scale),
+  "offset": list(h.offset),
+  "mins": list(h.mins),
+  "maxs": list(h.maxs),
+  "dimensions": [str(d.name) for d in las.point_format.dimensions],
+}
+if hasattr(h, 'vlrs'):
+  info["vlr_count"] = len(h.vlrs)
+print(json.dumps(info, indent=2))
+`;
+      const result = await Bun.$`python3 -c ${script} ${filePath}`.quiet();
+      const info = JSON.parse(result.text());
+      const bounds = info.mins && info.maxs
+        ? `X: ${info.mins[0].toFixed(2)}–${info.maxs[0].toFixed(2)}, Y: ${info.mins[1].toFixed(2)}–${info.maxs[1].toFixed(2)}, Z: ${info.mins[2].toFixed(2)}–${info.maxs[2].toFixed(2)}`
+        : "unknown";
+      return [
+        `LAS Point Cloud File: ${fileName}`,
+        `Format: ${info.format}, Point Format: ${info.point_format}`,
+        `Points: ${info.point_count.toLocaleString()}`,
+        `Bounds: ${bounds}`,
+        `Scale: ${info.scale?.join(", ")}`,
+        `Offset: ${info.offset?.join(", ")}`,
+        `Dimensions: ${info.dimensions?.join(", ")}`,
+        `File path (for further analysis): ${filePath}`,
+      ].join("\n");
+    } catch (error) {
+      console.error("LAS parsing failed:", error);
+      return `[LAS file: ${fileName}]\nFile path: ${filePath}\n(Could not parse metadata: ${String(error).slice(0, 200)})`;
+    }
+  }
 
   // PDF extraction using pdftotext CLI (install: brew install poppler)
   if (mimeType === "application/pdf" || extension === ".pdf") {
@@ -286,7 +341,8 @@ async function processArchive(
       userId,
       statusCallback,
       chatId,
-      ctx
+      ctx,
+      true // mediaHint: archive content
     );
 
     await auditLog(
@@ -378,7 +434,8 @@ async function processDocuments(
       userId,
       statusCallback,
       chatId,
-      ctx
+      ctx,
+      true // mediaHint: document content
     );
 
     await auditLog(
@@ -449,8 +506,19 @@ export async function handleDocument(ctx: Context): Promise<void> {
   }
 
   // 2. Check file size
+  // Telegram Bot API hard limit: getFile() only works for files ≤ 20MB
+  const TG_API_LIMIT = 20 * 1024 * 1024;
   if (doc.file_size && doc.file_size > MAX_FILE_SIZE) {
-    await ctx.reply("❌ File too large. Maximum size is 10MB.");
+    await ctx.reply("❌ File too large (max 500MB configured, but see below).");
+    return;
+  }
+  if (doc.file_size && doc.file_size > TG_API_LIMIT) {
+    await ctx.reply(
+      "❌ Telegram не позволяет боту скачивать файлы больше 20MB через стандартный API.\n\n" +
+      "Пожалуйста, разбей архив на части по 15-18MB:\n" +
+      "• macOS/Linux: `zip -s 15m books.zip --out books_split.zip`\n" +
+      "• или используй 7-Zip → Split to volumes"
+    );
     return;
   }
 
@@ -465,9 +533,10 @@ export async function handleDocument(ctx: Context): Promise<void> {
   const isText =
     TEXT_EXTENSIONS.includes(extension) || doc.mime_type?.startsWith("text/");
   const isArchiveFile = isArchive(fileName);
+  const isLasFile = LAS_EXTENSIONS.includes(extension);
 
   // Check if it's an audio file sent as a document
-  if (!isPdf && !isDocx && !isText && !isArchiveFile && isAudioFile(fileName, doc.mime_type)) {
+  if (!isPdf && !isDocx && !isText && !isArchiveFile && !isLasFile && isAudioFile(fileName, doc.mime_type)) {
     console.log(`Received audio document: ${fileName} from @${username}`);
 
     // Rate limit check
@@ -494,15 +563,30 @@ export async function handleDocument(ctx: Context): Promise<void> {
     return;
   }
 
-  if (!isPdf && !isDocx && !isText && !isArchiveFile) {
-    await ctx.reply(
-      `❌ Unsupported file type: ${extension || doc.mime_type}\n\n` +
-        `Supported: PDF, DOCX, archives (${ARCHIVE_EXTENSIONS.join(
-          ", "
-        )}), ${TEXT_EXTENSIONS.join(", ")}`
-    );
+  // Route image files to vision handler
+  if (!isPdf && !isDocx && !isText && !isArchiveFile && !isLasFile && isImageFile(fileName, doc.mime_type)) {
+    const [allowed, retryAfter] = rateLimiter.check(userId);
+    if (!allowed) {
+      await auditLogRateLimit(userId, username, retryAfter!);
+      await ctx.reply(`⏳ Rate limited. Please wait ${retryAfter!.toFixed(1)} seconds.`);
+      return;
+    }
+
+    let docPath: string;
+    try {
+      docPath = await downloadDocument(ctx);
+    } catch (error) {
+      console.error("Failed to download image document:", error);
+      await ctx.reply("❌ Failed to download image.");
+      return;
+    }
+
+    await processImageDocument(ctx, docPath, ctx.message?.caption, userId, username, chatId);
     return;
   }
+
+  // Unknown file type — download and pass the path to Claude directly
+  const isUnknown = !isPdf && !isDocx && !isText && !isArchiveFile && !isLasFile;
 
   // 4. Download document
   let docPath: string;
@@ -552,7 +636,13 @@ export async function handleDocument(ctx: Context): Promise<void> {
     }
 
     try {
-      const content = await extractText(docPath, doc.mime_type);
+      let content: string;
+      if (isUnknown) {
+        // Unknown type — pass path directly so Claude can work with it via tools
+        content = `File: ${fileName}\nType: ${doc.mime_type || extension}\nPath: ${docPath}\n\nThis file has been downloaded. Use it via its path above.`;
+      } else {
+        content = await extractText(docPath, doc.mime_type);
+      }
       await processDocuments(
         ctx,
         [{ path: docPath, name: fileName, content }],
@@ -563,6 +653,8 @@ export async function handleDocument(ctx: Context): Promise<void> {
       );
     } catch (error) {
       console.error("Failed to extract document:", error);
+      // Clean up file on failure
+      try { await Bun.$`rm -f ${docPath}`.quiet(); } catch {}
       await ctx.reply(
         `❌ Failed to process document: ${String(error).slice(0, 100)}`
       );

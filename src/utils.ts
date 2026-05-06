@@ -202,7 +202,7 @@ export function startTypingIndicator(ctx: Context): TypingController {
 // ============== Message Interrupt ==============
 
 // Lazy import to avoid circular dependency
-let sessionModule: typeof import("./session") | null = null;
+let sessionModule: typeof import("./session-registry") | null = null;
 
 export async function checkInterrupt(
   text: string,
@@ -213,7 +213,7 @@ export async function checkInterrupt(
   }
 
   if (!sessionModule) {
-    sessionModule = await import("./session");
+    sessionModule = await import("./session-registry");
   }
 
   const strippedText = text.slice(1).trimStart();

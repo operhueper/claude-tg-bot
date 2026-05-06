@@ -52,8 +52,8 @@ export function buildMemoryContext(
   if (topNodes.length > 0) {
     const typeLabels: Record<string, string> = {
       person: "👤", project: "📁", fact: "💡", event: "📅",
-      health: "🏥", goal: "🎯", achievement: "🏆", preference: "❤️",
-      place: "📍", topic: "🏷",
+      health: "🏥", goal: "🎯", preference: "❤️",
+      place: "📍", topic: "🏷", trip: "✈️", purchase: "🛒", infra: "🖥",
     };
 
     parts.push("### Ключевые факты");

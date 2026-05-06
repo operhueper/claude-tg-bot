@@ -4,7 +4,7 @@
 
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
-import { getSession } from "../session";
+import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import {
@@ -119,7 +119,8 @@ export async function handleVoice(ctx: Context): Promise<void> {
       userId,
       statusCallback,
       chatId,
-      ctx
+      ctx,
+      false // mediaHint: transcript is plain text, not a binary media file
     );
 
     // 12. Audit log

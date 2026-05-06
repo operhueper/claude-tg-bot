@@ -16,7 +16,12 @@ const OWNER_USER_ID = 292228713;
 // Script lives in scripts/, repo root is one level up
 const REPO_ROOT = path.resolve(import.meta.dir, "..");
 const WORKING_DIR = path.join(REPO_ROOT, "workspace");
-const HANDOFF_PATH = path.join(REPO_ROOT, "HANDOFF.md");
+// Argv: optional path to md file. Defaults to HANDOFF.md at repo root.
+// Usage: bun run scripts/import-handoff.ts            -> uses HANDOFF.md
+//        bun run scripts/import-handoff.ts foo/bar.md -> seeds graph from any md
+const HANDOFF_PATH = process.argv[2]
+  ? path.resolve(process.cwd(), process.argv[2])
+  : path.join(REPO_ROOT, "HANDOFF.md");
 
 // Native Claude CLI path — prefer env var, then well-known prod path, then PATH
 function findClaudeCLISync(): string {
@@ -45,7 +50,7 @@ const INFRA_SYSTEM_PROMPT = `Ты — экстрактор инфраструк�
     { "type": "person|project|fact|event|health|goal|achievement|preference|place|topic|infra|incident|runbook_step|deploy_quirk", "label": "...", "data": {}, "tags": [], "importance": 0.0-1.0 }
   ],
   "upsert_edges": [
-    { "from_label": "...", "from_type": "...", "to_label": "...", "to_type": "...", "relation": "knows|works_on|likes|dislikes|owns|part_of|related_to|happened_at|linked_to|achieves|blocks|supports", "weight": 0.0-1.0 }
+    { "from_label": "...", "from_type": "...", "to_label": "...", "to_type": "...", "relation": "part_of|located_in|visits|owns|works_on|knows|prefers|achieves|blocks|about|uses|scheduled_at", "weight": 0.0-1.0 }
   ],
   "touch_labels": [
     { "type": "...", "label": "..." }

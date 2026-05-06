@@ -136,6 +136,8 @@ export function checkCommandSafety(
         const args = rmMatch[1]!.split(/\s+/);
         for (const arg of args) {
           if (arg.startsWith("-") || arg.length <= 1) continue;
+          // Skip non-path arguments: must start with /, ~, or . to be considered a path
+          if (!arg.startsWith("/") && !arg.startsWith("~") && !arg.startsWith(".")) continue;
           if (!isPathAllowedFor(arg, allowedPaths)) {
             return [false, `rm target outside allowed paths: ${arg}`];
           }

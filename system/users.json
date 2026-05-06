@@ -1,0 +1,31 @@
+[
+  {
+    "userId": 292228713,
+    "role": "owner",
+    "label": "Евгений",
+    "timezone": "Asia/Shanghai",
+    "settingSources": ["project"],
+    "rateLimitEnabled": true,
+    "model": "claude-sonnet-4-6"
+  },
+  {
+    "userId": 893951298,
+    "role": "guest",
+    "label": "Ксения",
+    "timezone": "Europe/Moscow",
+    "settingSources": ["project"],
+    "rateLimitEnabled": false,
+    "model": "claude-sonnet-4-6",
+    "vaultDir": "workspace-ksenia"
+  },
+  {
+    "userId": 403360614,
+    "role": "new_guest",
+    "label": "Артём",
+    "timezone": "Europe/Moscow",
+    "settingSources": ["project"],
+    "rateLimitEnabled": false,
+    "model": "deepseek-chat",
+    "vaultDir": "/opt/vault/403360614"
+  }
+]

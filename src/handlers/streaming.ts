@@ -90,7 +90,8 @@ const AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".ogg", ".flac", ".m4a"]);
  */
 export async function checkPendingSendFileRequests(
   ctx: Context,
-  chatId: number
+  chatId: number,
+  userId?: number
 ): Promise<boolean> {
   const glob = new Bun.Glob("send-file-*.json");
   let fileSent = false;
@@ -105,9 +106,12 @@ export async function checkPendingSendFileRequests(
       // Only process pending requests for this chat
       if (data.status !== "pending") continue;
       if (String(data.chat_id) !== String(chatId)) continue;
+      // If user_id is recorded in the drop file, ensure it matches the current user
+      if (data.user_id && userId && String(data.user_id) !== String(userId)) continue;
 
       const filePath: string = data.file_path || "";
       const caption: string | undefined = data.caption || undefined;
+      const asDocument: boolean = data.as_document === true;
 
       if (!filePath) {
         try { unlinkSync(filepath); } catch { /* ignore */ }
@@ -118,7 +122,9 @@ export async function checkPendingSendFileRequests(
         const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
         const inputFile = new InputFile(filePath);
 
-        if (VIDEO_EXTENSIONS.has(ext)) {
+        if (asDocument) {
+          await ctx.replyWithDocument(inputFile, { caption });
+        } else if (VIDEO_EXTENSIONS.has(ext)) {
           await ctx.replyWithVideo(inputFile, { caption });
         } else if (PHOTO_EXTENSIONS.has(ext)) {
           await ctx.replyWithPhoto(inputFile, { caption });

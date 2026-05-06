@@ -6,7 +6,7 @@
 
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
-import { getSession } from "../session";
+import { getSession } from "../session-registry";
 import { ALLOWED_USERS } from "../config";
 import { isAuthorized } from "../security";
 import { auditLog, startTypingIndicator } from "../utils";
@@ -37,6 +37,12 @@ export async function handleCallback(ctx: Context): Promise<void> {
   // 2. Handle resume callbacks: resume:{session_id}
   if (callbackData.startsWith("resume:")) {
     await handleResumeCallback(ctx, callbackData);
+    return;
+  }
+
+  // 2b. Task confirmation callbacks
+  if (callbackData.startsWith("task_confirm:")) {
+    await handleTaskConfirmCallback(ctx, callbackData);
     return;
   }
 
@@ -151,6 +157,64 @@ export async function handleCallback(ctx: Context): Promise<void> {
     }
   } finally {
     typing.stop();
+  }
+}
+
+/**
+ * Handle task confirmation callback (task_confirm:{task_id}:{action}).
+ */
+async function handleTaskConfirmCallback(
+  ctx: Context,
+  callbackData: string
+): Promise<void> {
+  const parts = callbackData.split(":");
+  if (parts.length !== 3) {
+    await ctx.answerCallbackQuery({ text: "Неверный формат" });
+    return;
+  }
+
+  const taskId = parts[1]!;
+  const action = parts[2]!; // "accept" or "reject"
+
+  const { loadPendingTask, saveTaskToVault, deletePendingTask } = await import(
+    "../tasks"
+  );
+  const task = loadPendingTask(taskId);
+
+  if (!task) {
+    await ctx.answerCallbackQuery({ text: "Задача не найдена или устарела" });
+    return;
+  }
+
+  // Auth check BEFORE mutation
+  if (action === "accept" && ctx.from?.id !== task.assignedTo) {
+    await ctx.answerCallbackQuery({ text: "Это не твоя задача 😊" });
+    return; // do NOT delete
+  }
+  if (action === "reject" && ctx.from?.id !== task.assignedTo && ctx.from?.id !== task.assignedBy) {
+    await ctx.answerCallbackQuery({ text: "Только адресат или автор могут отклонить" });
+    return; // do NOT delete
+  }
+
+  deletePendingTask(taskId); // only after auth passed
+
+  if (action === "accept") {
+    try {
+      saveTaskToVault(task);
+    } catch (e) {
+      await ctx.answerCallbackQuery({ text: "Ошибка записи задачи, попробуй позже" });
+      try { await ctx.editMessageText(`❌ Ошибка при сохранении задачи.`); } catch {}
+      return;
+    }
+    try {
+      await ctx.editMessageText(`✅ Задача принята и записана в vault!`);
+    } catch {}
+    await ctx.answerCallbackQuery({ text: "Задача принята!" });
+  } else {
+    try {
+      await ctx.editMessageText(`❌ Задача отклонена.`);
+    } catch {}
+    await ctx.answerCallbackQuery({ text: "Задача отклонена." });
   }
 }
 

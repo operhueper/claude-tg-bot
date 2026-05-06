@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import type { GoalsFile, Goal, Achievement, GoalStatus, GoalType } from "./types";
 import { goalsFilePath, ensureMemoryStructure } from "./paths";
+import { GraphStore } from "./graph";
 
 function ulid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
@@ -40,6 +41,31 @@ export class GoalsStore {
       ...partial,
     };
     g.goals[goal.id] = goal;
+
+    // Sync to memory graph so the goal is discoverable via graph queries
+    if (this.userId !== undefined) {
+      try {
+        const graphStore = new GraphStore(this.workingDir, this.userId);
+        const graph = graphStore.load();
+        graphStore.upsertNode(graph, {
+          type: "goal",
+          label: goal.title,
+          data: {
+            goalId: goal.id,
+            goalType: goal.type,
+            status: goal.status,
+            deadline: goal.deadline,
+            description: goal.description,
+          },
+          tags: ["goal", goal.type],
+          importance: 0.8,
+        });
+        graphStore.save(graph);
+      } catch (err) {
+        console.warn("[goals] Failed to sync goal to memory graph:", err);
+      }
+    }
+
     return goal;
   }
 

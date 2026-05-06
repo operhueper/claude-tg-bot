@@ -9,7 +9,6 @@
 import {
   query,
   type Options,
-  type SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { readFileSync } from "fs";
 import * as fs from "fs";
@@ -23,10 +22,11 @@ import {
   TEMP_PATHS,
   THINKING_DEEP_KEYWORDS,
   THINKING_KEYWORDS,
-  getUserProfile,
   type UserProfile,
+  isNewGuest,
+  getNewGuestOpenRouterKey,
 } from "./config";
-import { formatToolStatus } from "./formatting";
+import { formatToolStatus, escapeHtml } from "./formatting";
 import {
   checkPendingAskUserRequests,
   checkPendingSendFileRequests,
@@ -36,7 +36,7 @@ import { GraphStore } from "./memory/graph";
 import { GoalsStore } from "./memory/goals";
 import { analyzeSession } from "./memory/analyzer";
 import { buildMemoryContext } from "./memory/inject";
-import { summaryFile } from "./memory/paths";
+import { summaryFile, rebuildTopicsIndex } from "./memory/paths";
 import { heuristicTopicCheck, llmTopicCheck } from "./memory/topic-detector";
 import { checkCommandSafety, isPathAllowedFor } from "./security";
 import type {
@@ -45,6 +45,12 @@ import type {
   StatusCallback,
   TokenUsage,
 } from "./types";
+import {
+  queryOpenRouter,
+  buildMultipartContent,
+  type OpenRouterMessage,
+} from "./engines/openrouter";
+import { persistUserActivity } from "./session-registry";
 
 /**
  * Determine thinking token budget based on message keywords.
@@ -76,6 +82,8 @@ export class ClaudeSession {
   lastUsage: TokenUsage | null = null;
   lastMessage: string | null = null;
   conversationTitle: string | null = null;
+
+  pendingContextMessages: string[] = [];
 
   private abortController: AbortController | null = null;
   private isQueryRunning = false;
@@ -120,16 +128,56 @@ export class ClaudeSession {
     };
   }
 
+  addPendingContext(msg: string): void {
+    this.pendingContextMessages.push(msg);
+  }
+
+  consumePendingContext(): string | null {
+    if (this.pendingContextMessages.length === 0) return null;
+    const combined = this.pendingContextMessages.join("\n\n");
+    this.pendingContextMessages = [];
+    return `[Дополнительный контекст от пользователя во время генерации предыдущего ответа]\n\n${combined}`;
+  }
+
+  /**
+   * Build a conversation history payload for OpenRouter from the local
+   * transcript recorder. Falls back to just the current message if no
+   * transcript is available. Used by the new-guest OpenRouter branch.
+   */
+  private buildConversationHistory(
+    currentMessage: string,
+    mediaHint?: boolean
+  ): OpenRouterMessage[] {
+    const HISTORY_LIMIT = 12; // last N turns (~6 user/assistant pairs)
+    const history: OpenRouterMessage[] = [];
+    if (this.transcriptRecorder) {
+      const turns = this.transcriptRecorder.getRecentTurns(HISTORY_LIMIT);
+      for (const t of turns) {
+        history.push({ role: t.role, content: t.content });
+      }
+    }
+    // If this is a photo message, convert the last user message to multipart content
+    const content = mediaHint
+      ? buildMultipartContent(currentMessage)
+      : currentMessage;
+    history.push({ role: "user", content });
+    return history;
+  }
+
   async stop(): Promise<"stopped" | "pending" | false> {
     if (this.isQueryRunning && this.abortController) {
       this.stopRequested = true;
       this.abortController.abort();
-      console.log(`[${this.profile.label}] Stop requested - aborting current query`);
+      console.log(
+        `[${this.profile.label}] Stop requested - aborting current query`
+      );
       return "stopped";
     }
     if (this._isProcessing) {
       this.stopRequested = true;
-      console.log(`[${this.profile.label}] Stop requested - will cancel before query starts`);
+      console.log(
+        `[${this.profile.label}] Stop requested - will cancel before query starts`
+      );
       return "pending";
     }
     return false;
@@ -141,10 +189,17 @@ export class ClaudeSession {
     userId: number,
     statusCallback: StatusCallback,
     chatId?: number,
-    ctx?: Context
+    ctx?: Context,
+    mediaHint?: boolean
   ): Promise<string> {
+    // Track activity for restart notifications
     if (chatId) {
-      process.env.TELEGRAM_CHAT_ID = String(chatId);
+      persistUserActivity(userId, chatId);
+    }
+
+    // Deliver any files that were queued but not sent in a previous session
+    if (ctx && chatId) {
+      await checkPendingSendFileRequests(ctx, chatId);
     }
 
     const isNewSession = !this.isActive;
@@ -156,18 +211,17 @@ export class ClaudeSession {
     let messageToSend = message;
     if (isNewSession) {
       const now = new Date();
-      const datePrefix = `[Current date/time: ${now.toLocaleDateString(
-        "en-US",
-        {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZoneName: "short",
-        }
-      )}]\n\n`;
+      const tz = this.profile.timezone || "UTC";
+      const datePrefix = `[Current date/time: ${now.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZoneName: "short",
+        timeZone: tz,
+      })}]\n\n`;
       messageToSend = datePrefix + message;
     }
 
@@ -177,18 +231,32 @@ export class ClaudeSession {
       try {
         // 1. Prepend static profile.md if it exists
         const profileMdPath = path.join(
-          this.profile.workingDir, "memory", String(this.profile.userId), "profile.md"
+          this.profile.workingDir,
+          "memory",
+          String(this.profile.userId),
+          "profile.md"
         );
         if (fs.existsSync(profileMdPath)) {
-          const profileContent = fs.readFileSync(profileMdPath, "utf8").trim();
+          const profileContent = fs
+            .readFileSync(profileMdPath, "utf8")
+            .trim();
           if (profileContent) {
-            systemPromptWithMemory = (this.profile.systemPrompt || "") + "\n\n" + profileContent;
+            systemPromptWithMemory =
+              (this.profile.systemPrompt || "") +
+              "\n\n" +
+              profileContent;
           }
         }
 
         // 2. Append dynamic graph/goals context
-        const graphStore = new GraphStore(this.profile.workingDir, this.profile.userId);
-        const goalsStore = new GoalsStore(this.profile.workingDir, this.profile.userId);
+        const graphStore = new GraphStore(
+          this.profile.workingDir,
+          this.profile.userId
+        );
+        const goalsStore = new GoalsStore(
+          this.profile.workingDir,
+          this.profile.userId
+        );
         const graph = graphStore.load();
         const goals = goalsStore.load();
         const memCtx = buildMemoryContext(graph, goals, {
@@ -197,13 +265,87 @@ export class ClaudeSession {
           queryHint: message,
         });
         if (memCtx.appendText) {
-          systemPromptWithMemory = systemPromptWithMemory + "\n\n" + memCtx.appendText;
+          systemPromptWithMemory =
+            systemPromptWithMemory + "\n\n" + memCtx.appendText;
         }
       } catch (err) {
-        console.warn(`[${this.profile.label}] Memory context load failed (non-fatal):`, err);
+        console.warn(
+          `[${this.profile.label}] Memory context load failed (non-fatal):`,
+          err
+        );
       }
     }
 
+    // ============== New guest users: route via DeepSeek (or OpenRouter for vision) ==============
+    if (isNewGuest(this.profile.userId)) {
+      const deepseekKey = this.profile.deepseekApiKey;
+
+      if (deepseekKey && !mediaHint) {
+        // Text messages: use DeepSeek via Anthropic-compatible API with native Claude CLI tools
+        console.log(
+          `[${this.profile.label}] Using DeepSeek via Claude CLI (native tools)`
+        );
+        // Falls through to the standard query() path below with DeepSeek env injected
+      } else if (!deepseekKey) {
+        // No DeepSeek key — fall back to OpenRouter
+        const openrouterKey = getNewGuestOpenRouterKey(this.profile.userId);
+        if (!openrouterKey) {
+          const errMsg =
+            "⚠️ API ключ не найден. Обратись к Евгению — он настроит доступ.";
+          await statusCallback("segment_end", errMsg, 0);
+          await statusCallback("done", "");
+          return errMsg;
+        }
+        // Use OpenRouter for vision fallback
+        const msgs = this.buildConversationHistory(messageToSend, mediaHint);
+        const response = await queryOpenRouter(
+          msgs,
+          this.profile.visionModel || "google/gemini-2.5-flash",
+          openrouterKey,
+          systemPromptWithMemory,
+          statusCallback,
+          null,
+          this.profile,
+          chatId
+        );
+        await statusCallback("segment_end", response, 0);
+        await statusCallback("done", "");
+        this.lastActivity = new Date();
+        return response || "Нет ответа от модели.";
+      } else if (mediaHint) {
+        // Photo/media: DeepSeek doesn't support vision → use OpenRouter Gemini
+        console.log(
+          `[${this.profile.label}] Vision request — routing to OpenRouter Gemini`
+        );
+        const openrouterKey = getNewGuestOpenRouterKey(this.profile.userId);
+        if (!openrouterKey) {
+          const errMsg =
+            "⚠️ OpenRouter ключ не найден для обработки изображений.";
+          await statusCallback("segment_end", errMsg, 0);
+          await statusCallback("done", "");
+          return errMsg;
+        }
+        const msgs = this.buildConversationHistory(messageToSend, mediaHint);
+        const response = await queryOpenRouter(
+          msgs,
+          this.profile.visionModel || "google/gemini-2.5-flash",
+          openrouterKey,
+          systemPromptWithMemory,
+          statusCallback,
+          null,
+          this.profile,
+          chatId
+        );
+        await statusCallback("segment_end", response, 0);
+        await statusCallback("done", "");
+        this.lastActivity = new Date();
+        return response || "Нет ответа от модели.";
+      }
+      // DeepSeek text path: falls through to standard query() below
+    }
+    // ============== End new guest routing ==============
+
+    // Build options for Claude CLI query (owner + new guests with DeepSeek key)
     const options: Options = {
       model: this.profile.model,
       cwd: this.profile.workingDir,
@@ -214,6 +356,23 @@ export class ClaudeSession {
       additionalDirectories: this.profile.allowedPaths,
       resume: this.sessionId || undefined,
     };
+
+    // Inject DeepSeek API credentials so Claude CLI routes all LLM calls
+    // (including Task-tool subagents) to DeepSeek's Anthropic-compatible endpoint.
+    if (this.profile.deepseekEnv) {
+      options.env = this.profile.deepseekEnv;
+      console.log(`[${this.profile.label}] DeepSeek env injected`);
+    }
+
+    // Pass TELEGRAM_CHAT_ID and TELEGRAM_USER_ID per-query via subprocess env (NOT global process.env)
+    // to avoid race conditions when multiple users run sessions concurrently.
+    if (chatId) {
+      options.env = {
+        ...(options.env ?? {}),
+        TELEGRAM_CHAT_ID: String(chatId),
+        TELEGRAM_USER_ID: String(this.profile.userId),
+      };
+    }
 
     if (process.env.CLAUDE_CODE_PATH) {
       options.pathToClaudeCodeExecutable = process.env.CLAUDE_CODE_PATH;
@@ -273,7 +432,10 @@ export class ClaudeSession {
         if (!this.sessionId && event.session_id) {
           this.sessionId = event.session_id;
           console.log(
-            `[${this.profile.label}] GOT session_id: ${this.sessionId!.slice(0, 8)}...`
+            `[${this.profile.label}] GOT session_id: ${this.sessionId!.slice(
+              0,
+              8
+            )}...`
           );
           this.saveSession();
           // Initialize transcript recorder (for both new and resumed sessions)
@@ -284,7 +446,10 @@ export class ClaudeSession {
               this.profile.userId
             );
           } catch (err) {
-            console.warn(`[${this.profile.label}] TranscriptRecorder init failed (non-fatal):`, err);
+            console.warn(
+              `[${this.profile.label}] TranscriptRecorder init failed (non-fatal):`,
+              err
+            );
           }
         }
 
@@ -294,7 +459,10 @@ export class ClaudeSession {
               const thinkingText = block.thinking;
               if (thinkingText) {
                 console.log(
-                  `[${this.profile.label}] THINKING BLOCK: ${thinkingText.slice(0, 100)}...`
+                  `[${this.profile.label}] THINKING BLOCK: ${thinkingText.slice(
+                    0,
+                    100
+                  )}...`
                 );
                 if (SHOW_THINKING) {
                   await statusCallback("thinking", thinkingText);
@@ -314,8 +482,13 @@ export class ClaudeSession {
                   this.profile.allowedPaths
                 );
                 if (!isSafe) {
-                  console.warn(`[${this.profile.label}] BLOCKED: ${reason}`);
-                  await statusCallback("tool", `BLOCKED: ${reason}`);
+                  console.warn(
+                    `[${this.profile.label}] BLOCKED: ${reason}`
+                  );
+                  await statusCallback(
+                    "tool",
+                    `BLOCKED: ${escapeHtml(reason)}`
+                  );
                   throw new Error(`Unsafe command blocked: ${reason}`);
                 }
               }
@@ -328,7 +501,8 @@ export class ClaudeSession {
                     toolName === "Read" &&
                     (TEMP_PATHS.some((p) => filePath.startsWith(p)) ||
                       // Owner can still read .claude; guests cannot.
-                      (this.profile.isOwner && filePath.includes("/.claude/")));
+                      (this.profile.isOwner &&
+                        filePath.includes("/.claude/")));
 
                   if (
                     !isTmpRead &&
@@ -337,7 +511,10 @@ export class ClaudeSession {
                     console.warn(
                       `[${this.profile.label}] BLOCKED: File access outside allowed paths: ${filePath}`
                     );
-                    await statusCallback("tool", `Access denied: ${filePath}`);
+                    await statusCallback(
+                      "tool",
+                      `Access denied: ${escapeHtml(filePath)}`
+                    );
                     throw new Error(`File access blocked: ${filePath}`);
                   }
                 }
@@ -379,18 +556,30 @@ export class ClaudeSession {
                     break;
                   }
                   if (attempt < 2) {
-                    await new Promise((resolve) => setTimeout(resolve, 100));
+                    await new Promise((resolve) =>
+                      setTimeout(resolve, 100)
+                    );
                   }
                 }
               }
 
-              if (toolName.startsWith("mcp__send-file") && ctx && chatId) {
+              if (
+                toolName.startsWith("mcp__send-file") &&
+                ctx &&
+                chatId
+              ) {
                 await new Promise((resolve) => setTimeout(resolve, 200));
                 for (let attempt = 0; attempt < 3; attempt++) {
-                  const sent = await checkPendingSendFileRequests(ctx, chatId);
+                  const sent = await checkPendingSendFileRequests(
+                    ctx,
+                    chatId,
+                    this.profile.userId
+                  );
                   if (sent) break;
                   if (attempt < 2) {
-                    await new Promise((resolve) => setTimeout(resolve, 100));
+                    await new Promise((resolve) =>
+                      setTimeout(resolve, 100)
+                    );
                   }
                 }
               }
@@ -428,7 +617,9 @@ export class ClaudeSession {
             this.lastUsage = event.usage as TokenUsage;
             const u = this.lastUsage;
             console.log(
-              `[${this.profile.label}] Usage: in=${u.input_tokens} out=${u.output_tokens} cache_read=${
+              `[${this.profile.label}] Usage: in=${u.input_tokens} out=${
+                u.output_tokens
+              } cache_read=${
                 u.cache_read_input_tokens || 0
               } cache_create=${u.cache_creation_input_tokens || 0}`
             );
@@ -474,7 +665,11 @@ export class ClaudeSession {
     }
 
     if (currentSegmentText) {
-      await statusCallback("segment_end", currentSegmentText, currentSegmentId);
+      await statusCallback(
+        "segment_end",
+        currentSegmentText,
+        currentSegmentId
+      );
     }
 
     await statusCallback("done", "");
@@ -483,7 +678,10 @@ export class ClaudeSession {
     const fullResponse = responseParts.join("");
     if (this.transcriptRecorder && fullResponse) {
       this.transcriptRecorder.appendUser(message);
-      this.transcriptRecorder.appendAssistant(fullResponse, toolsInSession.length > 0 ? toolsInSession : undefined);
+      this.transcriptRecorder.appendAssistant(
+        fullResponse,
+        toolsInSession.length > 0 ? toolsInSession : undefined
+      );
 
       // Incremental background analysis every 6 turns (6, 12, 18, ...)
       const turns = this.transcriptRecorder.turnCount;
@@ -491,12 +689,28 @@ export class ClaudeSession {
         const snapshot = this.transcriptRecorder.snapshot();
         const profile = this.profile;
         runBackgroundAnalysis(snapshot, profile).catch((e) =>
-          console.warn(`[${profile.label}] Incremental background analysis failed:`, e)
+          console.warn(
+            `[${profile.label}] Incremental background analysis failed:`,
+            e
+          )
         );
       }
     }
 
     return fullResponse || "No response from Claude.";
+  }
+
+  /**
+   * Force background memory analysis now, regardless of turn count.
+   * Called before /new so memory is saved even for short sessions.
+   */
+  async forceMemoryFlush(): Promise<void> {
+    if (!this.transcriptRecorder) return;
+    const transcript = this.transcriptRecorder.snapshot();
+    if (transcript.turns.length < 2) return;
+    runBackgroundAnalysis(transcript, this.profile).catch((e) =>
+      console.warn(`[${this.profile.label}] forceMemoryFlush failed:`, e)
+    );
   }
 
   async kill(): Promise<void> {
@@ -541,9 +755,13 @@ export class ClaudeSession {
       history.sessions = history.sessions.slice(0, MAX_SESSIONS);
 
       Bun.write(this.profile.sessionFile, JSON.stringify(history, null, 2));
-      console.log(`[${this.profile.label}] Session saved to ${this.profile.sessionFile}`);
+      console.log(
+        `[${this.profile.label}] Session saved to ${this.profile.sessionFile}`
+      );
     } catch (error) {
-      console.warn(`[${this.profile.label}] Failed to save session: ${error}`);
+      console.warn(
+        `[${this.profile.label}] Failed to save session: ${error}`
+      );
     }
   }
 
@@ -593,7 +811,10 @@ export class ClaudeSession {
     this.lastActivity = new Date();
 
     console.log(
-      `[${this.profile.label}] Resumed session ${sessionData.session_id.slice(0, 8)}... - "${sessionData.title}"`
+      `[${this.profile.label}] Resumed session ${sessionData.session_id.slice(
+        0,
+        8
+      )}... - "${sessionData.title}"`
     );
 
     return [true, `Ripresa sessione: "${sessionData.title}"`];
@@ -621,15 +842,19 @@ export class ClaudeSession {
     if (heuristic.changed) return true;
     if (!heuristic.reason.startsWith("maybe-")) return false;
 
-    // Ambiguous — ask Haiku
+    // Ambiguous — ask lightweight model (Haiku for owner, DeepSeek-chat for guests)
     try {
       const llm = await llmTopicCheck(recentTurns, message, {
-        model: "claude-haiku-4-5",
+        model: this.profile.lightModel ?? "claude-haiku-4-5",
         cwd: this.profile.workingDir,
+        env: this.profile.deepseekEnv,
       });
       return llm.changed;
     } catch (err) {
-      console.warn(`[${this.profile.label}] checkTopicChange LLM failed:`, err);
+      console.warn(
+        `[${this.profile.label}] checkTopicChange LLM failed:`,
+        err
+      );
       return false;
     }
   }
@@ -647,8 +872,9 @@ async function runBackgroundAnalysis(
   const graph = store.load();
 
   const result = await analyzeSession(transcript, graph, {
-    model: "claude-haiku-4-5",
+    model: profile.lightModel ?? "claude-haiku-4-5",
     cwd: profile.workingDir,
+    env: profile.deepseekEnv,
   });
 
   store.applyAnalysisPatch(graph, result.patch, transcript.session_id);
@@ -658,26 +884,11 @@ async function runBackgroundAnalysis(
   const outFile = summaryFile(profile.workingDir, new Date(), profile.userId);
   fs.writeFileSync(outFile, result.summary_md, "utf8");
 
+  // Rebuild topics index so Claude can find sessions by topic
+  rebuildTopicsIndex(profile.workingDir, profile.userId);
+
   console.log(
     `[${profile.label}] Memory analysis complete — ` +
-    `${result.patch.upsert_nodes.length} nodes, summary saved to ${outFile}`
+      `${result.patch.upsert_nodes.length} nodes, summary saved to ${outFile}`
   );
-}
-
-// ============== Per-user session registry ==============
-
-const sessions = new Map<number, ClaudeSession>();
-
-export function getSession(userId: number): ClaudeSession {
-  let s = sessions.get(userId);
-  if (!s) {
-    const profile = getUserProfile(userId);
-    s = new ClaudeSession(profile);
-    sessions.set(userId, s);
-  }
-  return s;
-}
-
-export function getAllSessions(): ClaudeSession[] {
-  return Array.from(sessions.values());
 }

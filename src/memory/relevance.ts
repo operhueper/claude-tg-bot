@@ -51,9 +51,13 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 }
 
 /**
- * Score a node against a query, combining:
- * - keyword match on label + tags + data values
- * - base score from importance + recency + mention count
+ * Score a node against a query using a 4-tier dominance hierarchy:
+ *   Tier 1: exact label match   (score up to 1.0)
+ *   Tier 2: partial label hits  (fraction of query tokens found in label)
+ *   Tier 3: Jaccard on label tokens
+ *   Tier 4: exact tag match, tag Jaccard, data field match
+ *
+ * Combined with base score (importance + recency + mention count).
  */
 function scoreNode(node: MemoryNode, queryTokens: Set<string>, now: number): number {
   // Base score: importance (0.5) + recency decay (0.3) + log-mentions (0.2)
@@ -65,41 +69,61 @@ function scoreNode(node: MemoryNode, queryTokens: Set<string>, now: number): num
 
   if (queryTokens.size === 0) return baseScore;
 
-  // Keyword match score
-  const labelTokens = tokenize(node.label);
-  const labelMatch = jaccard(queryTokens, labelTokens);
-
-  // Tag match
-  const tagTokens = new Set<string>();
-  for (const tag of node.tags) {
-    for (const t of tokenize(tag)) tagTokens.add(t);
-  }
-  const tagMatch = tagTokens.size > 0 ? jaccard(queryTokens, tagTokens) : 0;
-
-  // Data value match (check string values in data object)
-  let dataMatch = 0;
-  const dataText = Object.values(node.data)
-    .filter(v => typeof v === "string")
-    .join(" ");
-  if (dataText) {
-    const dataTokens = tokenize(dataText);
-    dataMatch = jaccard(queryTokens, dataTokens) * 0.5; // lower weight
-  }
-
-  // Exact partial match bonus: if any query token appears in the label
-  let partialBonus = 0;
   const labelLower = node.label.toLowerCase();
+  const labelTokens = tokenize(node.label);
+
+  // Tier 1 — exact label match
+  // Single-token label: query contains it exactly → 1.0
+  // Multi-token label: all label words present in query → 0.9
+  const singleExact = queryTokens.has(labelLower);
+  const allWordsInQuery = labelLower.split(/\s+/).filter(w => w.length > 1).every(w => queryTokens.has(w));
+  const exactLabelMatch = singleExact ? 1.0 : (allWordsInQuery && labelLower.length > 2 ? 0.9 : 0);
+
+  // Tier 2 — partial label containment: fraction of query tokens that appear inside the label string
+  let labelHits = 0;
   for (const t of queryTokens) {
-    if (labelLower.includes(t)) {
-      partialBonus = 0.2;
+    if (labelLower.includes(t)) labelHits++;
+  }
+  const partialLabelScore = labelHits / queryTokens.size;
+
+  // Tier 3 — Jaccard on tokenised label (catches morphological overlap)
+  const labelJaccard = jaccard(queryTokens, labelTokens);
+
+  // Combine label tiers: exactLabelMatch dominates
+  const labelScore = Math.max(exactLabelMatch, partialLabelScore * 0.75, labelJaccard * 0.6);
+
+  // Tier 4a — exact tag match: a query token equals a whole tag
+  let exactTagMatch = 0;
+  for (const tag of node.tags) {
+    if (queryTokens.has(tag.toLowerCase().trim())) {
+      exactTagMatch = 0.5;
       break;
     }
   }
 
-  const keywordScore = Math.min(labelMatch * 0.7 + tagMatch * 0.2 + dataMatch + partialBonus, 1.0);
+  // Tier 4b — partial tag overlap via Jaccard
+  const tagTokens = new Set<string>();
+  for (const tag of node.tags) {
+    for (const t of tokenize(tag)) tagTokens.add(t);
+  }
+  const tagJaccard = tagTokens.size > 0 ? jaccard(queryTokens, tagTokens) * 0.3 : 0;
 
-  // Combine: if query provided, keyword match boosts score significantly
-  return baseScore * 0.4 + keywordScore * 0.6;
+  const tagScore = Math.max(exactTagMatch, tagJaccard);
+
+  // Tier 4c — data field match (lowest weight, still useful for infra/runbook nodes)
+  let dataScore = 0;
+  const dataText = Object.values(node.data)
+    .filter(v => typeof v === "string")
+    .join(" ");
+  if (dataText) {
+    dataScore = jaccard(queryTokens, tokenize(dataText)) * 0.25;
+  }
+
+  // Final keyword score: label dominates (65%), then tags (25%), then data (10%)
+  const keywordScore = Math.min(labelScore * 0.65 + tagScore * 0.25 + dataScore * 0.10, 1.0);
+
+  // Combine: keyword weighted slightly higher when query is present
+  return baseScore * 0.35 + keywordScore * 0.65;
 }
 
 /**
