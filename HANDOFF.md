@@ -4,6 +4,48 @@
 
 ---
 
+### Сессия 2026-05-06 (вечер) — заказ proboi-bot, bootstrap, TLS, Open Design
+
+**Новый сервер:** `proboi-bot` (Hetzner cx33 в Helsinki, **89.167.125.175**, IPv6 `2a01:4f9:c012:b2a5::1`). SSH-ключ только `jinru-deploy`. Лейблы env=production, project=proboi-bot. Цена €7.99/мес.
+
+**Сделано:**
+1. DNS на TimeWeb: A/AAAA для `proboi.site`, `www.`, `dash.`, `design.` → новый IP. Распространилось.
+2. `scripts/bootstrap-proboi.sh` отработал на сервере (apt, swap 4ГБ, docker 29.4.2, bun 1.3.13, **node 24.15.0**, pnpm 10.33.2, nginx, certbot 2.9.0, ufw, fail2ban, hardening). Установлены пакеты, создан /opt/vault, /var/www/u, /var/www/proboi, /var/log/claude-tg-bot.
+3. nginx-конфиги: `scripts/nginx/sites-available/{proboi,dash.proboi,design.proboi}.site.conf` (HTTP→HTTPS redirect + полный HTTPS-блок с location'ами /dashboard, /api, /u/, /healthz).
+4. `scripts/nginx/issue-certs.sh` отработал — Let's Encrypt cert на 4 хоста (`proboi.site` + 3 поддомена), issuer "Let's Encrypt E7", expires 2026-08-04. Ключевая правка: исходно использовали self-signed bootstrap в `live/proboi.site/`, certbot путался; пересобрали через `certbot certonly --standalone --cert-name proboi.site` (предварительно остановив nginx).
+5. Landing-заглушка `/var/www/proboi/index.html` — `https://proboi.site/` отдаёт 200 OK с HSTS.
+6. Open Design развёрнут: `scripts/deploy-open-design.sh` склонировал `github.com/nexu-io/open-design` (public, branch main), pnpm install, systemd unit `open-design.service` (active enabled), слушает 127.0.0.1:17573 и :17456. `https://design.proboi.site/` → 200.
+7. rsync репы бота на /opt/claude-tg-bot/ (25 МБ, без node_modules/.git/.env/mcp-config.ts/metering.sqlite).
+
+**Не сделано (на момент паузы):**
+- env+mcp-config с jinru на новый сервер с подменой токена на тестовый (8678975502:... — выдан владельцем для параллельного тестирования)
+- bun install на новом сервере
+- musl→glibc swap бинаря Claude CLI (см. CLAUDE.md → Production Deployment)
+- systemd unit для тестового бота (имя `claude-tg-bot.service` — не конфликтует с jinru, разные машины)
+- Запуск + дымовой тест в @testbot
+
+**Тестовый бот живой:** `@ORCH7_bot` запущен на `89.167.125.175`, systemd unit `claude-tg-bot.service` active enabled. `TELEGRAM_ALLOWED_USERS=292228713,5615267984` (только owner + один тестер). Dashboard доступен на `https://dash.proboi.site/` (proxy 3848 ← nginx, проверен 200 OK).
+
+**SANDBOX ADMIN промпт-фикс:** бот галлюцинировал «не могу писать вне workspace» и предлагал «отправь /restart, чтобы я мог». Починено:
+  - `src/config.ts` `buildOwnerSafetyPrompt()` — добавлен блок SANDBOX ADMIN в конце: owner — полный root, `/opt/claude-tg-bot/` — его песочница, `.env`/`mcp-config.ts`/`src/**`/`system/users.json`/`/root/.claude/**` редактировать напрямую, никогда не предлагать /restart как обходной путь для задач, которые можно сделать прямо сейчас.
+  - `workspace/CLAUDE.md` — секция `## Ты на сервере jinru` заменена на `## Хост и админ-операции` (детект хоста через `hostname`, явно: полный root, не привязано к jinru).
+
+**users.json — реальный путь:** `/opt/claude-tg-bot/system/users.json` (не в корне репы и не в /root — проверено `find /opt/claude-tg-bot -name users.json` на новом сервере).
+
+**SDK 0.1.76 на новом сервере — нет musl/glibc-ловушки:** SDK 0.1.76 использует bundled `cli.js` (Node.js), а не нативный бинарь. Swap `/root/.local/share/claude/...` → `node_modules/.../claude` не нужен на proboi-bot. Ловушка остаётся только на jinru (SDK старой версии с нативным бинарём) — не повторять `bun install` на jinru без последующего свапа бинаря.
+
+**Артефакты в репе:** `scripts/bootstrap-proboi.sh`, `scripts/nginx/{sites-available/*,snippets/*,issue-certs.sh}`, `scripts/migrate-jinru-to-proboi.sh` (для финальной миграции), `scripts/deploy-open-design.sh`.
+
+**Не сделано (после паузы сессии):**
+- `/var/www/u/{userId}/` — публичные папки пользователей (nginx уже роутит `/u/`, но каталоги не созданы, квота не реализована, индикатор на дашборде отсутствует).
+- Миграция vault'ов гостей с jinru на proboi-bot (файлы `/opt/vault/`).
+- Prod-миграция: stop jinru бота → `migrate-jinru-to-proboi.sh` → swap `TELEGRAM_BOT_TOKEN` на боевой → рестарт → retire jinru bot.
+- Дымовой тест `@ORCH7_bot` end-to-end (чтение `.env`, редактирование файла, проверка SANDBOX ADMIN на практике).
+- URL команды `/dashboard` в `src/handlers/commands.ts:400` всё ещё ведёт на `ksenyaenbom.ru/dashboard` — обновить на `https://proboi.site/dashboard`.
+- AAAA-записи DNS — проверить, что IPv6 `2a01:4f9:c012:b2a5::1` отвечает нормально (TLS по IPv6 не тестировался).
+
+---
+
 ### Сессия 2026-05-06 (вторая половина дня) — анти-галлюцинация, отключение WebSearch у гостей, обновление токена Hetzner
 
 **Что обнаружено:** бот дважды галлюцинировал причины отказа инструментов.
