@@ -7,7 +7,7 @@
 
 import type { Context } from "grammy";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR } from "../config";
+import { ALLOWED_USERS, TEMP_DIR, getUserProfile } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, replyFriendly, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -66,9 +66,25 @@ const documentBuffer = createMediaGroupBuffer({
 });
 
 /**
+ * Pick the directory to drop incoming files into.
+ *
+ * Container-enabled guests: inside their vault (`/opt/vault/{userId}/inbox/`)
+ * — vault is same-path bind-mounted, so the file is visible at the identical
+ * absolute path inside the sandbox. Otherwise (owner, or guest without
+ * container): legacy host TEMP_DIR.
+ */
+function inboxDirFor(userId: number): string {
+  const profile = getUserProfile(userId);
+  if (profile.containerEnabled && !profile.isOwner) {
+    return `${profile.workingDir}/inbox`;
+  }
+  return TEMP_DIR;
+}
+
+/**
  * Download a document and return the local path.
  */
-async function downloadDocument(ctx: Context): Promise<string> {
+async function downloadDocument(ctx: Context, userId: number): Promise<string> {
   const doc = ctx.message?.document;
   if (!doc) {
     throw new Error("No document in message");
@@ -79,7 +95,7 @@ async function downloadDocument(ctx: Context): Promise<string> {
 
   // Sanitize filename
   const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const docPath = `${TEMP_DIR}/${safeName}`;
+  const docPath = `${inboxDirFor(userId)}/${safeName}`;
 
   // Download
   const response = await fetch(
@@ -549,7 +565,7 @@ export async function handleDocument(ctx: Context): Promise<void> {
     // Download and process as audio
     let docPath: string;
     try {
-      docPath = await downloadDocument(ctx);
+      docPath = await downloadDocument(ctx, userId);
     } catch (error) {
       console.error("Failed to download audio document:", error);
       await ctx.reply("❌ Failed to download audio file.");
@@ -571,7 +587,7 @@ export async function handleDocument(ctx: Context): Promise<void> {
 
     let docPath: string;
     try {
-      docPath = await downloadDocument(ctx);
+      docPath = await downloadDocument(ctx, userId);
     } catch (error) {
       console.error("Failed to download image document:", error);
       await ctx.reply("❌ Failed to download image.");
@@ -588,7 +604,7 @@ export async function handleDocument(ctx: Context): Promise<void> {
   // 4. Download document
   let docPath: string;
   try {
-    docPath = await downloadDocument(ctx);
+    docPath = await downloadDocument(ctx, userId);
   } catch (error) {
     console.error("Failed to download document:", error);
     await ctx.reply("❌ Failed to download document.");
