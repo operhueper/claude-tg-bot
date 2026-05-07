@@ -30,6 +30,10 @@ export function buildRunArgs(profile: UserProfile): string[] {
   const args: string[] = [
     "run",
     "--detach",
+    // tini as PID 1 — reaps zombie children (e.g. QtWebEngineProc spawned
+    // by Calibre). Without --init, sleep infinity ignores SIGCHLD and zombies
+    // pile up forever.
+    "--init",
     "--name",
     containerName(userId),
     "--hostname",
@@ -64,6 +68,24 @@ export function buildRunArgs(profile: UserProfile): string[] {
     args.push("--memory", "512m");
     args.push("--memory-swap", "1024m");
     args.push("--cpus", "1.0");
+
+    // LXCFS: cgroup-aware /proc inside the container. Without these mounts
+    // `free`, `top`, `/proc/meminfo` show the host's memory (e.g. 7.6 GB),
+    // not the cgroup limit (512 MB) — guests then leak host info to users.
+    // Hard requirement: lxcfs must be installed and running on the host
+    // (`apt install lxcfs && systemctl enable --now lxcfs`).
+    const lxcfsFiles = [
+      "cpuinfo",
+      "diskstats",
+      "meminfo",
+      "stat",
+      "swaps",
+      "uptime",
+      "loadavg",
+    ];
+    for (const f of lxcfsFiles) {
+      args.push("-v", `/var/lib/lxcfs/proc/${f}:/proc/${f}:rw`);
+    }
   }
 
   // Image goes last; everything after it is treated as the container CMD.
