@@ -19,6 +19,8 @@ let db: Database;
 try {
   db = new Database(dbPath, { create: true });
   db.exec(`
+    PRAGMA journal_mode=WAL;
+    PRAGMA busy_timeout=5000;
     CREATE TABLE IF NOT EXISTS usage (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL,

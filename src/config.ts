@@ -7,7 +7,7 @@
 
 import { homedir } from "os";
 import { resolve, dirname } from "path";
-import { mkdirSync, existsSync, writeFileSync, readFileSync } from "fs";
+import { mkdirSync, existsSync, writeFileSync, readFileSync, symlinkSync } from "fs";
 import type { McpServerConfig } from "./types";
 import { generateGuestClaudeMd } from "./templates/guest-claude-md";
 import { generateGuestDashboard } from "./templates/guest-dashboard";
@@ -134,6 +134,18 @@ function bootstrapNewGuestDir(userId: number): void {
         `<!DOCTYPE html><html><head><meta charset="utf-8"><title>My page</title></head><body><h1>Hello!</h1><p>This page is at proboi.site/u/${userId}/</p></body></html>\n`
       );
       console.log(`Created ${publicDir}`);
+    }
+
+    // Symlink /var/www/u/{userId} → vault/public so nginx can serve it
+    const webRoot = "/var/www/u";
+    const linkPath = `${webRoot}/${userId}`;
+    if (existsSync(webRoot) && !existsSync(linkPath)) {
+      try {
+        symlinkSync(publicDir, linkPath);
+        console.log(`Created symlink ${linkPath} → ${publicDir}`);
+      } catch (e) {
+        console.warn(`Could not create public symlink for ${userId}: ${e}`);
+      }
     }
 
     // notes/, projects/, areas/ — second-brain structure
@@ -421,6 +433,15 @@ sessions/ — история по темам:
 - WebSearch / WebFetch — поиск в интернете
 - mcp__send-file — отправить файл пользователю в Telegram
 - mcp__pollinations-image — сгенерировать картинку по описанию (бесплатно)
+- Task — запустить параллельного субагента для независимой подзадачи
+
+АГЕНТНАЯ СЕТЬ — когда задача тяжёлая или многошаговая, НЕ делай всё последовательно сам:
+- Собрать данные из нескольких источников → запускай Task для каждого источника параллельно
+- Найти + обработать + оформить → Task на поиск, Task на обработку, сам собираешь итог
+- Скачать несколько файлов/картинок → каждый Task качает свой файл одновременно
+- Сгенерировать несколько изображений → каждый Task вызывает mcp__pollinations-image
+- Task принимает чёткое ТЗ: что найти/сделать, куда сохранить результат (файл в ${vaultDir})
+- После завершения всех Task читай их результаты и собирай финальный ответ
 
 ФОРМАТЫ ФАЙЛОВ — как создавать:
 - Excel (.xlsx) → Bash (python3 + openpyxl) → mcp__send-file

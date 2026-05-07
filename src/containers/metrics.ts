@@ -9,9 +9,12 @@
  * containerExists: false with null for all metric fields.
  */
 
-import { execFileSync } from "child_process";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { existsSync } from "fs";
 import { platform } from "os";
+
+const execFileAsync = promisify(execFile);
 
 import { UserRegistry } from "../user-registry";
 import { containerName } from "./paths";
@@ -37,21 +40,18 @@ export interface ContainerMetrics {
 const EXEC_TIMEOUT_MS = 3_000;
 
 /**
- * Run a command synchronously, returning stdout as a trimmed string.
+ * Run a command asynchronously, returning stdout as a trimmed string.
  * Returns null on any error (timeout, non-zero exit, ENOENT).
  */
-function run(cmd: string, args: string[]): string | null {
+async function run(cmd: string, args: string[]): Promise<string | null> {
   try {
-    const out = execFileSync(cmd, args, {
+    const { stdout } = await execFileAsync(cmd, args, {
       timeout: EXEC_TIMEOUT_MS,
-      stdio: ["ignore", "pipe", "pipe"],
     });
-    return out.toString().trim();
+    return stdout.trim();
   } catch (err) {
     const nodeErr = err as NodeJS.ErrnoException & { stderr?: Buffer | string };
-    // ENOENT = docker binary not installed; suppress entirely
     if (nodeErr.code === "ENOENT") return null;
-    // Docker daemon not running — suppress the noisy stack, just log a short warning
     const stderr =
       nodeErr.stderr instanceof Buffer
         ? nodeErr.stderr.toString()
@@ -145,7 +145,7 @@ export async function getContainerMetrics(
   );
 
   // --- Existence check (docker ps -a) ---
-  const existsOut = run("docker", [
+  const existsOut = await run("docker", [
     "ps",
     "-a",
     "--filter",
@@ -160,7 +160,7 @@ export async function getContainerMetrics(
   if (!base.containerExists) return base;
 
   // --- Running check (docker ps, no -a) ---
-  const runningOut = run("docker", [
+  const runningOut = await run("docker", [
     "ps",
     "--filter",
     `name=^/${name}$`,
@@ -171,7 +171,7 @@ export async function getContainerMetrics(
 
   // --- RAM + CPU via docker stats (only meaningful when running) ---
   if (base.containerRunning) {
-    const statsOut = run("docker", [
+    const statsOut = await run("docker", [
       "stats",
       "--no-stream",
       "--format",
@@ -203,7 +203,7 @@ export async function getContainerMetrics(
       ? ["-sk", vaultPath]
       : ["-sm", "--apparent-size", vaultPath];
 
-    const duOut = run("du", duArgs);
+    const duOut = await run("du", duArgs);
     if (duOut !== null) {
       const firstToken = duOut.split(/\s/)[0] ?? "";
       const raw = parseInt(firstToken, 10);

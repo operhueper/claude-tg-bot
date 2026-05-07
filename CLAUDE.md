@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Начало каждой сессии
+
+Перед любой работой с проектом читать [memory/project_knowledge_graph.md](memory/project_knowledge_graph.md) — там текущее состояние проекта, список задач и что сделано. После выполнения задачи обновлять этот файл и запускать `/graphify graphify-input --update`.
+
 ## Commands
 
 ```bash
