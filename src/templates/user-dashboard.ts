@@ -120,6 +120,24 @@ export function renderDashboard(): string {
     margin-top: 10px;
     line-height: 1.5;
   }
+  .token-headline {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 4px 0 6px;
+  }
+  .token-headline-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
+  }
+  .token-headline-limit {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--hint);
+  }
 
   /* ── PROGRESS BAR ── */
   .res-row {
@@ -309,28 +327,12 @@ export function renderDashboard(): string {
 
     <!-- 2. Карточка токенов -->
     <div class="card" id="card-tokens">
-      <div class="card-title">Сколько ты потратил</div>
-      <div class="token-row">
-        <span class="token-label">Входящих токенов</span>
-        <span class="token-value" id="tok-input"></span>
+      <div class="card-title">Сегодня</div>
+      <div class="token-headline">
+        <span class="token-headline-value" id="tok-today"></span>
+        <span class="token-headline-limit"> / ∞</span>
       </div>
-      <div class="token-row">
-        <span class="token-label">Исходящих токенов</span>
-        <span class="token-value" id="tok-output"></span>
-      </div>
-      <div class="token-row" id="row-cache-read" style="display:none">
-        <span class="token-label">Из кэша</span>
-        <span class="token-value" id="tok-cache-read"></span>
-      </div>
-      <div class="token-row" id="row-cache-create" style="display:none">
-        <span class="token-label">Создание кэша</span>
-        <span class="token-value" id="tok-cache-create"></span>
-      </div>
-      <div class="token-cost">
-        <span class="token-label">Примерная стоимость</span>
-        <span class="token-value" id="tok-cost"></span>
-      </div>
-      <div class="card-footnote">считаем с момента запуска счётчика; рассчитано по тарифам моделей</div>
+      <div class="card-footnote">счётчик обнуляется в 00:00 по Москве; лимиты появятся позже</div>
     </div>
 
     <!-- 3. Карточка ресурсов -->
@@ -356,8 +358,9 @@ export function renderDashboard(): string {
               <tr>
                 <th>Имя</th>
                 <th>Модель</th>
-                <th>Токены</th>
-                <th>Стоимость</th>
+                <th>Сегодня</th>
+                <th>Всего</th>
+                <th>$ всего</th>
                 <th>ОЗУ %</th>
                 <th>Диск МБ</th>
               </tr>
@@ -385,12 +388,11 @@ export function renderDashboard(): string {
       vaultDir: '/opt/vault/292228713',
       publicUrl: 'https://proboi.site/u/evgeniy'
     },
-    totals: {
-      inputTokens: 12345,
-      outputTokens: 6789,
+    today: {
+      inputTokens: 8200,
+      outputTokens: 3100,
       cacheReadTokens: 1234,
-      cacheCreationTokens: 567,
-      costUsd: 0.42
+      cacheCreationTokens: 567
     },
     container: {
       exists: true,
@@ -405,9 +407,9 @@ export function renderDashboard(): string {
   const MOCK_ADMIN = {
     ok: true,
     users: [
-      { user: { label: 'Евгений', model: 'claude-sonnet-4-6' }, totals: { inputTokens: 12345, outputTokens: 6789, costUsd: 0.42 }, container: { exists: true, running: true, ram: { percent: 24 }, disk: { usedMb: 47 } } },
-      { user: { label: 'Ксения', model: 'claude-sonnet-4-6' }, totals: { inputTokens: 8100, outputTokens: 3200, costUsd: 0.27 }, container: { exists: true, running: false, ram: null, disk: null } },
-      { user: { label: 'Гость #403', model: 'deepseek-chat' }, totals: { inputTokens: 2000, outputTokens: 800, costUsd: 0.003 }, container: { exists: false, running: false, ram: null, disk: null } }
+      { label: 'Евгений', model: 'claude-sonnet-4-6', today: { inputTokens: 8200, outputTokens: 3100 }, total: { inputTokens: 12345, outputTokens: 6789, costUsd: 0.42 }, container: { exists: true, running: true, ram: { percent: 24 }, disk: { usedMb: 47 } } },
+      { label: 'Ксения', model: 'claude-sonnet-4-6', today: { inputTokens: 0, outputTokens: 0 }, total: { inputTokens: 8100, outputTokens: 3200, costUsd: 0.27 }, container: { exists: true, running: false, ram: null, disk: null } },
+      { label: 'Гость #403', model: 'deepseek-chat', today: { inputTokens: 200, outputTokens: 80 }, total: { inputTokens: 2000, outputTokens: 800, costUsd: 0.003 }, container: { exists: false, running: false, ram: null, disk: null } }
     ]
   };
 
@@ -447,7 +449,7 @@ export function renderDashboard(): string {
   // ─── RENDER ───────────────────────────────────────────────────────────────
   function renderMe(data) {
     var u = data.user;
-    var t = data.totals;
+    var t = data.today || {};
     var c = data.container;
 
     // Header
@@ -455,19 +457,9 @@ export function renderDashboard(): string {
     document.getElementById('user-role').textContent = roleLabel(u.role);
     document.getElementById('user-model').textContent = u.model || '';
 
-    // Token card
-    document.getElementById('tok-input').textContent = fmt(t.inputTokens);
-    document.getElementById('tok-output').textContent = fmt(t.outputTokens);
-
-    if (t.cacheReadTokens && t.cacheReadTokens > 0) {
-      document.getElementById('tok-cache-read').textContent = fmt(t.cacheReadTokens);
-      document.getElementById('row-cache-read').style.display = '';
-    }
-    if (t.cacheCreationTokens && t.cacheCreationTokens > 0) {
-      document.getElementById('tok-cache-create').textContent = fmt(t.cacheCreationTokens);
-      document.getElementById('row-cache-create').style.display = '';
-    }
-    document.getElementById('tok-cost').textContent = fmtCost(t.costUsd);
+    // Token card — sum of input + output today
+    var todayTotal = (t.inputTokens || 0) + (t.outputTokens || 0);
+    document.getElementById('tok-today').textContent = fmt(todayTotal);
 
     // Resources card
     var resEl = document.getElementById('res-content');
@@ -535,17 +527,19 @@ export function renderDashboard(): string {
   function renderAdminTable(users) {
     var rows = '';
     users.forEach(function(item) {
-      var u = item.user || {};
-      var t = item.totals || {};
+      var today = item.today || {};
+      var total = item.total || {};
       var c = item.container || {};
       var ramPct = (c.ram && c.ram.percent != null) ? Math.round(c.ram.percent) + '%' : '—';
       var diskMb = (c.disk && c.disk.usedMb != null) ? fmt(c.disk.usedMb) : '—';
-      var totalTok = (t.inputTokens || 0) + (t.outputTokens || 0);
+      var todayTok = (today.inputTokens || 0) + (today.outputTokens || 0);
+      var totalTok = (total.inputTokens || 0) + (total.outputTokens || 0);
       rows += '<tr>' +
-        '<td>' + (u.label || '—') + '</td>' +
-        '<td>' + (u.model || '—') + '</td>' +
+        '<td>' + (item.label || '—') + '</td>' +
+        '<td>' + (item.model || '—') + '</td>' +
+        '<td class="td-mono">' + fmt(todayTok) + '</td>' +
         '<td class="td-mono">' + fmt(totalTok) + '</td>' +
-        '<td class="td-mono">' + fmtCost(t.costUsd) + '</td>' +
+        '<td class="td-mono">' + fmtCost(total.costUsd) + '</td>' +
         '<td class="td-mono">' + ramPct + '</td>' +
         '<td class="td-mono">' + diskMb + '</td>' +
       '</tr>';

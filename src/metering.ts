@@ -159,9 +159,24 @@ export interface UserTotals {
 }
 
 /**
- * Aggregate totals for a single user.
+ * Returns the unix timestamp (seconds) of the most recent 00:00 Europe/Moscow.
+ * Moscow is UTC+3 with no DST.
  */
-export function getUserTotals(userId: string | number): UserTotals {
+export function moscowDayStartUtcSeconds(): number {
+  const offsetSec = 3 * 3600;
+  const nowSec = Math.floor(Date.now() / 1000);
+  const localSec = nowSec + offsetSec;
+  const dayStartLocal = Math.floor(localSec / 86400) * 86400;
+  return dayStartLocal - offsetSec;
+}
+
+/**
+ * Aggregate totals for a single user. If `sinceTs` provided, only sums rows with ts >= sinceTs.
+ */
+export function getUserTotals(
+  userId: string | number,
+  sinceTs?: number
+): UserTotals {
   if (!db) {
     return {
       inputTokens: 0,
@@ -172,6 +187,26 @@ export function getUserTotals(userId: string | number): UserTotals {
     };
   }
   try {
+    const sql = sinceTs
+      ? `SELECT
+           COALESCE(SUM(input_tokens), 0) AS input_tokens,
+           COALESCE(SUM(output_tokens), 0) AS output_tokens,
+           COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+           COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+           COALESCE(SUM(cost_usd), 0) AS cost_usd
+         FROM usage
+         WHERE user_id = ? AND ts >= ?`
+      : `SELECT
+           COALESCE(SUM(input_tokens), 0) AS input_tokens,
+           COALESCE(SUM(output_tokens), 0) AS output_tokens,
+           COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
+           COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
+           COALESCE(SUM(cost_usd), 0) AS cost_usd
+         FROM usage
+         WHERE user_id = ?`;
+    const params: (string | number)[] = sinceTs
+      ? [String(userId), sinceTs]
+      : [String(userId)];
     const row = db
       .query<
         {
@@ -181,18 +216,10 @@ export function getUserTotals(userId: string | number): UserTotals {
           cache_creation_tokens: number;
           cost_usd: number;
         },
-        [string]
-      >(
-        `SELECT
-           COALESCE(SUM(input_tokens), 0) AS input_tokens,
-           COALESCE(SUM(output_tokens), 0) AS output_tokens,
-           COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens,
-           COALESCE(SUM(cache_creation_tokens), 0) AS cache_creation_tokens,
-           COALESCE(SUM(cost_usd), 0) AS cost_usd
-         FROM usage
-         WHERE user_id = ?`
-      )
-      .get(String(userId));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        any
+      >(sql)
+      .get(...params);
     if (!row) {
       return {
         inputTokens: 0,

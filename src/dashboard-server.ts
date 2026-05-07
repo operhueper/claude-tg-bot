@@ -15,7 +15,11 @@
 
 import { createHmac } from "crypto";
 import { getUserProfile, ALLOWED_USERS } from "./config";
-import { getUserTotals, getAllUsersTotals } from "./metering";
+import {
+  getUserTotals,
+  getAllUsersTotals,
+  moscowDayStartUtcSeconds,
+} from "./metering";
 import {
   getContainerMetrics,
   getAllContainerMetrics,
@@ -176,7 +180,7 @@ async function handleApiMe(req: Request): Promise<Response> {
   }
 
   const profile = getUserProfile(userId);
-  const totals = getUserTotals(userId);
+  const today = getUserTotals(userId, moscowDayStartUtcSeconds());
   const container = await getContainerMetrics(userId);
 
   const role: "owner" | "guest" =
@@ -192,12 +196,11 @@ async function handleApiMe(req: Request): Promise<Response> {
       vaultDir: profile.workingDir,
       publicUrl: `https://proboi.site/u/${userId}/`,
     },
-    totals: {
-      inputTokens: totals.inputTokens,
-      outputTokens: totals.outputTokens,
-      cacheReadTokens: totals.cacheReadTokens,
-      cacheCreationTokens: totals.cacheCreationTokens,
-      costUsd: totals.costUsd,
+    today: {
+      inputTokens: today.inputTokens,
+      outputTokens: today.outputTokens,
+      cacheReadTokens: today.cacheReadTokens,
+      cacheCreationTokens: today.cacheCreationTokens,
     },
     container: {
       exists: container.containerExists,
@@ -237,6 +240,7 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
 
   const allTotals = getAllUsersTotals();
   const allContainers = await getAllContainerMetrics();
+  const todayStart = moscowDayStartUtcSeconds();
 
   const containerByUserId = new Map<string, (typeof allContainers)[number]>();
   for (const c of allContainers) {
@@ -245,24 +249,34 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
 
   const users = allTotals.map((t) => {
     let label = `user-${t.userId}`;
+    let model = "";
     try {
       const uid = parseInt(t.userId, 10);
       if (!isNaN(uid) && ALLOWED_USERS.includes(uid)) {
         const p = getUserProfile(uid);
         label = p.label || label;
+        model = p.model || "";
       }
     } catch {}
 
+    const today = getUserTotals(t.userId, todayStart);
     const c = containerByUserId.get(t.userId);
     return {
       userId: t.userId,
       label,
-      totals: {
+      model,
+      total: {
         inputTokens: t.inputTokens,
         outputTokens: t.outputTokens,
         cacheReadTokens: t.cacheReadTokens,
         cacheCreationTokens: t.cacheCreationTokens,
         costUsd: t.costUsd,
+      },
+      today: {
+        inputTokens: today.inputTokens,
+        outputTokens: today.outputTokens,
+        cacheReadTokens: today.cacheReadTokens,
+        cacheCreationTokens: today.cacheCreationTokens,
       },
       container: c
         ? {
