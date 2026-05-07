@@ -65,6 +65,34 @@ TELEGRAM_ALLOWED_USERS на обоих серверах уже содержит 
 - metering.sqlite — rsync с --exclude metering.sqlite уже добавлен в команду деплоя.
 - musl/glibc trap — после bun install нужен swap бинаря CLI (см. CLAUDE.md).
 
+## Permission gate trap для headless бота (коммит a089789)
+
+Главный сюрприз при тесте контейнеров на @ORCH7_bot 2026-05-07:
+
+DeepSeek-гость не мог выполнять `mcp__container__Bash`. На каждый вызов модель получала результат с requested-permission и отвечала пользователю «нужно нажать кнопку Разрешить в интерфейсе». Никакой кнопки в боте нет — это была чистая галлюцинация на основе training data.
+
+**Корневая причина**: гости имеют `settingSources: ["project"]` — они НЕ читают `/root/.claude/settings.json` (это user-scope). Они читают `{cwd}/.claude/settings.json`, то есть `/opt/vault/{userId}/.claude/settings.json`. Этот файл шёл с `defaultMode: "acceptEdits"`, который авто-разрешает только Edit/Write, но не Bash и не MCP-инструменты.
+
+Добавление `mcp__container` в `/root/.claude/settings.json` (user-scope) ничего не давало — гости его не читают.
+
+**Фикс**: `ContainerManager.ensureProjectSettings(profile)`:
+- создаёт `{workingDir}/.claude/settings.json` с `defaultMode: "bypassPermissions"` если его нет
+- мигрирует существующий `acceptEdits` → `bypassPermissions` без потери кастомных правил
+- добавляет в allow `mcp__container`, `mcp__container__Bash` плюс полный набор стандартных тулзов
+- идемпотентно, безопасно вызывать на каждом старте бота
+
+Вызывается из двух мест:
+- `init()` — мигрирует существующие vault'ы при старте бота
+- `getOrStartUnlocked()` — bootstrap при создании нового контейнера
+
+Безопасно потому что гости физически заперты в Docker (cgroup-лимиты, read-only `/root/.claude`, доступ только к собственному vault). `bypassPermissions` лишь убирает UI-промпт, не расширяет фактические возможности.
+
+## Известный баг (не блокирующий, на потом)
+
+Профиль Ксении в users.json: `"vaultDir": "workspace-ksenia"` (относительный путь). Однако `profile.workingDir` для неё резолвится в `/opt/claude-tg-bot/workspace/` — папку **владельца**. Видно по логу bootstrap: `bootstrapped /opt/claude-tg-bot/workspace/.claude/settings.json` для userId=893951298.
+
+Эффект: Ксения не имеет своего изолированного vault, её bind-mount пересекается с workspace владельца. Контейнер для неё ещё не тестировали, но при попытке test'а всплывёт. Чинить в `config.ts` (обработка `vaultDir` для guest-роли).
+
 ## metrics.ts — что делает
 getContainerMetrics(userId): запускает docker ps (существование), docker ps (активность), docker stats (RAM+CPU), du /opt/vault/{userId}/ (диск). Возвращает ContainerMetrics.
 getAllContainerMetrics(): для всех пользователей параллельно через Promise.all.
