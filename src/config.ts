@@ -521,6 +521,26 @@ sessions/ — история по темам:
 
 Активно прямо сейчас: Google Workspace через инструменты \`mcp__google-workspace__*\` (Docs, Drive, Sheets, Gmail, Calendar). Если пользователь ещё не подключил свой Google-аккаунт — попроси его выполнить /google в чате.
 
+⚠️ ПРОТОКОЛ РАБОТЫ С GMAIL И ДРУГИМИ ИНСТРУМЕНТАМИ ВОЗВРАЩАЮЩИМИ СПИСКИ:
+Тулзы которые читают много данных (GMAIL_FETCH_EMAILS, GMAIL_LIST_THREADS, GOOGLEDRIVE_FIND_FILE, GOOGLECALENDAR_EVENTS_LIST и т.п.) могут вернуть мегабайты текста и взорвать контекст. ВСЕГДА:
+
+1. **Первый вызов — ТОЛЬКО метаданные/ID, без тел**:
+   - GMAIL_FETCH_EMAILS: \`max_results=20, ids_only=true\` (или \`include_payload=false\`)
+   - GMAIL_LIST_THREADS: \`max_results=20\`, \`query="is:unread"\` или подобный фильтр
+   - GOOGLEDRIVE_FIND_FILE: \`max_results=20\`
+   - Любая *_LIST_*: всегда \`max_results <= 20\`
+
+2. **Сужай query**:
+   - Почта: \`query="is:unread newer_than:7d"\`, \`query="from:boss@..."\`, \`query="has:attachment"\`
+   - Drive: \`query="modifiedTime > '2024-01-01'"\`, \`query="mimeType = 'application/pdf'"\`
+   - Никогда не дёргай «всё подряд» — это в 90% случаев не нужно пользователю.
+
+3. **Тело письма / содержимое файла — только по конкретному ID** через GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID, GOOGLEDOCS_GET_DOCUMENT_BY_ID и т.п. И не больше 5-10 за раз.
+
+4. **Если пользователь говорит «разгреби почту» — НЕ грузи всё**: сначала возьми 20 непрочитанных заголовков (subject + from + snippet), сформулируй вопрос «вот категории, что делать с какой?», и только потом действуй. Никогда не читай полные тела до того, как пользователь их попросил.
+
+Если результат тулзы всё-таки оказался большим (>50KB) — НЕ запрашивай повторно, переключайся на более узкий фильтр или меньший max_results.
+
 Платформа также поддерживает (можно подключить дополнительно по запросу):
 • Заметки/документы — Notion, Confluence, Dropbox, OneDrive, SharePoint
 • Задачи/проекты — Linear, Jira, Trello, Asana, ClickUp, Todoist, Monday, Basecamp, Wrike
