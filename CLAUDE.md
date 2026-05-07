@@ -58,8 +58,7 @@ Each message type has a dedicated async handler:
 The bot serves **two classes of users** with isolated state:
 
 - **Owner** (`292228713` — Евгений) — full access: `CLAUDE_WORKING_DIR` (`workspace/`), broad `ALLOWED_PATHS`, `settingSources: ["user", "project"]` (loads `~/.claude/CLAUDE.md`), all commands including `/restart` and `/reloadbot`, configurable rate limit, Claude Sonnet model.
-- **Guest** (all other IDs in `TELEGRAM_ALLOWED_USERS`) — sandboxed: `cwd = /opt/vault/{userId}/`, `settingSources: ["project"]` (the owner's `~/.claude` is NOT loaded — no memory/skills cross-contamination), no `/restart` or `/reloadbot`, no rate limit, dedicated guest system prompt. Model is deepseek-chat by default via OpenRouter.
-  - **Ксения (`893951298`)** — special case within Guest: uses claude-sonnet-4-6 instead of deepseek-chat, and is explicitly allowed to read `CLAUDE_WORKING_DIR` (owner workspace) in her `allowedPaths`.
+- **Guest** (all other IDs in `TELEGRAM_ALLOWED_USERS`) — sandboxed: `cwd = /opt/vault/{userId}/`, `settingSources: ["project"]` (the owner's `~/.claude` is NOT loaded — no memory/skills cross-contamination), no `/restart` or `/reloadbot`, no rate limit, dedicated guest system prompt. Все гости работают на DeepSeek через общий ключ владельца, в собственном Docker-контейнере.
 
 `getUserProfile(userId)` is the single source of truth — handlers, sessions, and security checks all consume the resulting `UserProfile`. Vault dir (`/opt/vault/{userId}/`) is auto-bootstrapped on first access.
 
@@ -150,7 +149,7 @@ When an owner approves a new guest via the invite inline button (`callback.ts`),
 
 On their first message (`text.ts`), the bot detects `profile.onboardingComplete === false` and calls `buildOnboardingPrompt(userId, vaultDir)` (defined in `src/config.ts`) as the system prompt override. This prompt drives a 6-step introduction sequence. When Claude finishes and appends `[ONBOARDING_COMPLETE]` to its reply, `text.ts` strips the marker from the displayed text and calls `markOnboardingComplete(userId)` (`src/user-registry.ts`), setting the flag to `true`. Subsequent messages use the normal guest system prompt.
 
-Existing users (Евгений, Ксения, Артём, testers) have no `onboardingComplete` key in `users.json`, which is treated as `true` — they skip onboarding entirely.
+Existing users (owner + early testers) have no `onboardingComplete` key in `users.json`, which is treated as `true` — they skip onboarding entirely.
 
 ## Patterns
 

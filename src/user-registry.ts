@@ -18,9 +18,7 @@ export interface UserNode {
   rateLimitEnabled: boolean;
   model: string;
   /**
-   * For role=guest: relative name under GUEST_WORKING_DIR parent dir,
-   * or an absolute path. E.g. "workspace-ksenia" or "/opt/vault/893951298".
-   * For role=new_guest: absolute vault path. E.g. "/opt/vault/403360614".
+   * For role=guest or new_guest: absolute vault path. E.g. "/opt/vault/403360614".
    * For role=owner: omit (uses CLAUDE_WORKING_DIR env var).
    */
   vaultDir?: string;

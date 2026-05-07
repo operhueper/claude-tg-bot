@@ -204,6 +204,7 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
       settingSources: ["project"],
       rateLimitEnabled: false,
       model: "deepseek-chat",
+      containerEnabled: true,
       onboardingComplete: false,
     });
     // Also add to in-memory NEW_GUEST_USERS so getUserProfile picks it up immediately
@@ -213,6 +214,19 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
     const alreadyExisted = !isNew;
 
     await removePendingInvite(targetUserId);
+
+    if (!alreadyExisted) {
+      try {
+        const { getUserProfile } = await import("../config");
+        const { containerManager } = await import("../containers/manager");
+        const profile = getUserProfile(targetUserId);
+        containerManager.getOrStart(profile).catch((err: unknown) =>
+          console.error(`[invite] container bootstrap failed for ${targetUserId}:`, err)
+        );
+      } catch (err) {
+        console.error(`[invite] could not schedule container bootstrap:`, err);
+      }
+    }
 
     const displayName = invite.firstName || invite.username || String(targetUserId);
     const statusText = alreadyExisted

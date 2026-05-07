@@ -2,7 +2,7 @@
  * Configuration for Claude Telegram Bot.
  *
  * All environment variables, paths, constants, and safety settings.
- * Supports per-user profiles (owner + restricted guests like "Ксения").
+ * Supports per-user profiles (owner + guests).
  */
 
 import { homedir } from "os";
@@ -291,7 +291,7 @@ ${personaText}
 
 БЕЗОПАСНОСТЬ:
 - Рабочие директории: ${SHARED_DIR}, /tmp/telegram-bot.
-- Личные vault'ы пользователей (workspace-ksenia, /opt/vault/*) тебе недоступны — не пытайся их читать или редактировать.
+- Личные vault'ы пользователей (/opt/vault/*) тебе недоступны — не пытайся их читать или редактировать.
 - Не удаляй файлы без явного подтверждения.
 - Не выполняй системные команды, не модифицируй исходный код бота (/opt/claude-tg-bot/src/).
 
@@ -691,8 +691,6 @@ export function getGroupProfile(): UserProfile {
   };
 }
 
-const KSENIA_USER_ID = 893951298;
-
 export function getUserProfile(userId: number): UserProfile {
   // Registry-first: if this userId is in system/users.json, use its metadata
   // to override defaults. Falls back to env-var / hardcoded logic below.
@@ -701,50 +699,29 @@ export function getUserProfile(userId: number): UserProfile {
   if (isNewGuest(userId)) {
     const vaultDir = getNewGuestVaultDir(userId);
 
-    // Ksenia (893951298) uses Claude (sonnet-4-6) via owner CLI credentials — no DeepSeek.
-    // She gets access to owner working dir in addition to her vault.
-    const isKsenia = userId === KSENIA_USER_ID;
-
-    let deepseekApiKey: string | undefined;
-    let deepseekEnv: Record<string, string> | undefined;
-    let model: string;
-    let complexModel: string;
-    let lightModel: string;
-    let visionModel: string | undefined;
-    let allowedPaths: string[];
-
-    if (isKsenia) {
-      // Claude credentials — no DeepSeek
-      model = node?.model ?? "claude-sonnet-4-6";
-      complexModel = node?.complexModel ?? "claude-sonnet-4-6";
-      lightModel = node?.lightModel ?? "claude-sonnet-4-6";
-      visionModel = node?.visionModel;
-      allowedPaths = [vaultDir, OWNER_WORKING_DIR, "/tmp/telegram-bot"];
-    } else {
-      // DeepSeek model tiers (via Anthropic-compatible API):
-      //   model       = deepseek-chat     → V3 (fast, everyday tasks, subagents)
-      //   complexModel= deepseek-reasoner → R1 DeepThink (strategy, architecture, heavy analysis)
-      //   lightModel  = deepseek-chat     → V3 (cheap background: topic detect, memory analysis)
-      //   visionModel = google/gemini-2.5-flash via OpenRouter (DeepSeek has no vision)
-      const dsKey = getDeepSeekApiKey();
-      deepseekApiKey = dsKey || undefined;
-      deepseekEnv = dsKey
-        ? {
-            ...process.env as Record<string, string>,
-            ANTHROPIC_API_KEY: dsKey,
-            ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
-            ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
-            ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
-            ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
-            ANTHROPIC_MODEL: "deepseek-chat",
-          }
-        : undefined;
-      model = node?.model ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
-      complexModel = node?.complexModel ?? (dsKey ? "deepseek-reasoner" : "deepseek/deepseek-r1");
-      lightModel = node?.lightModel ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
-      visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
-      allowedPaths = [vaultDir, "/tmp/telegram-bot"];
-    }
+    // DeepSeek model tiers (via Anthropic-compatible API):
+    //   model       = deepseek-chat     → V3 (fast, everyday tasks, subagents)
+    //   complexModel= deepseek-reasoner → R1 DeepThink (strategy, architecture, heavy analysis)
+    //   lightModel  = deepseek-chat     → V3 (cheap background: topic detect, memory analysis)
+    //   visionModel = google/gemini-2.5-flash via OpenRouter (DeepSeek has no vision)
+    const dsKey = getDeepSeekApiKey();
+    const deepseekApiKey = dsKey || undefined;
+    const deepseekEnv: Record<string, string> | undefined = dsKey
+      ? {
+          ...process.env as Record<string, string>,
+          ANTHROPIC_API_KEY: dsKey,
+          ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+          ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
+          ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
+          ANTHROPIC_MODEL: "deepseek-chat",
+        }
+      : undefined;
+    const model = node?.model ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
+    const complexModel = node?.complexModel ?? (dsKey ? "deepseek-reasoner" : "deepseek/deepseek-r1");
+    const lightModel = node?.lightModel ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
+    const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
+    const allowedPaths = [vaultDir, "/tmp/telegram-bot"];
 
     // onboardingComplete: if node exists and field is explicitly false → false.
     // If field is absent (pre-existing users migrated from before onboarding) → true.
@@ -768,18 +745,18 @@ export function getUserProfile(userId: number): UserProfile {
       visionModel,
       sessionFile: `/tmp/claude-telegram-session-${userId}.json`,
       allowedCommands: GUEST_COMMANDS,
-      label: node?.label ?? (isKsenia ? "Ксения" : `guest-${userId}`),
+      label: node?.label ?? `guest-${userId}`,
       timezone: node?.timezone ?? "Europe/Moscow",
       deepseekApiKey,
       deepseekEnv,
-      containerEnabled: node?.containerEnabled ?? false,
+      containerEnabled: node?.containerEnabled ?? true,
       onboardingComplete,
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
-      // to prevent "does not support this tool_choice" errors. Ksenia uses Claude so no restriction.
-      disallowedTools: isKsenia ? undefined : ["WebSearch"],
+      // to prevent "does not support this tool_choice" errors.
+      disallowedTools: ["WebSearch"],
       // Cap tool-call rounds for DeepSeek guests to prevent slow search loops.
-      // 20 turns covers complex coding tasks; Ksenia (Claude) gets no cap.
-      maxTurns: isKsenia ? undefined : 20,
+      // 20 turns covers complex coding tasks.
+      maxTurns: 20,
     };
   }
 

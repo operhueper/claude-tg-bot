@@ -15,8 +15,7 @@
     "timezone": "Europe/Moscow",
     "settingSources": ["project"],
     "rateLimitEnabled": false,
-    "model": "claude-sonnet-4-6",
-    "vaultDir": "workspace-ksenia",
+    "model": "deepseek-chat",
     "containerEnabled": true
   },
   {
@@ -27,7 +26,6 @@
     "settingSources": ["project"],
     "rateLimitEnabled": false,
     "model": "deepseek-chat",
-    "vaultDir": "/opt/vault/5615267984",
     "containerEnabled": true
   }
 ]
