@@ -20,7 +20,8 @@
  */
 
 import { execFile } from "child_process";
-import { mkdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { join } from "path";
 import { promisify } from "util";
 
 import type { UserProfile } from "../config";
@@ -99,13 +100,24 @@ class ContainerManager {
     }
 
     // Pre-create dropbox dirs for each container-enabled user (idempotent).
+    // Also bootstrap/migrate their project-scope Claude settings so existing
+    // containers — not just freshly created ones — have bypassPermissions.
     for (const p of profiles) {
       if (!p.containerEnabled) continue;
       try {
         mkdirSync(dropboxDir(p.userId), { recursive: true });
         mkdirSync(userDataDir(p.userId), { recursive: true });
+        mkdirSync(p.workingDir, { recursive: true });
       } catch (err) {
         this.log(p.userId, `dropbox mkdir failed: ${(err as Error).message}`);
+      }
+      try {
+        this.ensureProjectSettings(p);
+      } catch (err) {
+        this.log(
+          p.userId,
+          `project settings bootstrap failed: ${(err as Error).message}`
+        );
       }
     }
 
@@ -321,6 +333,21 @@ class ContainerManager {
       );
     }
 
+    // Bootstrap project-scope Claude settings inside the vault. Guests have
+    // settingSources: ["project"], so they DON'T read /root/.claude/settings.json.
+    // Without this file the SDK's permission gate prompts for every Bash and
+    // every mcp__container__Bash call — there's no UI to answer the prompt,
+    // so the model just hallucinates "permission required" indefinitely.
+    // Idempotent: only write if absent, never overwrite a customised file.
+    try {
+      this.ensureProjectSettings(profile);
+    } catch (err) {
+      this.log(
+        userId,
+        `project settings bootstrap failed: ${(err as Error).message}`
+      );
+    }
+
     // 2. docker run with the full spec.
     const args = buildRunArgs(profile);
     this.log(userId, `creating container (${args.join(" ")})`);
@@ -388,6 +415,94 @@ class ContainerManager {
     if (timers.pauseTimer) clearTimeout(timers.pauseTimer);
     if (timers.stopTimer) clearTimeout(timers.stopTimer);
     this.idle.delete(userId);
+  }
+
+  /**
+   * Make sure {workingDir}/.claude/settings.json grants enough permissions
+   * for the headless bot — `bypassPermissions` mode plus an explicit allow
+   * for our in-process container Bash tool. Creates the file if missing,
+   * upgrades `acceptEdits` → `bypassPermissions` if needed, and adds
+   * `mcp__container` to the allow list when absent.
+   */
+  private ensureProjectSettings(profile: UserProfile): void {
+    const settingsDir = join(profile.workingDir, ".claude");
+    const settingsPath = join(settingsDir, "settings.json");
+
+    mkdirSync(settingsDir, { recursive: true });
+
+    const desiredAllow = [
+      "Bash(*)",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Read",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "NotebookEdit",
+      "TodoWrite",
+      "Task",
+      "mcp__ask-user",
+      "mcp__send-file",
+      "mcp__pollinations-image",
+      "mcp__knowledge",
+      "mcp__container",
+      "mcp__container__Bash",
+    ];
+
+    if (!existsSync(settingsPath)) {
+      const fresh = {
+        permissions: {
+          defaultMode: "bypassPermissions",
+          allow: desiredAllow,
+        },
+      };
+      writeFileSync(settingsPath, JSON.stringify(fresh, null, 2));
+      this.log(profile.userId, `bootstrapped ${settingsPath}`);
+      return;
+    }
+
+    // File exists — only patch what's strictly necessary so we don't trample
+    // any local customisation. Bring the mode up to bypass and union the
+    // allow list with what we need.
+    let raw: string;
+    try {
+      raw = readFileSync(settingsPath, "utf8");
+    } catch {
+      return;
+    }
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      this.log(profile.userId, `existing settings.json invalid JSON, leaving alone`);
+      return;
+    }
+
+    const perms = (parsed.permissions ??= {}) as {
+      defaultMode?: string;
+      allow?: unknown;
+    };
+    let changed = false;
+
+    if (perms.defaultMode !== "bypassPermissions") {
+      perms.defaultMode = "bypassPermissions";
+      changed = true;
+    }
+    const existingAllow = Array.isArray(perms.allow) ? (perms.allow as string[]) : [];
+    const merged = Array.from(new Set([...existingAllow, ...desiredAllow]));
+    if (merged.length !== existingAllow.length) {
+      perms.allow = merged;
+      changed = true;
+    } else {
+      perms.allow = existingAllow;
+    }
+
+    if (changed) {
+      writeFileSync(settingsPath, JSON.stringify(parsed, null, 2));
+      this.log(profile.userId, `migrated ${settingsPath} to bypassPermissions`);
+    }
   }
 
   private async dockerArgs(args: string[]): Promise<string> {
