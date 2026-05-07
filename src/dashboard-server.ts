@@ -23,6 +23,8 @@ import {
 import {
   getContainerMetrics,
   getAllContainerMetrics,
+  getHostMetrics,
+  getGuestsAggregate,
 } from "./containers/metrics";
 
 import { renderLanding } from "./templates/landing";
@@ -239,7 +241,11 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
   }
 
   const allTotals = getAllUsersTotals();
-  const allContainers = await getAllContainerMetrics();
+  const [allContainers, host] = await Promise.all([
+    getAllContainerMetrics(),
+    getHostMetrics(),
+  ]);
+  const aggregate = getGuestsAggregate(allContainers);
   const todayStart = moscowDayStartUtcSeconds();
 
   const containerByUserId = new Map<string, (typeof allContainers)[number]>();
@@ -290,7 +296,7 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
     };
   });
 
-  return jsonOk({ ok: true, users });
+  return jsonOk({ ok: true, users, host, aggregate });
 }
 
 // ---------------------------------------------------------------------------

@@ -350,6 +350,11 @@ export function renderDashboard(): string {
 
     <!-- 5. Админская секция -->
     <div id="admin-section" style="display:none">
+      <div class="admin-title">Нагрузка на сервер</div>
+      <div class="card">
+        <div id="host-content"></div>
+      </div>
+
       <div class="admin-title">По всем пользователям</div>
       <div class="admin-section">
         <div class="admin-table-wrap">
@@ -362,6 +367,7 @@ export function renderDashboard(): string {
                 <th>Всего</th>
                 <th>$ всего</th>
                 <th>ОЗУ %</th>
+                <th>CPU %</th>
                 <th>Диск МБ</th>
               </tr>
             </thead>
@@ -407,10 +413,20 @@ export function renderDashboard(): string {
   const MOCK_ADMIN = {
     ok: true,
     users: [
-      { label: 'Евгений', model: 'claude-sonnet-4-6', today: { inputTokens: 8200, outputTokens: 3100 }, total: { inputTokens: 12345, outputTokens: 6789, costUsd: 0.42 }, container: { exists: true, running: true, ram: { percent: 24 }, disk: { usedMb: 47 } } },
-      { label: 'Ксения', model: 'claude-sonnet-4-6', today: { inputTokens: 0, outputTokens: 0 }, total: { inputTokens: 8100, outputTokens: 3200, costUsd: 0.27 }, container: { exists: true, running: false, ram: null, disk: null } },
-      { label: 'Гость #403', model: 'deepseek-chat', today: { inputTokens: 200, outputTokens: 80 }, total: { inputTokens: 2000, outputTokens: 800, costUsd: 0.003 }, container: { exists: false, running: false, ram: null, disk: null } }
-    ]
+      { label: 'Евгений', model: 'claude-sonnet-4-6', today: { inputTokens: 8200, outputTokens: 3100 }, total: { inputTokens: 12345, outputTokens: 6789, costUsd: 0.42 }, container: { exists: true, running: true, ram: { percent: 24 }, cpu: { percent: 12 }, disk: { usedMb: 47 } } },
+      { label: 'Ксения', model: 'claude-sonnet-4-6', today: { inputTokens: 0, outputTokens: 0 }, total: { inputTokens: 8100, outputTokens: 3200, costUsd: 0.27 }, container: { exists: true, running: false, ram: null, cpu: null, disk: null } },
+      { label: 'Гость #403', model: 'deepseek-chat', today: { inputTokens: 200, outputTokens: 80 }, total: { inputTokens: 2000, outputTokens: 800, costUsd: 0.003 }, container: { exists: false, running: false, ram: null, cpu: null, disk: null } }
+    ],
+    host: {
+      cpu: { percent: 18.4, cores: 4 },
+      ram: { usedMb: 3200, totalMb: 8192, percent: 39.1 }
+    },
+    aggregate: {
+      containers: { total: 6, running: 4 },
+      ramUsedMb: 215.3,
+      cpuPercent: 8.6,
+      diskUsedMb: 142.7
+    }
   };
 
   // ─── UTILITIES ────────────────────────────────────────────────────────────
@@ -531,6 +547,7 @@ export function renderDashboard(): string {
       var total = item.total || {};
       var c = item.container || {};
       var ramPct = (c.ram && c.ram.percent != null) ? Math.round(c.ram.percent) + '%' : '—';
+      var cpuPct = (c.cpu && c.cpu.percent != null) ? Math.round(c.cpu.percent) + '%' : '—';
       var diskMb = (c.disk && c.disk.usedMb != null) ? fmt(c.disk.usedMb) : '—';
       var todayTok = (today.inputTokens || 0) + (today.outputTokens || 0);
       var totalTok = (total.inputTokens || 0) + (total.outputTokens || 0);
@@ -541,10 +558,50 @@ export function renderDashboard(): string {
         '<td class="td-mono">' + fmt(totalTok) + '</td>' +
         '<td class="td-mono">' + fmtCost(total.costUsd) + '</td>' +
         '<td class="td-mono">' + ramPct + '</td>' +
+        '<td class="td-mono">' + cpuPct + '</td>' +
         '<td class="td-mono">' + diskMb + '</td>' +
       '</tr>';
     });
     document.getElementById('admin-table-body').innerHTML = rows;
+  }
+
+  function renderHost(host, agg) {
+    var el = document.getElementById('host-content');
+    if (!host) {
+      el.innerHTML = '<p class="res-notice">Метрики сервера недоступны</p>';
+      return;
+    }
+    var ramUsedGb = (host.ram.usedMb / 1024).toFixed(1);
+    var ramTotalGb = (host.ram.totalMb / 1024).toFixed(1);
+    var ramPct = Math.min(100, Math.round(host.ram.percent));
+    var cpuPct = Math.min(100, Math.round(host.cpu.percent));
+
+    var html = '';
+    html += '<div class="res-row">' +
+      '<div class="res-header"><span class="res-label">CPU сервера</span>' +
+      '<span class="res-value">' + cpuPct + '% / ' + host.cpu.cores + ' ядер</span></div>' +
+      '<div class="progress-track"><div class="progress-fill" style="width:' + cpuPct + '%"></div></div>' +
+      '</div>';
+    html += '<div class="res-row">' +
+      '<div class="res-header"><span class="res-label">ОЗУ сервера</span>' +
+      '<span class="res-value">' + ramUsedGb + ' / ' + ramTotalGb + ' ГБ (' + ramPct + '%)</span></div>' +
+      '<div class="progress-track"><div class="progress-fill" style="width:' + ramPct + '%"></div></div>' +
+      '</div>';
+
+    if (agg) {
+      html += '<div class="res-row"><div class="res-header">' +
+        '<span class="res-label">Гости итого</span>' +
+        '<span class="res-value">' + Math.round(agg.ramUsedMb) + ' МБ ОЗУ · ' +
+        Math.round(agg.cpuPercent) + '% CPU · ' + Math.round(agg.diskUsedMb) + ' МБ диск</span>' +
+        '</div></div>';
+      html += '<div class="res-row"><div class="res-header">' +
+        '<span class="res-label">Контейнеры</span>' +
+        '<span class="res-value">' + agg.containers.running + ' активных / ' +
+        agg.containers.total + ' всего</span>' +
+        '</div></div>';
+    }
+
+    el.innerHTML = html;
   }
 
   // ─── DATA LOADING ─────────────────────────────────────────────────────────
@@ -552,6 +609,7 @@ export function renderDashboard(): string {
 
   function loadAdminData() {
     if (MOCK) {
+      renderHost(MOCK_ADMIN.host, MOCK_ADMIN.aggregate);
       renderAdminTable(MOCK_ADMIN.users);
       return;
     }
@@ -562,11 +620,12 @@ export function renderDashboard(): string {
     })
       .then(function(r) { return r.json(); })
       .then(function(data) {
+        if (data.host || data.aggregate) renderHost(data.host, data.aggregate);
         if (data.users) renderAdminTable(data.users);
       })
       .catch(function() {
         document.getElementById('admin-table-body').innerHTML =
-          '<tr><td colspan="6" style="color:var(--hint);padding:12px">Не удалось загрузить</td></tr>';
+          '<tr><td colspan="8" style="color:var(--hint);padding:12px">Не удалось загрузить</td></tr>';
       });
   }
 

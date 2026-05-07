@@ -226,6 +226,21 @@ export function bootstrapNewGuestDir(userId: number): void {
   }
 }
 
+// Merge non-owner users from the registry into NEW_GUEST_USERS so they get
+// their vault bootstrapped at startup AND skip the owner branch in
+// getUserProfile() even if the env var doesn't list them. Without this, a
+// guest added via the invite flow falls through to owner after a restart
+// (loss of the in-memory mutation done in handlers/callback.ts).
+try {
+  for (const node of UserRegistry.getAllUsers()) {
+    if (node.role !== "owner" && !NEW_GUEST_USERS.includes(node.userId)) {
+      NEW_GUEST_USERS.push(node.userId);
+    }
+  }
+} catch (err) {
+  console.warn("Could not merge UserRegistry into NEW_GUEST_USERS:", err);
+}
+
 // Bootstrap each new guest's vault at startup (includes Ksenia 893951298)
 for (const uid of NEW_GUEST_USERS) {
   bootstrapNewGuestDir(uid);
@@ -481,6 +496,10 @@ sessions/ — история по темам:
 - mcp__send-file — отправить файл пользователю в Telegram
 - mcp__pollinations-image — сгенерировать картинку по описанию (бесплатно)
 - Task — запустить параллельного субагента для независимой подзадачи
+- mcp__google-workspace__* — Google Docs, Drive, Sheets, Gmail, Calendar (если пользователь подключил аккаунт через /google)
+
+GOOGLE WORKSPACE:
+У тебя есть доступ к Google Workspace через инструменты \`mcp__google-workspace__*\` (Docs, Drive, Sheets, Gmail, Calendar). Если пользователь не подключил свой Google-аккаунт, попроси его выполнить команду /google в чате — он получит кнопки авторизации.
 
 АГЕНТНАЯ СЕТЬ — когда задача тяжёлая или многошаговая, НЕ делай всё последовательно сам:
 - Собрать данные из нескольких источников → запускай Task для каждого источника параллельно
@@ -731,6 +750,7 @@ const OWNER_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
 const OWNER_COMMANDS = new Set([
   "start",
   "dashboard",
+  "google",
   "new",
   "stop",
   "status",
@@ -744,6 +764,7 @@ const OWNER_COMMANDS = new Set([
 const GUEST_COMMANDS = new Set([
   "start",
   "dashboard",
+  "google",
   "new",
   "stop",
   "status",
@@ -783,7 +804,23 @@ export function getUserProfile(userId: number): UserProfile {
   // to override defaults. Falls back to env-var / hardcoded logic below.
   const node = UserRegistry.getUser(userId);
 
-  if (isNewGuest(userId)) {
+  // SECURITY: default identity is guest, NOT owner. Owner branch is only
+  // entered when users.json explicitly says role==="owner". Anything else —
+  // role==="new_guest", role==="guest", missing node, or NEW_GUEST_USERS list —
+  // falls into the guest branch with vault sandbox + DeepSeek.
+  // Without this guard, any approved userId that isn't yet in NEW_GUEST_USERS
+  // (e.g. after a restart that loses the in-memory mutation from the invite
+  // callback) silently inherits the owner profile, working dir, settings and
+  // session. That happened to user 188062855 (Марина) on 2026-05-07.
+  const isOwnerById = node?.role === "owner";
+
+  if (!isOwnerById) {
+    // Auto-add to NEW_GUEST_USERS so any guest-only logic that still checks
+    // isNewGuest() (allowed-paths bootstrap, vault dir creation) keeps working.
+    if (!NEW_GUEST_USERS.includes(userId)) {
+      NEW_GUEST_USERS.push(userId);
+    }
+
     const vaultDir = getNewGuestVaultDir(userId);
 
     // DeepSeek model tiers (via Anthropic-compatible API):

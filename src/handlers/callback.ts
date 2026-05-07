@@ -13,6 +13,7 @@ import { auditLog, auditLogError, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { getPendingInvite, removePendingInvite } from "../containers/invites";
 import { addUser } from "../user-registry";
+import { invalidateSubscription, isSubscribed, isSubscriptionGateEnabled } from "../subscription";
 
 /**
  * Handle callback queries from inline keyboards.
@@ -31,6 +32,13 @@ export async function handleCallback(ctx: Context): Promise<void> {
   // 1. Authorization check
   if (!isAuthorized(userId, ALLOWED_USERS)) {
     await ctx.answerCallbackQuery({ text: "Unauthorized" });
+    return;
+  }
+
+  // 1b. Subscription gate recheck (only reachable for authorized users —
+  //     unauthorized users never see the button).
+  if (callbackData === "subscription:check") {
+    await handleSubscriptionCheckCallback(ctx);
     return;
   }
 
@@ -389,5 +397,45 @@ async function handleResumeCallback(
     // Don't show error to user - session is still resumed, recap just failed
   } finally {
     typing.stop();
+  }
+}
+
+/**
+ * Recheck the subscription gate after the user taps "I subscribed".
+ * Invalidates the cache and queries Telegram fresh.
+ */
+async function handleSubscriptionCheckCallback(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!userId) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+
+  if (!isSubscriptionGateEnabled()) {
+    await ctx.answerCallbackQuery({ text: "Готово" });
+    return;
+  }
+
+  invalidateSubscription(userId);
+
+  let ok = false;
+  try {
+    ok = await isSubscribed(ctx.api, userId);
+  } catch (err) {
+    console.error("[subscription] recheck failed:", err);
+  }
+
+  if (ok) {
+    await ctx.answerCallbackQuery({ text: "Подписка подтверждена ✓" });
+    try {
+      await ctx.editMessageText("✅ Подписка подтверждена. Напиши мне любое сообщение, чтобы начать.");
+    } catch {
+      // Message may already be edited / too old — ignore.
+    }
+  } else {
+    await ctx.answerCallbackQuery({
+      text: "Подписка не найдена. Подпишись и попробуй снова.",
+      show_alert: true,
+    });
   }
 }

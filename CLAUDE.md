@@ -93,6 +93,7 @@ All config via `.env` (copy from `.env.example`). Key variables:
 - `AUDIT_LOG_PATH`, `AUDIT_LOG_JSON`
 - `METERING_DB_PATH` - Path to the SQLite token-accounting database (default `./metering.sqlite`). Created automatically on first run.
 - `DASHBOARD_PORT` - Port for the embedded dashboard web server (default `3848`).
+- `COMPOSIO_API_KEY` - Composio API key for Google Workspace MCP (managed OAuth). Guests connect via `/google`. Get from https://app.composio.dev/developers. Optional — if absent, Google MCP is silently disabled.
 
 MCP servers defined in `mcp-config.ts`, which is **gitignored** — each host (your laptop, the prod server) keeps its own copy seeded from `mcp-config.example.ts`. When deploying to a fresh host, copy `mcp-config.example.ts → mcp-config.ts` and add the servers you need — otherwise no MCPs load.
 
@@ -106,6 +107,7 @@ Four MCPs ship with this repo:
 - **`send_file_mcp/`** — Claude calls `mcp__send-file__*`, the bot intercepts and uploads the file via `src/handlers/streaming.ts:checkPendingSendFileRequests`. Unlike `ask-user`, the query continues streaming.
 - **`pollinations_mcp/`** — free image generation via Pollinations.ai (Flux model, no API key). Saves PNG to `/tmp/pollinations/` and returns the absolute path so `send-file` can deliver it. Available to all users.
 - **`openrouter_image_mcp/`** — paid image generation via OpenRouter (Nano Banana / Gemini image models). Owner-only — guests use `pollinations-image`. Requires `OPENROUTER_API_KEY`.
+- **Composio Google Workspace** (cloud-hosted, not bundled) — managed OAuth for Google Docs/Drive/Sheets/Gmail/Calendar. Per-user isolation via `?user_id=tg_<id>` in the MCP URL. Requires `COMPOSIO_API_KEY` in env. Tools surface as `mcp__google-workspace__*`. Guests connect their accounts via the `/google` command. Implemented in `src/composio.ts`; injected by `src/mcp-filter.ts` when the API key is present.
 
 `ask-user` and `send-file` rely on a file-drop-box pattern (MCP server writes a request file, bot polls/reads it). When adding similar interactive MCPs, follow the same `mcp__<name>` prefix convention so `session.ts` can hook them.
 

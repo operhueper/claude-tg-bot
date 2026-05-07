@@ -12,11 +12,11 @@
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { existsSync } from "fs";
-import { platform } from "os";
+import { cpus, freemem, totalmem, platform, loadavg } from "os";
 
 const execFileAsync = promisify(execFile);
 
-import { UserRegistry } from "../user-registry";
+import { ALLOWED_USERS } from "../config";
 import { containerName } from "./paths";
 
 // ---------------------------------------------------------------------------
@@ -157,17 +157,25 @@ export async function getContainerMetrics(
   if (existsOut === null) return base;
 
   base.containerExists = existsOut.length > 0;
-  if (!base.containerExists) return base;
+  // NOTE: do NOT early-return here when the container is missing. Old guests
+  // (added before per-user containers existed) still have a vault on disk and
+  // we want to show its size in the admin dashboard. Skip only the docker-stats
+  // section below for non-existing containers.
+  if (!base.containerExists) {
+    // Fall through to the disk-usage block below.
+  }
 
   // --- Running check (docker ps, no -a) ---
-  const runningOut = await run("docker", [
-    "ps",
-    "--filter",
-    `name=^/${name}$`,
-    "--format",
-    "{{.Names}}",
-  ]);
-  base.containerRunning = runningOut !== null && runningOut.length > 0;
+  if (base.containerExists) {
+    const runningOut = await run("docker", [
+      "ps",
+      "--filter",
+      `name=^/${name}$`,
+      "--format",
+      "{{.Names}}",
+    ]);
+    base.containerRunning = runningOut !== null && runningOut.length > 0;
+  }
 
   // --- RAM + CPU via docker stats (only meaningful when running) ---
   if (base.containerRunning) {
@@ -222,6 +230,79 @@ export async function getContainerMetrics(
 // ---------------------------------------------------------------------------
 
 export async function getAllContainerMetrics(): Promise<ContainerMetrics[]> {
-  const users = UserRegistry.getAllUsers();
-  return Promise.all(users.map((u) => getContainerMetrics(u.userId)));
+  // Iterate ALLOWED_USERS (env + UserRegistry merge) so old guests who were
+  // authorised before users.json existed still appear in the admin dashboard.
+  // Without this, the table only shows users registered via the invite flow.
+  return Promise.all(ALLOWED_USERS.map((uid) => getContainerMetrics(uid)));
+}
+
+// ---------------------------------------------------------------------------
+// Host metrics + aggregate
+// ---------------------------------------------------------------------------
+
+export interface HostMetrics {
+  cpu: { percent: number; cores: number };
+  ram: { usedMb: number; totalMb: number; percent: number };
+}
+
+export interface GuestsAggregate {
+  containers: { total: number; running: number };
+  ramUsedMb: number;
+  cpuPercent: number;
+  diskUsedMb: number;
+}
+
+/**
+ * Whole-host CPU% via 1-minute loadavg (smoothed by the kernel — same metric
+ * `top`, `uptime`, `htop` show). A 250ms instantaneous sample was previously
+ * used but caught streaming spikes and reported 90%+ on an otherwise idle box.
+ */
+export async function getHostMetrics(): Promise<HostMetrics> {
+  const cores = cpus().length;
+  const load1 = loadavg()[0] ?? 0;
+  const cpuPercent = Math.max(0, Math.min(100, (load1 / cores) * 100));
+
+  const totalBytes = totalmem();
+  const freeBytes = freemem();
+  const usedBytes = totalBytes - freeBytes;
+  const totalMb = totalBytes / (1024 * 1024);
+  const usedMb = usedBytes / (1024 * 1024);
+
+  return {
+    cpu: {
+      percent: Math.round(cpuPercent * 10) / 10,
+      cores: cpus().length,
+    },
+    ram: {
+      usedMb: Math.round(usedMb),
+      totalMb: Math.round(totalMb),
+      percent: Math.round((usedBytes / totalBytes) * 1000) / 10,
+    },
+  };
+}
+
+/**
+ * Sum container metrics across all guests.
+ * cpuPercent here is the sum of per-container CPU% (each one normalised to
+ * "100% per core consumed"). Useful to see total CPU pressure from sandboxes.
+ */
+export function getGuestsAggregate(metrics: ContainerMetrics[]): GuestsAggregate {
+  let ramUsedMb = 0;
+  let cpuPercent = 0;
+  let diskUsedMb = 0;
+  let total = 0;
+  let running = 0;
+  for (const m of metrics) {
+    if (m.containerExists) total++;
+    if (m.containerRunning) running++;
+    if (m.ram) ramUsedMb += m.ram.usedMb;
+    if (m.cpu) cpuPercent += m.cpu.percent;
+    if (m.disk) diskUsedMb += m.disk.usedMb;
+  }
+  return {
+    containers: { total, running },
+    ramUsedMb: Math.round(ramUsedMb * 10) / 10,
+    cpuPercent: Math.round(cpuPercent * 10) / 10,
+    diskUsedMb: Math.round(diskUsedMb * 10) / 10,
+  };
 }

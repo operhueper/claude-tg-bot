@@ -4,7 +4,7 @@
  * Control Claude Code from your phone via Telegram.
  */
 
-import { Bot } from "grammy";
+import { Bot, InlineKeyboard } from "grammy";
 import { run, sequentialize } from "@grammyjs/runner";
 import {
   TELEGRAM_TOKEN,
@@ -14,6 +14,12 @@ import {
   RESTART_FILE,
   getUserProfile,
 } from "./config";
+import {
+  isSubscriptionGateEnabled,
+  isSubscribed,
+  REQUIRED_CHANNEL_URL,
+} from "./subscription";
+import { isAuthorized } from "./security";
 import { unlinkSync, readFileSync, existsSync, writeFileSync } from "fs";
 import * as path from "path";
 import { ensureMemoryStructure, graphFile } from "./memory/paths";
@@ -28,6 +34,7 @@ import {
   handleReloadBot,
   handleRetry,
   handleDashboard,
+  handleGoogle,
   handleText,
   handleVoice,
   handlePhoto,
@@ -43,6 +50,66 @@ import { startDashboardServer } from "./dashboard-server";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
+
+// ============== Subscription Gate ==============
+// Authorized non-owner users must be members of REQUIRED_CHANNEL_ID before
+// the bot will respond. Runs before sequentialize so the "I subscribed"
+// button doesn't queue behind other work.
+//
+// Order of checks:
+//   1. Gate disabled → pass.
+//   2. No userId → pass (downstream handlers will reject).
+//   3. NOT authorized (no entry in ALLOWED_USERS) → pass. The user goes
+//      through the existing invite/onboarding flow first; the gate is
+//      enforced only AFTER they've been approved.
+//   4. Owner → pass (admin always bypasses).
+//   5. Recheck button → pass (handled in callback.ts with cache invalidation).
+//   6. Subscribed → pass; otherwise show gate and stop.
+bot.use(async (ctx, next) => {
+  if (!isSubscriptionGateEnabled()) return next();
+
+  const userId = ctx.from?.id;
+  if (!userId) return next();
+
+  // Unauthorized users go through the normal invite flow first.
+  if (!isAuthorized(userId, ALLOWED_USERS)) return next();
+
+  // Owner always bypasses the gate.
+  const profile = getUserProfile(userId);
+  if (profile.isOwner) return next();
+
+  // Let the recheck button through — its handler performs the actual
+  // verification with cache invalidation.
+  if (ctx.callbackQuery?.data === "subscription:check") return next();
+
+  if (await isSubscribed(ctx.api, userId)) return next();
+
+  // Not subscribed — show the gate and stop further processing.
+  const channelLine = REQUIRED_CHANNEL_URL
+    ? `\n\n👉 ${REQUIRED_CHANNEL_URL}`
+    : "";
+  const keyboard = new InlineKeyboard();
+  if (REQUIRED_CHANNEL_URL) {
+    keyboard.url("📢 Открыть канал", REQUIRED_CHANNEL_URL).row();
+  }
+  keyboard.text("✅ Я подписался", "subscription:check");
+
+  const text =
+    "Чтобы пользоваться ботом, подпишись на наш канал.\n" +
+    "После подписки нажми «Я подписался»." +
+    channelLine;
+
+  if (ctx.callbackQuery) {
+    await ctx.answerCallbackQuery({ text: "Сначала подпишись на канал", show_alert: true });
+  } else {
+    try {
+      await ctx.reply(text, { reply_markup: keyboard });
+    } catch (err) {
+      console.warn(`[subscription] failed to send gate message to ${userId}:`, err);
+    }
+  }
+  // No next() — request stops here.
+});
 
 // Sequentialize non-command messages per user (prevents race conditions)
 // Commands bypass sequentialization so they work immediately
@@ -76,6 +143,7 @@ bot.command("restart", handleRestart);
 bot.command("reloadbot", handleReloadBot);
 bot.command("retry", handleRetry);
 bot.command("dashboard", handleDashboard);
+bot.command("google", handleGoogle);
 
 // ============== Message Handlers ==============
 
@@ -131,6 +199,7 @@ console.log(`Container manager initialized for ${containerProfiles.length} user(
 // (safe for everyone). /reloadbot performs a full systemd restart and is owner-only.
 const baseCommands = [
   { command: "dashboard", description: "🧠 Second Brain — задачи и календарь" },
+  { command: "google", description: "Подключить Google-аккаунт" },
   { command: "new", description: "Start fresh session" },
   { command: "stop", description: "Stop current query" },
   { command: "status", description: "Show detailed status" },

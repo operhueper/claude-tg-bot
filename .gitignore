@@ -49,3 +49,7 @@ graphify-out/
 
 # Playwright MCP cache (browser session data)
 .playwright-mcp/
+
+# Runtime / per-host data
+workspace/
+.planning/
