@@ -437,10 +437,9 @@ YOUR RESOURCES:
 ⚠️ ПРОТОКОЛ РАБОТЫ С GMAIL И ДРУГИМИ ИНСТРУМЕНТАМИ ВОЗВРАЩАЮЩИМИ СПИСКИ:
 Тулзы которые читают много данных (GMAIL_FETCH_EMAILS, GMAIL_LIST_THREADS, GOOGLEDRIVE_FIND_FILE, GOOGLECALENDAR_EVENTS_LIST и т.п.) могут вернуть мегабайты текста и взорвать контекст. ВСЕГДА:
 
-1. **Первый вызов — ТОЛЬКО метаданные/ID, без тел**:
-   - GMAIL_FETCH_EMAILS: \`max_results=20, ids_only=true\` (или \`include_payload=false\`)
-   - GMAIL_LIST_THREADS: \`max_results=20\`, \`query="is:unread"\` или подобный фильтр
-   - GOOGLEDRIVE_FIND_FILE: \`max_results=20\`
+1. **Первый вызов — ТОЛЬКО метаданные через _LIST_, никогда _FETCH_**:
+   - Для почты: \`GMAIL_LIST_THREADS\` с \`max_results=20\`, \`query="is:unread"\`. НЕ используй \`GMAIL_FETCH_EMAILS\` — её даже нет в наборе, она опасна (возвращает полные тела с вложениями base64).
+   - Для Drive: \`GOOGLEDRIVE_FIND_FILE\` с \`max_results=20\`
    - Любая *_LIST_*: всегда \`max_results <= 20\`
 
 2. **Сужай query**:
@@ -448,7 +447,7 @@ YOUR RESOURCES:
    - Drive: \`query="modifiedTime > '2024-01-01'"\`, \`query="mimeType = 'application/pdf'"\`
    - Никогда не дёргай «всё подряд».
 
-3. **Тело письма / содержимое файла — только по конкретному ID** через GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID, GOOGLEDOCS_GET_DOCUMENT_BY_ID и т.п. И не больше 5-10 за раз.
+3. **Тело письма / содержимое файла — только по конкретному ID** через \`GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID\`, \`GOOGLEDOCS_GET_DOCUMENT_BY_ID\` и т.п. И не больше 3-5 за раз.
 
 4. **На «разгреби почту» — НЕ грузи всё**: сначала возьми 20 непрочитанных заголовков (subject + from + snippet), сформулируй вопрос «вот категории, что делать с какой?», и только потом действуй.
 
@@ -544,10 +543,9 @@ sessions/ — история по темам:
 ⚠️ ПРОТОКОЛ РАБОТЫ С GMAIL И ДРУГИМИ ИНСТРУМЕНТАМИ ВОЗВРАЩАЮЩИМИ СПИСКИ:
 Тулзы которые читают много данных (GMAIL_FETCH_EMAILS, GMAIL_LIST_THREADS, GOOGLEDRIVE_FIND_FILE, GOOGLECALENDAR_EVENTS_LIST и т.п.) могут вернуть мегабайты текста и взорвать контекст. ВСЕГДА:
 
-1. **Первый вызов — ТОЛЬКО метаданные/ID, без тел**:
-   - GMAIL_FETCH_EMAILS: \`max_results=20, ids_only=true\` (или \`include_payload=false\`)
-   - GMAIL_LIST_THREADS: \`max_results=20\`, \`query="is:unread"\` или подобный фильтр
-   - GOOGLEDRIVE_FIND_FILE: \`max_results=20\`
+1. **Первый вызов — ТОЛЬКО метаданные через _LIST_, никогда _FETCH_**:
+   - Для почты: \`GMAIL_LIST_THREADS\` с \`max_results=20\`, \`query="is:unread"\`. НЕ используй \`GMAIL_FETCH_EMAILS\` — её даже нет в наборе, она опасна (возвращает полные тела с вложениями base64).
+   - Для Drive: \`GOOGLEDRIVE_FIND_FILE\` с \`max_results=20\`
    - Любая *_LIST_*: всегда \`max_results <= 20\`
 
 2. **Сужай query**:
@@ -555,7 +553,7 @@ sessions/ — история по темам:
    - Drive: \`query="modifiedTime > '2024-01-01'"\`, \`query="mimeType = 'application/pdf'"\`
    - Никогда не дёргай «всё подряд» — это в 90% случаев не нужно пользователю.
 
-3. **Тело письма / содержимое файла — только по конкретному ID** через GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID, GOOGLEDOCS_GET_DOCUMENT_BY_ID и т.п. И не больше 5-10 за раз.
+3. **Тело письма / содержимое файла — только по конкретному ID** через \`GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID\`, \`GOOGLEDOCS_GET_DOCUMENT_BY_ID\` и т.п. И не больше 3-5 за раз.
 
 4. **Если пользователь говорит «разгреби почту» — НЕ грузи всё**: сначала возьми 20 непрочитанных заголовков (subject + from + snippet), сформулируй вопрос «вот категории, что делать с какой?», и только потом действуй. Никогда не читай полные тела до того, как пользователь их попросил.
 

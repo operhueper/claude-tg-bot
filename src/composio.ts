@@ -5,7 +5,10 @@
  * Each guest gets their own isolated MCP URL: ?user_id=tg_<userId>
  */
 
-export const COMPOSIO_GOOGLE_MCP_ID = "e3008da4-a157-4853-a77c-3dd9b673bded";
+// v2 (146 tools, GMAIL_FETCH_EMAILS/GMAIL_GET_ATTACHMENT removed — they have unsafe defaults
+// that blow context: include_payload=true, verbose=true return full bodies + base64 attachments).
+// Use GMAIL_LIST_THREADS + GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID instead.
+export const COMPOSIO_GOOGLE_MCP_ID = "6e3516f8-92df-44e3-8261-2ba31bda5c78";
 export const COMPOSIO_BASE_URL = "https://backend.composio.dev";
 
 /** Maps toolkit slug to Composio auth config ID */
