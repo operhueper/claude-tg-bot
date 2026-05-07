@@ -16,6 +16,7 @@ import {
   STREAMING_THROTTLE_MS,
   BUTTON_LABEL_MAX_LENGTH,
 } from "../config";
+import { pickRandomPhrase } from "../idle-phrases";
 
 /**
  * Create inline keyboard for ask_user options.
@@ -164,6 +165,108 @@ export class StreamingState {
 }
 
 /**
+ * Sends idle heartbeat phrases while the model is silent for >15 seconds.
+ * Rotates the phrase every 3 seconds by editing the same message.
+ * Stopped (and message deleted) as soon as the model produces any output.
+ */
+class IdleHeartbeat {
+  private silenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private tickTimer: ReturnType<typeof setInterval> | null = null;
+  private idleMessage: Message | null = null;
+  private currentPhrase: string | null = null;
+  private stopped = false;
+
+  private static readonly INITIAL_DELAY = 15_000;
+  private static readonly TICK_INTERVAL = 3_000;
+
+  constructor(private ctx: Context) {}
+
+  start(): void {
+    this.armSilenceTimer();
+  }
+
+  tick(): void {
+    if (this.stopped) return;
+    void this.removeIdleMessage();
+    this.armSilenceTimer();
+  }
+
+  async stop(): Promise<void> {
+    if (this.stopped) return;
+    this.stopped = true;
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
+    }
+    await this.removeIdleMessage();
+  }
+
+  private armSilenceTimer(): void {
+    if (this.stopped) return;
+    if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    this.silenceTimer = setTimeout(
+      () => void this.beginTicking(),
+      IdleHeartbeat.INITIAL_DELAY
+    );
+  }
+
+  private async beginTicking(): Promise<void> {
+    if (this.stopped) return;
+    const phrase = pickRandomPhrase();
+    this.currentPhrase = phrase;
+    try {
+      this.idleMessage = await this.ctx.reply(`🌀 ${phrase}…`);
+    } catch (err) {
+      console.debug("IdleHeartbeat: failed to send initial phrase:", err);
+      return;
+    }
+    this.tickTimer = setInterval(
+      () => void this.rotatePhrase(),
+      IdleHeartbeat.TICK_INTERVAL
+    );
+  }
+
+  private async rotatePhrase(): Promise<void> {
+    if (this.stopped || !this.idleMessage) return;
+    const next = pickRandomPhrase(this.currentPhrase ?? undefined);
+    this.currentPhrase = next;
+    try {
+      await this.ctx.api.editMessageText(
+        this.idleMessage.chat.id,
+        this.idleMessage.message_id,
+        `🌀 ${next}…`
+      );
+    } catch (err) {
+      const s = String(err);
+      if (!s.includes("not modified")) {
+        console.debug("IdleHeartbeat: rotate edit failed:", err);
+      }
+    }
+  }
+
+  private async removeIdleMessage(): Promise<void> {
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
+    }
+    if (this.idleMessage) {
+      const msg = this.idleMessage;
+      this.idleMessage = null;
+      this.currentPhrase = null;
+      try {
+        await this.ctx.api.deleteMessage(msg.chat.id, msg.message_id);
+      } catch (err) {
+        console.debug("IdleHeartbeat: delete failed:", err);
+      }
+    }
+  }
+}
+
+/**
  * Format content for Telegram, ensuring it fits within the message limit.
  * Truncates raw content and re-converts if HTML output exceeds the limit.
  */
@@ -215,7 +318,11 @@ export function createStatusCallback(
   ctx: Context,
   state: StreamingState
 ): StatusCallback {
+  const heartbeat = new IdleHeartbeat(ctx);
+  heartbeat.start();
+
   return async (statusType: string, content: string, segmentId?: number) => {
+    heartbeat.tick();
     try {
       if (statusType === "thinking") {
         // Show thinking inline, compact (first 500 chars)
@@ -343,16 +450,22 @@ export function createStatusCallback(
             console.debug("Failed to delete tool message:", error);
           }
         }
-        // Delete intermediate text segments (all except the last one)
+        // Delete intermediate text segments.
+        // Keep: the final segment (maxSegmentId) always.
+        // Also keep: segment 0 (plan announcement) when there are multiple segments —
+        // it's the pre-work announcement the user should see alongside the final answer.
+        const totalSegments = state.textMessages.size;
         for (const [sid, textMsg] of state.textMessages) {
-          if (sid !== state.maxSegmentId) {
-            try {
-              await ctx.api.deleteMessage(textMsg.chat.id, textMsg.message_id);
-            } catch (error) {
-              console.debug("Failed to delete intermediate text message:", error);
-            }
+          const isFinal = sid === state.maxSegmentId;
+          const isAnnouncement = sid === 0 && totalSegments > 1;
+          if (isFinal || isAnnouncement) continue;
+          try {
+            await ctx.api.deleteMessage(textMsg.chat.id, textMsg.message_id);
+          } catch (error) {
+            console.debug("Failed to delete intermediate text message:", error);
           }
         }
+        await heartbeat.stop();
       }
     } catch (error) {
       console.error("Status callback error:", error);
