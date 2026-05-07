@@ -52,6 +52,16 @@ import {
 import { persistUserActivity } from "./session-registry";
 import { mcpServersForProfile } from "./mcp-filter";
 import { recordUsage, type UsageSource } from "./metering";
+import { containerManager } from "./containers/manager";
+
+/**
+ * Hint appended to the system prompt for container-sandboxed guests so the
+ * model knows to call the in-process MCP tool instead of the (disabled) Bash.
+ */
+const CONTAINER_BASH_PROMPT = `
+
+ВАЖНО — ПЕСОЧНИЦА:
+Ты работаешь внутри изолированного Docker-контейнера. Стандартный инструмент Bash отключён. Чтобы выполнить shell-команду используй инструмент mcp__container__Bash (параметр: command — строка). Внутри контейнера у тебя свой /opt/vault/<userId>/ как рабочая папка, доступ в интернет, python3, node, bun, git и обычные unix-утилиты. Состояние (установленные пакеты, файлы) сохраняется между сообщениями. Файлы созданные через mcp__container__Bash в /opt/vault/<userId>/ ВИДНЫ инструментам Read/Write/Edit и наоборот — это одна и та же папка на хосте и в контейнере.`;
 
 /**
  * Determine thinking token budget based on message keywords.
@@ -229,6 +239,16 @@ export class ClaudeSession {
 
     // Inject memory context into system prompt for new sessions
     let systemPromptWithMemory = systemPromptOverride ?? this.profile.systemPrompt;
+
+    // Container-sandboxed guests: append the mcp__container__Bash usage hint.
+    // Without this the model would try to call the (disabled) built-in Bash
+    // tool and confuse itself.
+    const useContainer =
+      this.profile.containerEnabled && !this.profile.isOwner;
+    if (useContainer) {
+      systemPromptWithMemory =
+        (systemPromptWithMemory || "") + CONTAINER_BASH_PROMPT;
+    }
     if (isNewSession) {
       try {
         // 1. Prepend static profile.md if it exists
@@ -347,6 +367,16 @@ export class ClaudeSession {
     }
     // ============== End new guest routing ==============
 
+    // Container-sandboxed guests: disable the built-in Bash tool. Their
+    // shell access goes through mcp__container__Bash instead (in-process MCP
+    // that calls containerManager.exec). Merge with any existing disallowed
+    // tools from the profile (e.g. WebSearch for DeepSeek guests).
+    const disallowedTools = useContainer
+      ? Array.from(
+          new Set([...(this.profile.disallowedTools ?? []), "Bash"])
+        )
+      : this.profile.disallowedTools ?? [];
+
     // Build options for Claude CLI query (owner + new guests with DeepSeek key)
     const options: Options = {
       model: this.profile.model,
@@ -357,9 +387,7 @@ export class ClaudeSession {
       maxThinkingTokens: thinkingTokens,
       additionalDirectories: this.profile.allowedPaths,
       resume: this.sessionId || undefined,
-      ...(this.profile.disallowedTools?.length
-        ? { disallowedTools: this.profile.disallowedTools }
-        : {}),
+      ...(disallowedTools.length ? { disallowedTools } : {}),
       ...(this.profile.maxTurns !== undefined
         ? { maxTurns: this.profile.maxTurns }
         : {}),
@@ -406,6 +434,20 @@ export class ClaudeSession {
       );
       this.stopRequested = false;
       throw new Error("Query cancelled");
+    }
+
+    // Make sure the user's Docker sandbox is up before we hand off to query().
+    // Lazy-creates on first call, unpauses if idle. No-op for owner / guests
+    // without containerEnabled. Failing here should not break the user — if
+    // Docker is unavailable, exec() will surface a clear error per request.
+    if (useContainer) {
+      try {
+        await containerManager.getOrStart(this.profile);
+      } catch (err) {
+        console.warn(
+          `[${this.profile.label}] container getOrStart failed (will continue, exec will report errors): ${(err as Error).message}`
+        );
+      }
     }
 
     this.abortController = new AbortController();
@@ -679,6 +721,12 @@ export class ClaudeSession {
     this.lastActivity = new Date();
     this.lastError = null;
     this.lastErrorTime = null;
+
+    // Bump container idle watchdog: keeps the sandbox warm while the user is
+    // chatting, lets it auto-pause after 15 min and stop after 24 h of silence.
+    if (useContainer) {
+      containerManager.resetIdleTimer(this.profile.userId, this.profile);
+    }
 
     if (askUserTriggered) {
       await statusCallback("done", "");

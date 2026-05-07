@@ -28,6 +28,10 @@ RUN bun install -g typescript tsx pnpm
 RUN echo 'server { listen 80; root /workspace/public; index index.html; location / { try_files $uri $uri/ =404; } }' \
     > /etc/nginx/sites-available/default
 
+# Pre-create dropbox mount point (bind-mounts will replace it, but having
+# the dir guarantees consistent behavior across Docker versions).
+RUN mkdir -p /tmp/dropbox
+
 WORKDIR /workspace
 
 CMD ["sleep", "infinity"]

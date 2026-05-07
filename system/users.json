@@ -20,14 +20,14 @@
     "containerEnabled": true
   },
   {
-    "userId": 403360614,
+    "userId": 5615267984,
     "role": "new_guest",
     "label": "Артём",
     "timezone": "Europe/Moscow",
     "settingSources": ["project"],
     "rateLimitEnabled": false,
     "model": "deepseek-chat",
-    "vaultDir": "/opt/vault/403360614",
+    "vaultDir": "/opt/vault/5615267984",
     "containerEnabled": true
   }
 ]

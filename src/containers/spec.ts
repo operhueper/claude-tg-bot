@@ -15,12 +15,17 @@ import {
   SANDBOX_IMAGE,
   containerName,
   dropboxDir,
-  volumeName,
 } from "./paths";
 
 export function buildRunArgs(profile: UserProfile): string[] {
   const userId = profile.userId;
   const isOwner = profile.isOwner;
+
+  // Mount the host vault at the SAME absolute path inside the container.
+  // This way file tools on host (Read/Write/Edit) and Bash inside the container
+  // resolve identical absolute paths (e.g. /opt/vault/403360614/foo.txt).
+  // No more two-filesystems-out-of-sync surprises.
+  const vaultPath = profile.workingDir;
 
   const args: string[] = [
     "run",
@@ -32,10 +37,10 @@ export function buildRunArgs(profile: UserProfile): string[] {
     "--label",
     `claude-bot-user=${userId}`,
     "--workdir",
-    "/workspace",
-    // Persistent per-user volume mounted at /workspace
+    vaultPath,
+    // Vault: bind-mount, NOT a named volume — keeps host and container in sync.
     "-v",
-    `${volumeName(userId)}:/workspace`,
+    `${vaultPath}:${vaultPath}`,
     // Claude credentials & settings — read-only so guests can't tamper
     "-v",
     "/root/.claude:/root/.claude:ro",

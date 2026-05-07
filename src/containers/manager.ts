@@ -310,6 +310,10 @@ class ContainerManager {
     try {
       mkdirSync(dropboxDir(userId), { recursive: true });
       mkdirSync(userDataDir(userId), { recursive: true });
+      // Vault dir is bind-mounted at the same path inside the container.
+      // If it doesn't exist on the host, `docker run -v` creates an empty
+      // host dir owned by root with weird perms — better to do it ourselves.
+      mkdirSync(profile.workingDir, { recursive: true });
     } catch (err) {
       this.log(
         userId,
