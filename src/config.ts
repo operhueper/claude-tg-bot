@@ -114,7 +114,7 @@ export function markNewGuestOnboarded(userId: number): void {
   writeFileSync(`${vaultDir}/.onboarding-done`, new Date().toISOString());
 }
 
-function bootstrapNewGuestDir(userId: number): void {
+export function bootstrapNewGuestDir(userId: number): void {
   try {
     const vaultDir = getNewGuestVaultDir(userId);
     if (!existsSync(vaultDir)) {

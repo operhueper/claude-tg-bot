@@ -7,7 +7,7 @@
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, NEW_GUEST_USERS } from "../config";
+import { ALLOWED_USERS, NEW_GUEST_USERS, bootstrapNewGuestDir } from "../config";
 import { isAuthorized } from "../security";
 import { auditLog, auditLogError, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -210,6 +210,11 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
     if (!NEW_GUEST_USERS.includes(targetUserId)) {
       NEW_GUEST_USERS.push(targetUserId);
     }
+    // Provision the full vault layout (public/, tools/, notes/, CLAUDE.md,
+    // dashboard.html, /var/www/u/{id} symlink etc.). Without this, new guests
+    // only get the partial dirs that container bootstrap creates and their
+    // proboi.site/u/{id}/ page 404s until the next bot restart.
+    bootstrapNewGuestDir(targetUserId);
     // CRITICAL: ALLOWED_USERS is a static const built from env at startup —
     // mutate it in-memory so isAuthorized() returns true on the user's next
     // message. Without this, an approved guest still hits the invite flow
