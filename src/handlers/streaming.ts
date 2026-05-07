@@ -177,7 +177,7 @@ class IdleHeartbeat {
   private stopped = false;
 
   private static readonly INITIAL_DELAY = 15_000;
-  private static readonly TICK_INTERVAL = 3_000;
+  private static readonly TICK_INTERVAL = 6_000;
 
   constructor(private ctx: Context) {}
 
@@ -219,7 +219,7 @@ class IdleHeartbeat {
     const phrase = pickRandomPhrase();
     this.currentPhrase = phrase;
     try {
-      this.idleMessage = await this.ctx.reply(`🌀 ${phrase}…`);
+      this.idleMessage = await this.ctx.reply(`✨ ${phrase}…`);
     } catch (err) {
       console.debug("IdleHeartbeat: failed to send initial phrase:", err);
       return;
@@ -238,7 +238,7 @@ class IdleHeartbeat {
       await this.ctx.api.editMessageText(
         this.idleMessage.chat.id,
         this.idleMessage.message_id,
-        `🌀 ${next}…`
+        `✨ ${next}…`
       );
     } catch (err) {
       const s = String(err);
