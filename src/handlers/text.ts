@@ -5,8 +5,7 @@
 import type { Context } from "grammy";
 import type { StatusCallback } from "../types";
 import { getSession, getGroupSession } from "../session-registry";
-import { ALLOWED_USERS, buildOnboardingPrompt, getUserProfile } from "../config";
-import { markOnboardingComplete } from "../user-registry";
+import { ALLOWED_USERS } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { requestAccess } from "../containers/invites";
 import {
@@ -213,28 +212,9 @@ export async function handleText(ctx: Context): Promise<void> {
   // 7. Start typing indicator
   const typing = startTypingIndicator(ctx);
 
-  // Resolve onboarding state once before the retry loop
-  const profile = getUserProfile(userId);
-  const onboardingPrompt = !inGroup && !profile.onboardingComplete
-    ? buildOnboardingPrompt(userId, profile.workingDir)
-    : undefined;
-
-  const ONBOARDING_MARKER = "[ONBOARDING_COMPLETE]";
-
   // 8. Create streaming state and callback
   let state = new StreamingState();
-  let baseCallback = createStatusCallback(ctx, state);
-
-  // Wrap callback to strip the onboarding marker from streamed text
-  const wrapOnboardingCallback = (cb: StatusCallback): StatusCallback =>
-    async (type, content, segmentId) => {
-      const cleaned = content.replace(ONBOARDING_MARKER, "").trimEnd();
-      return cb(type, cleaned, segmentId);
-    };
-
-  let statusCallback: StatusCallback = onboardingPrompt
-    ? wrapOnboardingCallback(baseCallback)
-    : baseCallback;
+  let statusCallback: StatusCallback = createStatusCallback(ctx, state);
 
   // 9. Send to Claude with retry logic for crashes
   const MAX_RETRIES = 1;
@@ -247,15 +227,8 @@ export async function handleText(ctx: Context): Promise<void> {
         userId,
         statusCallback,
         chatId,
-        ctx,
-        undefined,
-        onboardingPrompt
+        ctx
       );
-
-      // If onboarding marker is present, complete onboarding
-      if (onboardingPrompt && response.includes(ONBOARDING_MARKER)) {
-        markOnboardingComplete(userId);
-      }
 
       // 10. Audit log
       await auditLog(userId, username, "TEXT", message, response);
@@ -315,10 +288,7 @@ export async function handleText(ctx: Context): Promise<void> {
         await ctx.reply(`⚠️ Claude crashed, retrying...`);
         // Reset state for retry
         state = new StreamingState();
-        baseCallback = createStatusCallback(ctx, state);
-        statusCallback = onboardingPrompt
-          ? wrapOnboardingCallback(baseCallback)
-          : baseCallback;
+        statusCallback = createStatusCallback(ctx, state);
         continue;
       }
 

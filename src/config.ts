@@ -849,6 +849,38 @@ export function getUserProfile(userId: number): UserProfile {
 
   // Owner profile: registry overrides label, timezone, settingSources, model.
   const ownerVaultDir = `/opt/vault/${userId}`;
+  const ownerModel = node?.model ?? OWNER_MODEL;
+
+  // If owner is configured to use a DeepSeek model, inject the same env-vars
+  // that route Anthropic SDK calls through DeepSeek's compatible endpoint.
+  // Mirrors the guest branch so Task-tool subagents also stay on DeepSeek.
+  let ownerDeepseekApiKey: string | undefined;
+  let ownerDeepseekEnv: Record<string, string> | undefined;
+  let ownerDisallowedTools: string[] | undefined;
+  let ownerMaxTurns: number | undefined;
+
+  if (ownerModel.startsWith("deepseek-")) {
+    const dsKey = getDeepSeekApiKey();
+    if (!dsKey) {
+      throw new Error(
+        `Owner ${userId} requested model "${ownerModel}" but DEEPSEEK_API_KEY is not set`
+      );
+    }
+    ownerDeepseekApiKey = dsKey;
+    ownerDeepseekEnv = {
+      ...(process.env as Record<string, string>),
+      ANTHROPIC_API_KEY: dsKey,
+      ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+      ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
+      ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
+      ANTHROPIC_MODEL: "deepseek-chat",
+    };
+    // DeepSeek doesn't support Anthropic-native WebSearch.
+    ownerDisallowedTools = ["WebSearch"];
+    ownerMaxTurns = 20;
+  }
+
   return {
     userId,
     isOwner: true,
@@ -861,13 +893,17 @@ export function getUserProfile(userId: number): UserProfile {
     rateLimitEnabled: node?.rateLimitEnabled ?? RATE_LIMIT_ENABLED_DEFAULT,
     rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
     rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
-    model: node?.model ?? OWNER_MODEL,
+    model: ownerModel,
     sessionFile: `/tmp/claude-telegram-session-${userId}.json`,
     allowedCommands: OWNER_COMMANDS,
     label: node?.label ?? "owner",
     timezone: node?.timezone ?? "Asia/Shanghai",
     containerEnabled: node?.containerEnabled ?? false,
     onboardingComplete: true,
+    deepseekApiKey: ownerDeepseekApiKey,
+    deepseekEnv: ownerDeepseekEnv,
+    disallowedTools: ownerDisallowedTools,
+    maxTurns: ownerMaxTurns,
   };
 }
 
