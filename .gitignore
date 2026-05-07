@@ -42,3 +42,10 @@ metering.sqlite
 # Finder (MacOS) folder config
 .DS_Store
 /claude-bot-standalone
+
+# graphify (local knowledge-graph experiments, never committed)
+graphify-input/
+graphify-out/
+
+# Playwright MCP cache (browser session data)
+.playwright-mcp/

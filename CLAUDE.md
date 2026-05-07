@@ -86,7 +86,6 @@ All config via `.env` (copy from `.env.example`). Key variables:
 - `DEEPSEEK_API_KEY` - Single shared DeepSeek API key used for all guest sessions
 - `OPENROUTER_API_KEY` - For OpenRouter routing (DeepSeek via OpenRouter, openrouter-image MCP — owner only)
 - `OPENAI_API_KEY` - For voice transcription (Whisper)
-- `HF_API_TOKEN` - Hugging Face API token. Required when `hf-image` / `hf-llm` MCPs are enabled in `mcp-config.ts`
 - `CLAUDE_MODEL` - Override owner Claude model (default `claude-sonnet-4-6`)
 - `SHOW_TOOL_USE`, `SHOW_THINKING` - UI verbosity. Both default false: tool calls and thinking blocks are hidden, only final assistant text reaches the chat
 - `TRANSCRIPTION_CONTEXT_FILE` - Path to text file appended to Whisper prompt (proper nouns, jargon)
@@ -95,22 +94,20 @@ All config via `.env` (copy from `.env.example`). Key variables:
 - `METERING_DB_PATH` - Path to the SQLite token-accounting database (default `./metering.sqlite`). Created automatically on first run.
 - `DASHBOARD_PORT` - Port for the embedded dashboard web server (default `3848`).
 
-MCP servers defined in `mcp-config.ts`, which is **gitignored** — each host (your laptop, the prod server) keeps its own copy seeded from `mcp-config.example.ts`. The example file has all servers commented out; the prod box runs a customised version with `ask-user`, `send-file`, `hf-image`, `hf-llm` enabled. When deploying to a fresh host, copy `mcp-config.example.ts → mcp-config.ts` and uncomment what you need — otherwise no MCPs load.
+MCP servers defined in `mcp-config.ts`, which is **gitignored** — each host (your laptop, the prod server) keeps its own copy seeded from `mcp-config.example.ts`. When deploying to a fresh host, copy `mcp-config.example.ts → mcp-config.ts` and add the servers you need — otherwise no MCPs load.
 
-For each enabled MCP, the corresponding tool prefix (e.g. `mcp__hf-image`) must also appear in `/root/.claude/settings.json` under `permissions.allow`. A bare `mcp__*` wildcard does NOT work — list each server explicitly. If the bot says «Нет прав на использование инструмента» / «No permission to use tool», that's the missing entry.
+For each enabled MCP, the corresponding tool prefix (e.g. `mcp__pollinations-image`) must also appear in `/root/.claude/settings.json` under `permissions.allow`. A bare `mcp__*` wildcard does NOT work — list each server explicitly. If the bot says «Нет прав на использование инструмента», that's the missing entry.
 
 ### Bundled MCPs
 
-Four MCPs ship with this repo and have first-class integration in `src/session.ts`:
+Four MCPs ship with this repo:
 
 - **`ask_user_mcp/`** — Claude calls `mcp__ask-user__*`, the bot detects the tool-name prefix and renders Telegram inline-keyboard buttons via `src/handlers/callback.ts`. The query loop breaks after the call and resumes when the user taps a button.
 - **`send_file_mcp/`** — Claude calls `mcp__send-file__*`, the bot intercepts and uploads the file via `src/handlers/streaming.ts:checkPendingSendFileRequests`. Unlike `ask-user`, the query continues streaming.
-- **`hf_image_mcp/`** — Claude calls `mcp__hf-image__generate_image(prompt)`. Hits Hugging Face's Inference Providers router (`router.huggingface.co/fal-ai/fal-ai/z-image/base`), which proxies to fal-ai's hosted `Tongyi-MAI/Z-Image`. fal-ai responds with JSON `{images: [{url}]}`; the server downloads the URL and saves a PNG to `/tmp/hf_images/`, returning the absolute path so `send-file` can deliver it. Requires `HF_API_TOKEN`.
-- **`hf_llm_mcp/`** — Claude calls `mcp__hf-llm__ask_uncensored(prompt)` for an unfiltered second opinion. **Currently broken**: targets `HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive`, which has empty `inferenceProviderMapping` (no provider hosts it). To revive, swap to a model with live providers — check via `GET https://huggingface.co/api/models/<id>?expand[]=inferenceProviderMapping`.
+- **`pollinations_mcp/`** — free image generation via Pollinations.ai (Flux model, no API key). Saves PNG to `/tmp/pollinations/` and returns the absolute path so `send-file` can deliver it. Available to all users.
+- **`openrouter_image_mcp/`** — paid image generation via OpenRouter (Nano Banana / Gemini image models). Owner-only — guests use `pollinations-image`. Requires `OPENROUTER_API_KEY`.
 
 `ask-user` and `send-file` rely on a file-drop-box pattern (MCP server writes a request file, bot polls/reads it). When adding similar interactive MCPs, follow the same `mcp__<name>` prefix convention so `session.ts` can hook them.
-
-**HF Inference API migration (2025)**: the old `api-inference.huggingface.co/models/<id>` serverless endpoints are deprecated and return 404 for most models. Use the new router: `https://router.huggingface.co/<provider>/<providerId>` with the body shape that *provider* expects (e.g. fal-ai wants `{"prompt": "..."}` and replies with `{images: [{url}]}`, NOT a binary). Find a model's available providers via `?expand[]=inferenceProviderMapping`. Don't reintroduce the old endpoint — it will silently 404.
 
 ### Runtime Files
 
