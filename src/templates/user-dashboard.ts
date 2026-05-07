@@ -342,7 +342,7 @@ export function renderDashboard(): string {
     <!-- 4. Кнопки -->
     <div class="btn-list">
       <a id="btn-public" class="btn btn-secondary" href="#" target="_blank">Открыть публичную страничку</a>
-      <a class="btn btn-secondary" href="https://design.proboi.site" target="_blank">Open Design</a>
+
       <button class="btn btn-secondary" onclick="reloadData()">Обновить</button>
     </div>
 

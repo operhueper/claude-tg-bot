@@ -207,9 +207,16 @@ The bot runs on jinru server as a systemd service. This is the canonical runtime
 Deploy after local edits:
 
 ```bash
-rsync -az --exclude node_modules --exclude .git ./ root@5.223.82.96:/opt/claude-tg-bot/
+# Production (jinru, @proboiAI_bot)
+rsync -az --exclude node_modules --exclude .git --exclude .env ./ root@5.223.82.96:/opt/claude-tg-bot/
 ssh root@5.223.82.96 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
+
+# Test (proboi-bot, @ORCH7_bot) — token is 8678975502:... configured on the server, never sync .env
+rsync -az --exclude node_modules --exclude .git --exclude .env ./ root@89.167.125.175:/opt/claude-tg-bot/
+ssh root@89.167.125.175 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
 ```
+
+⚠️ **Never rsync `.env`** — each server has its own token. Syncing `.env` overwrites the test server token with the prod token, causing 409 Conflict crash-loop on prod (jinru) and restart-notification spam to all users.
 
 ⚠️ **musl/glibc trap**: bun resolves to `@anthropic-ai/claude-agent-sdk-linux-x64-musl` but the server runs glibc Ubuntu. Production has a manual binary swap inside `node_modules/.../claude` to a glibc build. A clean `bun install` overwrites this — re-do the swap or the SDK subprocess exits 1.
 

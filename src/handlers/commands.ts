@@ -397,7 +397,7 @@ export async function handleDashboard(ctx: Context): Promise<void> {
       inline_keyboard: [[
         {
           text: "📱 Открыть дашборд",
-          web_app: { url: "https://ksenyaenbom.ru/dashboard" },
+          web_app: { url: "https://proboi.site/dashboard" },
         },
       ]],
     },

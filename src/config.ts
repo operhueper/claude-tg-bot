@@ -125,13 +125,13 @@ function bootstrapNewGuestDir(userId: number): void {
       mkdirSync(toolsDir, { recursive: true });
     }
 
-    // public/ — web-accessible via jinru.pro/u/{userId}/
+    // public/ — web-accessible via proboi.site/u/{userId}/
     const publicDir = `${vaultDir}/public`;
     if (!existsSync(publicDir)) {
       mkdirSync(publicDir, { recursive: true });
       writeFileSync(
         `${publicDir}/index.html`,
-        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>My page</title></head><body><h1>Hello!</h1><p>This page is at jinru.pro/u/${userId}/</p></body></html>\n`
+        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>My page</title></head><body><h1>Hello!</h1><p>This page is at proboi.site/u/${userId}/</p></body></html>\n`
       );
       console.log(`Created ${publicDir}`);
     }
@@ -449,7 +449,8 @@ sessions/ — история по темам:
 
 ТВОИ ВОЗМОЖНОСТИ — у тебя ТОЧНО ЕСТЬ:
 - WebFetch — читать любую страницу в интернете, без оговорок
-- WebSearch может падать (бэкенд DeepSeek не поддерживает серверные tools Anthropic). Используй WebFetch для конкретных URL, или Bash + curl на поисковые HTML-страницы (например: curl -sA "Mozilla/5.0" "https://html.duckduckgo.com/html/?q=ЗАПРОС" | grep result__a — и далее WebFetch на найденные ссылки).
+- WebSearch НЕДОСТУПЕН на этой модели — не пробуй его вообще. Для поиска используй: WebFetch на конкретный URL, или Bash + curl (например: curl -sA "Mozilla/5.0" "https://html.duckduckgo.com/html/?q=ЗАПРОС" | grep -oP 'href="https?://[^"&]*"' | head -5).
+- ЛИМИТ ПОИСКА: максимум 3 попытки найти что-то. Если за 3 bash-поиска ничего не нашёл — СТОП. Честно скажи что не смог найти автоматически, дай пользователю прямые ссылки из памяти или посоветуй куда зайти самому.
 - Bash с полным интернет-доступом — curl, wget, ping, nslookup, любые HTTP-запросы
 - Установка пакетов любым менеджером БЕЗ ВОПРОСОВ: bun add, npm install, pip install, apt-get install, cargo install
 - Не спрашивай разрешения у пользователя на установку — просто ставь
@@ -471,7 +472,7 @@ sessions/ — история по темам:
 
 ВЕБ-СТРАНИЦА:
 - Твоя публичная папка: ${vaultDir}/public/
-- Доступна в интернете по адресу: https://jinru.pro/u/${userId}/
+- Доступна в интернете по адресу: https://proboi.site/u/${userId}/
 - Пиши туда HTML/CSS/JS файлы — они сразу видны в браузере, деплой не нужен
 - Чужие папки /u/<другой_id>/ тебе недоступны
 
@@ -597,6 +598,13 @@ export interface UserProfile {
    * Owner profile leaves this undefined (no restrictions).
    */
   disallowedTools?: string[];
+  /**
+   * Maximum number of tool-call rounds per query.
+   * Guards against runaway search/retry loops (especially for DeepSeek guests
+   * who have no reliable WebSearch and fall back to slow bash+curl loops).
+   * Owner leaves this undefined (unlimited).
+   */
+  maxTurns?: number;
 }
 
 const RATE_LIMIT_REQUESTS_DEFAULT = parseInt(
@@ -748,6 +756,9 @@ export function getUserProfile(userId: number): UserProfile {
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
       // to prevent "does not support this tool_choice" errors. Ksenia uses Claude so no restriction.
       disallowedTools: isKsenia ? undefined : ["WebSearch"],
+      // Cap tool-call rounds for DeepSeek guests to prevent slow search loops.
+      // 20 turns covers complex coding tasks; Ksenia (Claude) gets no cap.
+      maxTurns: isKsenia ? undefined : 20,
     };
   }
 

@@ -36,7 +36,7 @@ import { GoalsStore } from "./memory/goals";
 import { analyzeSession } from "./memory/analyzer";
 import { buildMemoryContext } from "./memory/inject";
 import { summaryFile, rebuildTopicsIndex } from "./memory/paths";
-import { heuristicTopicCheck, llmTopicCheck } from "./memory/topic-detector";
+import { heuristicTopicCheck } from "./memory/topic-detector";
 import { checkCommandSafety, isPathAllowedFor } from "./security";
 import type {
   SavedSession,
@@ -359,6 +359,9 @@ export class ClaudeSession {
       resume: this.sessionId || undefined,
       ...(this.profile.disallowedTools?.length
         ? { disallowedTools: this.profile.disallowedTools }
+        : {}),
+      ...(this.profile.maxTurns !== undefined
+        ? { maxTurns: this.profile.maxTurns }
         : {}),
     };
 
@@ -857,24 +860,7 @@ export class ClaudeSession {
     const lastActivityMs = this.lastActivity?.getTime();
 
     const heuristic = heuristicTopicCheck(recentTurns, message, lastActivityMs);
-    if (heuristic.changed) return true;
-    if (!heuristic.reason.startsWith("maybe-")) return false;
-
-    // Ambiguous — ask lightweight model (Haiku for owner, DeepSeek-chat for guests)
-    try {
-      const llm = await llmTopicCheck(recentTurns, message, {
-        model: this.profile.lightModel ?? "claude-haiku-4-5",
-        cwd: this.profile.workingDir,
-        env: this.profile.deepseekEnv,
-      });
-      return llm.changed;
-    } catch (err) {
-      console.warn(
-        `[${this.profile.label}] checkTopicChange LLM failed:`,
-        err
-      );
-      return false;
-    }
+    return heuristic.changed;
   }
 }
 
