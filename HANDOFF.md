@@ -4,6 +4,21 @@
 
 ---
 
+### Сессия 2026-05-07 — фикс Open Design (design.proboi.site)
+
+**Проблема:** страница висела на "Loading Open Design…" и никогда не грузилась.
+
+**Корневая причина:** Next.js 16 dev server проверяет `Origin` заголовок WebSocket и блокирует запросы не с localhost — возвращает голый текст `Unauthorized` без HTTP статус-строки. Браузер видит "Invalid status line" и не может установить WebSocket для HMR.
+
+**Что сделано:**
+1. `/opt/open-design/apps/web/next.config.ts` — добавлен `'design.proboi.site'` в `allowedDevOrigins`. Сервис перезапущен.
+2. Все три nginx конфига (`proboi.site`, `dash.proboi.site`, `design.proboi.site`) — убран `http2` из `listen 443`. nginx 1.24 не поддерживает WebSocket через HTTP/2, и все listen-блоки на одном порту обязаны использовать одинаковый протокол.
+3. Локальные конфиги в `scripts/nginx/sites-available/` синхронизированы с сервером.
+
+**Итог:** `https://design.proboi.site/` открывается, показывает онбординг "Set up Open Design". Проверено Playwright.
+
+---
+
 ### Сессия 2026-05-06 (вечер) — заказ proboi-bot, bootstrap, TLS, Open Design
 
 **Новый сервер:** `proboi-bot` (Hetzner cx33 в Helsinki, **89.167.125.175**, IPv6 `2a01:4f9:c012:b2a5::1`). SSH-ключ только `jinru-deploy`. Лейблы env=production, project=proboi-bot. Цена €7.99/мес.
