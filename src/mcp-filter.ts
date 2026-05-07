@@ -8,9 +8,26 @@ import { getComposioApiKey, buildGoogleMcpUrl } from "./composio";
 type McpServersMap = Record<string, McpServerConfig>;
 
 export function mcpServersForProfile(profile: UserProfile): McpServersMap {
-  // Owner gets the full external-MCP set; in-process container Bash is a
-  // guest-only feature (owner runs Bash on the host directly).
-  if (profile.isOwner) return MCP_SERVERS as McpServersMap;
+  // Composio Google Workspace MCP — applied to BOTH owner and guests.
+  // Per-user isolation via ?user_id=tg_<id>. Skipped if COMPOSIO_API_KEY absent.
+  const composioApiKey = getComposioApiKey();
+  const googleWorkspaceMcp: McpServerConfig | null = composioApiKey
+    ? ({
+        type: "http",
+        url: buildGoogleMcpUrl(profile.userId),
+        headers: { "x-api-key": composioApiKey },
+      } as McpServerConfig)
+    : null;
+
+  // Owner gets the full external-MCP set + Google Workspace.
+  // In-process container Bash is a guest-only feature (owner runs Bash on host directly).
+  if (profile.isOwner) {
+    const result = { ...MCP_SERVERS } as McpServersMap;
+    if (googleWorkspaceMcp) {
+      result["google-workspace"] = googleWorkspaceMcp;
+    }
+    return result;
+  }
 
   const result: McpServersMap = {};
   for (const [key, value] of Object.entries(MCP_SERVERS)) {
@@ -26,15 +43,8 @@ export function mcpServersForProfile(profile: UserProfile): McpServersMap {
     result["container"] = buildContainerBashMcp(profile);
   }
 
-  // Google Workspace MCP via Composio (managed OAuth, per-user isolation).
-  // Only injected when COMPOSIO_API_KEY is set — graceful no-op otherwise.
-  const composioApiKey = getComposioApiKey();
-  if (composioApiKey) {
-    result["google-workspace"] = {
-      type: "http",
-      url: buildGoogleMcpUrl(profile.userId),
-      headers: { "x-api-key": composioApiKey },
-    } as McpServerConfig;
+  if (googleWorkspaceMcp) {
+    result["google-workspace"] = googleWorkspaceMcp;
   }
 
   return result;
