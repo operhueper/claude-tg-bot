@@ -53,6 +53,19 @@ export const ALLOWED_USERS: number[] = parseUserList(
   process.env.TELEGRAM_ALLOWED_USERS || ""
 );
 
+// Merge users from system/users.json (the user-registry) into ALLOWED_USERS at
+// startup so guests added via the invite-approval flow stay authorized after
+// a bot restart, even if they were never written into TELEGRAM_ALLOWED_USERS.
+try {
+  for (const node of UserRegistry.getAllUsers()) {
+    if (!ALLOWED_USERS.includes(node.userId)) {
+      ALLOWED_USERS.push(node.userId);
+    }
+  }
+} catch (err) {
+  console.warn("Could not merge UserRegistry into ALLOWED_USERS:", err);
+}
+
 // New guest users: per-user vault at /opt/vault/{userId}/, DeepSeek (or Claude for Ksenia).
 // Default list includes Ksenia (893951298) and all known testers.
 // Override via NEW_GUEST_USERS env var (comma-separated IDs).

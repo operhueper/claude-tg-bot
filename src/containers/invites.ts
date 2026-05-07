@@ -6,7 +6,9 @@
  */
 
 import { mkdirSync, unlinkSync, readdirSync } from "fs";
+import type { Context } from "grammy";
 import { pendingDir } from "./paths";
+import { ALLOWED_USERS, NEW_GUEST_USERS } from "../config";
 
 export interface PendingInvite {
   userId: number;
@@ -50,6 +52,69 @@ export async function removePendingInvite(userId: number): Promise<void> {
     unlinkSync(inviteFile(userId));
   } catch {
     // Ignore: file may not exist
+  }
+}
+
+/**
+ * Handle access request from an unauthorized user.
+ *
+ * Saves a pending invite, notifies the owner with approve/deny buttons,
+ * and replies to the requesting user. Idempotent: if an invite is already
+ * pending, just tells the user to wait. Used by both `/start` and the
+ * generic text handler.
+ */
+export async function requestAccess(
+  ctx: Context,
+  firstMessage: string
+): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  const existing = await getPendingInvite(userId);
+  if (existing) {
+    await ctx.reply("Ваш запрос уже на рассмотрении.");
+    return;
+  }
+
+  const firstName = ctx.from?.first_name;
+  const userUsername = ctx.from?.username;
+
+  await savePendingInvite({
+    userId,
+    username: userUsername,
+    firstName,
+    firstMessage,
+    timestamp: Date.now(),
+  });
+
+  await ctx.reply("🔒 Доступ закрыт. Ваш запрос отправлен администратору.");
+
+  // Owner = first user in ALLOWED_USERS who is NOT a guest
+  const ownerId = ALLOWED_USERS.find((id) => !NEW_GUEST_USERS.includes(id));
+  if (!ownerId) {
+    console.error("[invites] No owner found in ALLOWED_USERS — cannot notify");
+    return;
+  }
+
+  const displayName = firstName || userUsername || String(userId);
+  const usernameLine = userUsername ? `\n🔗 @${userUsername}` : "";
+  try {
+    await ctx.api.sendMessage(
+      ownerId,
+      `🔔 Новый запрос доступа\n👤 ${displayName}${usernameLine}\n🆔 ${userId}\n💬 «${firstMessage.slice(0, 100)}»`,
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "✅ Одобрить", callback_data: `invite_approve_${userId}` },
+              { text: "❌ Отклонить", callback_data: `invite_deny_${userId}` },
+            ],
+          ],
+        },
+      }
+    );
+  } catch (err) {
+    console.error("[invites] Failed to notify owner:", err);
   }
 }
 

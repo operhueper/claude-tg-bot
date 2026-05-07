@@ -5,10 +5,10 @@
 import type { Context } from "grammy";
 import type { StatusCallback } from "../types";
 import { getSession, getGroupSession } from "../session-registry";
-import { ALLOWED_USERS, NEW_GUEST_USERS, buildOnboardingPrompt, getUserProfile } from "../config";
+import { ALLOWED_USERS, buildOnboardingPrompt, getUserProfile } from "../config";
 import { markOnboardingComplete } from "../user-registry";
 import { isAuthorized, rateLimiter } from "../security";
-import { getPendingInvite, savePendingInvite } from "../containers/invites";
+import { requestAccess } from "../containers/invites";
 import {
   auditLog,
   auditLogRateLimit,
@@ -56,49 +56,7 @@ export async function handleText(ctx: Context): Promise<void> {
       return;
     }
 
-    // Invite flow: notify owner, save pending invite
-    const existing = await getPendingInvite(userId);
-    if (existing) {
-      await ctx.reply("Ваш запрос уже на рассмотрении.");
-      return;
-    }
-
-    const firstName = ctx.from?.first_name;
-    const userUsername = ctx.from?.username;
-
-    await savePendingInvite({
-      userId,
-      username: userUsername,
-      firstName,
-      firstMessage: message,
-      timestamp: Date.now(),
-    });
-
-    await ctx.reply("🔒 Доступ закрыт. Ваш запрос отправлен администратору.");
-
-    // Find the owner (first non-guest in ALLOWED_USERS)
-    const ownerId = ALLOWED_USERS.find((id) => !NEW_GUEST_USERS.includes(id));
-    if (ownerId) {
-      const displayName = firstName || userUsername || String(userId);
-      try {
-        await ctx.api.sendMessage(
-          ownerId,
-          `🔔 Новый запрос доступа\n👤 ${displayName}\n🆔 ${userId}\n💬 «${message.slice(0, 100)}»`,
-          {
-            reply_markup: {
-              inline_keyboard: [
-                [
-                  { text: "✅ Одобрить", callback_data: `invite_approve_${userId}` },
-                  { text: "❌ Отклонить", callback_data: `invite_deny_${userId}` },
-                ],
-              ],
-            },
-          }
-        );
-      } catch (err) {
-        console.error("[invites] Failed to notify owner:", err);
-      }
-    }
+    await requestAccess(ctx, message);
     return;
   }
 

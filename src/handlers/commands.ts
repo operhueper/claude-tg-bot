@@ -21,6 +21,7 @@ import {
 } from "../config";
 import { isAuthorized } from "../security";
 import { replyFriendly } from "../utils";
+import { requestAccess } from "../containers/invites";
 
 /** Reject command if the profile doesn't permit it. */
 function commandAllowed(userId: number, command: string): boolean {
@@ -33,8 +34,14 @@ function commandAllowed(userId: number, command: string): boolean {
 export async function handleStart(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
 
-  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
+  if (!userId) {
     await ctx.reply("Unauthorized. Contact the bot owner for access.");
+    return;
+  }
+
+  if (!isAuthorized(userId, ALLOWED_USERS)) {
+    // Trigger invite flow: notify owner, save pending request
+    await requestAccess(ctx, "/start");
     return;
   }
 

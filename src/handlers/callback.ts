@@ -7,13 +7,12 @@
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS } from "../config";
+import { ALLOWED_USERS, NEW_GUEST_USERS } from "../config";
 import { isAuthorized } from "../security";
 import { auditLog, auditLogError, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { getPendingInvite, removePendingInvite } from "../containers/invites";
 import { addUser } from "../user-registry";
-import { NEW_GUEST_USERS } from "../config";
 
 /**
  * Handle callback queries from inline keyboards.
@@ -210,6 +209,13 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
     // Also add to in-memory NEW_GUEST_USERS so getUserProfile picks it up immediately
     if (!NEW_GUEST_USERS.includes(targetUserId)) {
       NEW_GUEST_USERS.push(targetUserId);
+    }
+    // CRITICAL: ALLOWED_USERS is a static const built from env at startup —
+    // mutate it in-memory so isAuthorized() returns true on the user's next
+    // message. Without this, an approved guest still hits the invite flow
+    // and never reaches their sandbox until the bot restarts.
+    if (!ALLOWED_USERS.includes(targetUserId)) {
+      ALLOWED_USERS.push(targetUserId);
     }
     const alreadyExisted = !isNew;
 
