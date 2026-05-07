@@ -342,7 +342,7 @@ async function processArchive(
       statusCallback,
       chatId,
       ctx,
-      true // mediaHint: archive content
+      false // archive content is already inlined as text — no vision route
     );
 
     await auditLog(
@@ -432,7 +432,10 @@ async function processDocuments(
       statusCallback,
       chatId,
       ctx,
-      true // mediaHint: document content
+      // PDF/DOCX/TXT come pre-extracted as text; unknown types (e.g. .epub)
+      // pass the file path inside the prompt for Bash to handle. Either way
+      // this is a TEXT request — DeepSeek route, not Gemini Vision.
+      false
     );
 
     await auditLog(
