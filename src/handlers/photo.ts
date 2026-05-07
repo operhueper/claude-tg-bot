@@ -6,7 +6,7 @@
 
 import type { Context } from "grammy";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR } from "../config";
+import { ALLOWED_USERS, inboxDirFor } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -21,8 +21,12 @@ const photoBuffer = createMediaGroupBuffer({
 
 /**
  * Download a photo and return the local path.
+ *
+ * Container-enabled guests get the file in their vault inbox so the sandbox
+ * can read it at the same absolute path. Owner / non-container guests get
+ * the legacy host TEMP_DIR (see `inboxDirFor`).
  */
-async function downloadPhoto(ctx: Context): Promise<string> {
+async function downloadPhoto(ctx: Context, userId: number): Promise<string> {
   const photos = ctx.message?.photo;
   if (!photos || photos.length === 0) {
     throw new Error("No photo in message");
@@ -33,7 +37,7 @@ async function downloadPhoto(ctx: Context): Promise<string> {
 
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 8);
-  const photoPath = `${TEMP_DIR}/photo_${timestamp}_${random}.jpg`;
+  const photoPath = `${inboxDirFor(userId)}/photo_${timestamp}_${random}.jpg`;
 
   // Download
   const response = await fetch(
@@ -164,7 +168,7 @@ export async function handlePhoto(ctx: Context): Promise<void> {
   // 3. Download photo
   let photoPath: string;
   try {
-    photoPath = await downloadPhoto(ctx);
+    photoPath = await downloadPhoto(ctx, userId);
   } catch (error) {
     console.error("Failed to download photo:", error);
     if (statusMsg) {

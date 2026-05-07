@@ -7,7 +7,7 @@
 
 import type { Context } from "grammy";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR, getUserProfile } from "../config";
+import { ALLOWED_USERS, TEMP_DIR, inboxDirFor } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, replyFriendly, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -64,22 +64,6 @@ const documentBuffer = createMediaGroupBuffer({
   itemLabel: "document",
   itemLabelPlural: "documents",
 });
-
-/**
- * Pick the directory to drop incoming files into.
- *
- * Container-enabled guests: inside their vault (`/opt/vault/{userId}/inbox/`)
- * — vault is same-path bind-mounted, so the file is visible at the identical
- * absolute path inside the sandbox. Otherwise (owner, or guest without
- * container): legacy host TEMP_DIR.
- */
-function inboxDirFor(userId: number): string {
-  const profile = getUserProfile(userId);
-  if (profile.containerEnabled && !profile.isOwner) {
-    return `${profile.workingDir}/inbox`;
-  }
-  return TEMP_DIR;
-}
 
 /**
  * Download a document and return the local path.

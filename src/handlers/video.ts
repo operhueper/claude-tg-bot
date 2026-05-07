@@ -6,7 +6,7 @@
 
 import type { Context } from "grammy";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR } from "../config";
+import { ALLOWED_USERS, inboxDirFor } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -17,8 +17,12 @@ const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 
 /**
  * Download a video and return the local path.
+ *
+ * Container-enabled guests get the file in their vault inbox so the sandbox
+ * can read it at the same absolute path. Owner / non-container guests get
+ * the legacy host TEMP_DIR (see `inboxDirFor`).
  */
-async function downloadVideo(ctx: Context): Promise<string> {
+async function downloadVideo(ctx: Context, userId: number): Promise<string> {
   const video = ctx.message?.video || ctx.message?.video_note;
   if (!video) {
     throw new Error("No video in message");
@@ -29,7 +33,7 @@ async function downloadVideo(ctx: Context): Promise<string> {
 
   // Use mp4 extension for regular videos, mp4 for video notes too
   const extension = ctx.message?.video_note ? "mp4" : "mp4";
-  const videoPath = `${TEMP_DIR}/video_${timestamp}.${extension}`;
+  const videoPath = `${inboxDirFor(userId)}/video_${timestamp}.${extension}`;
 
   // Download
   const response = await fetch(
@@ -86,7 +90,7 @@ export async function handleVideo(ctx: Context): Promise<void> {
   const statusMsg = await ctx.reply("📹 Downloading video...");
 
   try {
-    videoPath = await downloadVideo(ctx);
+    videoPath = await downloadVideo(ctx, userId);
   } catch (error) {
     console.error("Failed to download video:", error);
     await ctx.api.editMessageText(

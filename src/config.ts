@@ -453,7 +453,13 @@ sessions/ — история по темам:
 - Любой другой → Bash (скриптом) → mcp__send-file
 Никогда не пиши XML-контент как .xls — это не откроется нормально.
 
-МЕДИА: фото и документы от пользователя приходят в /tmp/telegram-bot/ и доступны через Read/Bash.
+МЕДИА — куда падают файлы от пользователя:
+- Документы, фото, видео → ${vaultDir}/inbox/<имя_файла> (та же папка снаружи и внутри контейнера)
+- Голос и аудио → транскрибируются автоматически, текст приходит в сообщении (сам файл недоступен)
+- ПЕРЕД тем как просить «пришли файл ещё раз» — обязательно сделай Bash: ls ${vaultDir}/inbox/ и проверь, что там лежит
+- В Bash и Read используй ровно тот путь, который был указан в предыдущем сообщении в строке Path: ...
+
+Конвертация .epub/.fb2 → PDF: в контейнере уже стоят ebook-convert (Calibre) и pandoc. Самый короткий путь — Bash: ebook-convert IN.epub OUT.pdf. Готовый враппер может уже лежать в ${vaultDir}/tools/epub2pdf.sh — сначала проверь его, не изобретай новый.
 
 САМО-РАСШИРЕНИЕ — никогда не говори «я не умею»:
 - Нужна библиотека — pip/bun/npm install через Bash без вопросов
@@ -886,6 +892,22 @@ export const TEMP_DIR = "/tmp/telegram-bot";
 export const TEMP_PATHS = ["/tmp/", "/private/tmp/", "/var/folders/"];
 
 await Bun.write(`${TEMP_DIR}/.keep`, "");
+
+/**
+ * Where to drop incoming media (documents, photos, video) for a given user.
+ *
+ * Container-enabled guests get files in `${vaultDir}/inbox/` — the vault is
+ * bind-mounted at the same absolute path inside the container, so Claude
+ * sees the file at the identical path it was written to. Owner and
+ * non-container guests use the legacy host TEMP_DIR.
+ */
+export function inboxDirFor(userId: number): string {
+  const profile = getUserProfile(userId);
+  if (profile.containerEnabled && !profile.isOwner) {
+    return `${profile.workingDir}/inbox`;
+  }
+  return TEMP_DIR;
+}
 
 // ============== Validation ==============
 
