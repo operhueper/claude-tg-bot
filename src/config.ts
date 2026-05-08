@@ -11,6 +11,7 @@ import { mkdirSync, existsSync, writeFileSync, readFileSync, symlinkSync } from 
 import type { McpServerConfig } from "./types";
 import { generateGuestClaudeMd } from "./templates/guest-claude-md";
 import { generateGuestDashboard } from "./templates/guest-dashboard";
+import { renderHowToSetupGuide } from "./templates/landing";
 import { UserRegistry } from "./user-registry";
 
 // ============== Environment Setup ==============
@@ -144,7 +145,7 @@ export function bootstrapNewGuestDir(userId: number): void {
       mkdirSync(publicDir, { recursive: true });
       writeFileSync(
         `${publicDir}/index.html`,
-        `<!DOCTYPE html><html><head><meta charset="utf-8"><title>My page</title></head><body><h1>Hello!</h1><p>This page is at proboi.site/u/${userId}/</p></body></html>\n`
+        renderHowToSetupGuide()
       );
       console.log(`Created ${publicDir}`);
     }
