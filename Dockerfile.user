@@ -32,6 +32,9 @@ RUN echo 'server { listen 80; root /workspace/public; index index.html; location
 # the dir guarantees consistent behavior across Docker versions).
 RUN mkdir -p /tmp/dropbox
 
+COPY scripts/daemon-runner/daemon-runner /usr/local/bin/daemon-runner
+RUN chmod +x /usr/local/bin/daemon-runner
+
 WORKDIR /workspace
 
-CMD ["sleep", "infinity"]
+CMD ["/usr/local/bin/daemon-runner"]

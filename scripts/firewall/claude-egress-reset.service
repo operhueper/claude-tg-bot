@@ -1,0 +1,9 @@
+[Unit]
+Description=Claude Bot Egress Daily Reset (midnight counter flush)
+After=claude-firewall.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/claude-egress-reset.sh
+StandardOutput=journal
+StandardError=journal

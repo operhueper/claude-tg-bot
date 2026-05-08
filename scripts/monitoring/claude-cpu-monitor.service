@@ -1,0 +1,10 @@
+[Unit]
+Description=Claude CPU monitor — проверка CPU гостевых контейнеров
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cpu-monitor.sh
+StandardOutput=append:/var/log/claude-cpu-monitor.log
+StandardError=append:/var/log/claude-cpu-monitor.log

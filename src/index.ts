@@ -46,9 +46,37 @@ import { getRecentlyActiveUsers } from "./session-registry";
 import { setBotUsername } from "./group-filter";
 import { containerManager } from "./containers/manager";
 import { startDashboardServer } from "./dashboard-server";
+import { registerAlertBot, notifyOwnerDM } from "./owner-alerts";
+import { startCrashloopWatcher } from "./crashloop-watcher";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
+registerAlertBot(bot);
+
+// Log when the bot is added to / removed from any chat — helps the owner
+// discover the channel id of the «проблемы пробоя» alerts channel: just add
+// the bot as admin, and the chat id appears in stdout + owner DM.
+bot.on("my_chat_member", async (ctx) => {
+  const status = ctx.myChatMember.new_chat_member.status;
+  const chat = ctx.chat;
+  console.log(`[chat-membership] status=${status} chat_id=${chat.id} type=${chat.type} title=${"title" in chat ? chat.title : "(dm)"}`);
+  if (status === "administrator" || status === "member") {
+    try {
+      await notifyOwnerDM(
+        `Бот добавлен в чат:\n<b>${"title" in chat ? chat.title : "(no title)"}</b>\nchat_id: <code>${chat.id}</code>\n\nЕсли это «проблемы пробоя» — пропиши на проде в env: <code>OWNER_PROBLEM_CHANNEL_ID=${chat.id}</code> и перезапусти бот.`,
+      );
+    } catch {}
+  }
+});
+
+// Channel posts — log chat_id for any channel where the bot is admin. Lets
+// the owner reveal the «проблемы пробоя» channel id by posting any message
+// there once (workaround for missed my_chat_member after a restart).
+bot.on("channel_post", async (ctx) => {
+  const chat = ctx.chat;
+  if (chat.type !== "channel") return;
+  console.log(`[channel-post] chat_id=${chat.id} title=${chat.title}`);
+});
 
 // ============== Subscription Gate ==============
 // Authorized non-owner users must be members of REQUIRED_CHANNEL_ID before
@@ -376,6 +404,10 @@ if (HEALTH_SECRET && HEALTH_OWNER_ID) {
 // ============== Dashboard Server ==============
 
 startDashboardServer();
+
+// ============== Crashloop watcher ==============
+
+startCrashloopWatcher();
 
 // Start with concurrent runner (commands work immediately)
 const runner = run(bot);

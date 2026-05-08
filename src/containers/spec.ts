@@ -45,6 +45,10 @@ export function buildRunArgs(profile: UserProfile): string[] {
   const args: string[] = [
     "run",
     "--detach",
+    // Survive host reboots, dockerd restarts, and claude-tg-bot restarts.
+    // The container only stops on explicit `docker stop` (admin or user
+    // action). Without this, every host reboot kills user automations.
+    "--restart=unless-stopped",
     // tini as PID 1 — reaps zombie children (e.g. QtWebEngineProc spawned
     // by Calibre). Without --init, sleep infinity ignores SIGCHLD and zombies
     // pile up forever.
@@ -57,6 +61,10 @@ export function buildRunArgs(profile: UserProfile): string[] {
     `claude-bot-user=${userId}`,
     "--workdir",
     vaultPath,
+    // daemon-runner (PID 1 inside the image) reads VAULT_DIR to locate
+    // .daemons.yaml, logs/, and .daemons-events/.
+    "-e",
+    `VAULT_DIR=${vaultPath}`,
     // Vault: bind-mount, NOT a named volume — keeps host and container in sync.
     "-v",
     `${vaultPath}:${vaultPath}`,

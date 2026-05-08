@@ -1,0 +1,15 @@
+[Unit]
+Description=Claude Bot Firewall Rules (SMTP block + traffic counters)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/local/sbin/claude-setup-firewall.sh
+ExecStop=/usr/local/sbin/claude-firewall-flush.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

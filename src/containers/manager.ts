@@ -46,6 +46,18 @@ const IDLE_PAUSE_MS = 15 * 60 * 1000; // 15 min → docker pause
 const IDLE_STOP_MS = 24 * 60 * 60 * 1000; // 24 h  → docker stop
 const DEFAULT_EXEC_TIMEOUT_MS = 30_000;
 
+// If /opt/vault/<id>/.daemons.yaml has at least one `enabled: true` daemon,
+// we never pause/stop the container — the user has long-running automations
+// and freezing them defeats the point.
+function hasActiveDaemons(userId: number): boolean {
+  try {
+    const content = readFileSync(`/opt/vault/${userId}/.daemons.yaml`, "utf-8").toLowerCase();
+    return /^\s*enabled:\s*(true|yes|on)\s*$/m.test(content);
+  } catch {
+    return false;
+  }
+}
+
 interface ExecOptions {
   timeout?: number;
   cwd?: string;
@@ -230,6 +242,10 @@ class ContainerManager {
 
   async pause(userId: number): Promise<void> {
     if (!(await this.ensureDocker())) return;
+    if (hasActiveDaemons(userId)) {
+      this.log(userId, "pause skipped — active daemons present");
+      return;
+    }
     await this.withLock(userId, async () => {
       const state = await this.getStateUnlocked(userId);
       if (state !== "running") return;
@@ -240,6 +256,10 @@ class ContainerManager {
 
   async stop(userId: number): Promise<void> {
     if (!(await this.ensureDocker())) return;
+    if (hasActiveDaemons(userId)) {
+      this.log(userId, "stop skipped — active daemons present");
+      return;
+    }
     await this.withLock(userId, async () => {
       const state = await this.getStateUnlocked(userId);
       if (state === "absent" || state === "stopped") return;
@@ -273,6 +293,10 @@ class ContainerManager {
     if (!profile.containerEnabled) return;
 
     this.clearIdleTimers(userId);
+
+    // Active daemons → never schedule pause/stop. The user is paying for
+    // 24/7 compute; freezing the container freezes their bots and crons.
+    if (hasActiveDaemons(userId)) return;
 
     const pauseTimer = setTimeout(() => {
       this.pause(userId).catch((err) =>

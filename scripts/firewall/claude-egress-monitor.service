@@ -1,0 +1,9 @@
+[Unit]
+Description=Claude Bot Egress Monitor (per-container traffic accounting)
+After=claude-firewall.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/claude-egress-monitor.sh
+StandardOutput=journal
+StandardError=journal
