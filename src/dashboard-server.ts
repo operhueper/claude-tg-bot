@@ -27,7 +27,7 @@ import {
   getGuestsAggregate,
 } from "./containers/metrics";
 
-import { renderLanding } from "./templates/landing";
+import { renderLanding, renderHowToSetup } from "./templates/landing";
 import { renderDashboard } from "./templates/user-dashboard";
 
 // ---------------------------------------------------------------------------
@@ -147,6 +147,46 @@ function htmlResponse(html: string, status = 200): Response {
   return new Response(html, {
     status,
     headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Landing page assets (CSS / JS)
+// ---------------------------------------------------------------------------
+
+const ASSET_DIR = new URL("./templates/assets/", import.meta.url);
+
+const ASSET_CONTENT_TYPES: Record<string, string> = {
+  css: "text/css; charset=utf-8",
+  js: "application/javascript; charset=utf-8",
+};
+
+async function assetResponse(filename: string): Promise<Response> {
+  // Whitelist: only specific files in templates/assets/ are servable.
+  const allowed = new Set([
+    "landing.css",
+    "landing-blocks.css",
+    "landing-visuals.js",
+  ]);
+  if (!allowed.has(filename)) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  const ext = filename.slice(filename.lastIndexOf(".") + 1);
+  const contentType =
+    ASSET_CONTENT_TYPES[ext] || "application/octet-stream";
+
+  const file = Bun.file(new URL(filename, ASSET_DIR));
+  if (!(await file.exists())) {
+    return new Response("Not Found", { status: 404 });
+  }
+
+  return new Response(file, {
+    status: 200,
+    headers: {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=300",
+    },
   });
 }
 
@@ -320,6 +360,18 @@ export function startDashboardServer(): void {
       try {
         if (method === "GET" && pathname === "/") {
           return htmlResponse(renderLanding());
+        }
+
+        if (
+          method === "GET" &&
+          (pathname === "/how-to-setup.html" || pathname === "/how-to-setup")
+        ) {
+          return htmlResponse(renderHowToSetup());
+        }
+
+        if (method === "GET" && pathname.startsWith("/assets/")) {
+          const filename = pathname.slice("/assets/".length);
+          return await assetResponse(filename);
         }
 
         if (method === "GET" && pathname === "/dashboard") {
