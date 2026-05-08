@@ -2,20 +2,32 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
-## Состояние: 2026-05-08 (после `/graphify --update` на коммите `559a17d` + uncommitted)
+## Состояние: 2026-05-08 после миграции автоматизаций (коммит `96bcc67`)
 
-Граф пересчитан по seed-файлам 01–14. Размер: **117 узлов, 98 рёбер, 28 сообществ** (было 84/84/21).
+Граф пересчитан по seed-файлам 01–15. Размер: **162 узла, 146 рёбер, 31 сообщество** (было 117/98/28).
 
-Seed-файлы: `graphify-input/01–14`. Визуализация: `graphify-out/graph.html`. Аудит: `graphify-out/GRAPH_REPORT.md`.
+Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-out/graph.html`. Аудит: `graphify-out/GRAPH_REPORT.md`.
 
 ### God Nodes (топ-связность)
-1. `Test Server State` — 8 рёбер
-2. `src/fast-path.ts isSimpleQuery()` — 8 рёбер (uncommitted, мёртвый код — нигде не импортируется)
-3. `parallel_mcp/server.ts mcp__parallel__run` — 7 рёбер
-4. `buildNewGuestSafetyPrompt(userId, vaultDir)` — 6 рёбер
-5. `Landing files (landing.ts + 3 asset)` — 6 рёбер
-6. `Request Path (15 шагов)` — 5 рёбер
-7. `Единый гостевой профиль` — 5 рёбер
+1. `daemon-runner (Go PID 1 надсмотрщик)` — 12 рёбер ⬆ новое
+2. `Test Server State` — 8 рёбер
+3. `src/fast-path.ts isSimpleQuery()` — 8 рёбер (uncommitted, мёртвый код)
+4. `parallel_mcp/server.ts mcp__parallel__run` — 7 рёбер
+5. `buildNewGuestSafetyPrompt(userId, vaultDir)` — 6 рёбер
+6. `.daemons.yaml manifest` — 6 рёбер ⬆ новое
+7. `scripts/firewall/egress-monitor.sh` — 6 рёбер ⬆ новое
+8. `Landing files (landing.ts + 3 asset)` — 6 рёбер
+9. `Request Path (15 шагов)` — 5 рёбер
+10. `Единый гостевой профиль` — 5 рёбер
+
+### Новые гиперрёбра
+- **Стек надсмотрщика:** image + daemon-runner + manifest + watcher
+- **Egress pipeline:** setup → monitor → reset через systemd
+- **Цепочка алертов:** alert-bot → owner-alerts → problem channel
+
+### Новый кластер: «Always-on автоматизации» (seed 15)
+
+`15-daemons-always-on.md` — переход на постоянные slot'ы пользователя. Ключевые узлы: daemon-runner (Go PID 1), .daemons.yaml manifest, crashloop event, hasActiveDaemons (pause/stop skip), notifyProblemChannel, scripts/firewall/*, scripts/monitoring/cpu-monitor.sh, OFERTA_DRAFT.md. Связан с кластерами «Алерты и мониторинг» и «Прод-сервер и деплой».
 
 ## Что изменилось с 2026-05-07
 
