@@ -16,7 +16,6 @@ set -euo pipefail
 
 GUEST_NET_NAME="claude-guest-net"
 GUEST_BRIDGE="claude-guest0"
-HOST_BRIDGE_IP="172.17.0.1"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
@@ -32,33 +31,28 @@ else
   log "Сеть $GUEST_NET_NAME уже существует, пропускаю create"
 fi
 
-# Подсеть гостевой сети — берём из docker network inspect (Docker сам выбирает
-# свободный 172.x.x.x/16, мы не должны хардкодить).
-GUEST_SUBNET=$(docker network inspect "$GUEST_NET_NAME" \
-  --format '{{(index .IPAM.Config 0).Subnet}}')
-log "Подсеть гостевой сети: $GUEST_SUBNET"
-
-# ── 2. iptables: блокировка доступа из гостевой подсети к хостовым портам ────
+# ── 2. iptables: блокировка доступа из гостевой сети к хостовым портам ───────
 #
-# DOCKER-USER — цепочка, которую Docker оставляет нетронутой между перезапусками.
-# Правила здесь применяются ДО DOCKER-FORWARD, поэтому надёжно блокируют трафик
-# даже если Docker пересоздаст свои собственные правила.
+# Трафик контейнер → хостовый IP попадает в цепочку INPUT (адресован самому
+# хосту), а не в FORWARD (тот для трафика, идущего «через» хост наружу).
+# Поэтому правил в DOCKER-USER (которая хукается через FORWARD) недостаточно —
+# нужно ставить блок в INPUT с фильтром по входному интерфейсу $GUEST_BRIDGE.
 
 ensure_drop_rule() {
   local dport="$1"
   local comment="$2"
 
-  if ! iptables -C DOCKER-USER \
-      -s "$GUEST_SUBNET" -d "$HOST_BRIDGE_IP" \
+  if ! iptables -C INPUT \
+      -i "$GUEST_BRIDGE" \
       -p tcp --dport "$dport" \
       -m comment --comment "$comment" \
       -j DROP &>/dev/null; then
-    iptables -I DOCKER-USER 1 \
-      -s "$GUEST_SUBNET" -d "$HOST_BRIDGE_IP" \
+    iptables -I INPUT 1 \
+      -i "$GUEST_BRIDGE" \
       -p tcp --dport "$dport" \
       -m comment --comment "$comment" \
       -j DROP
-    log "DROP $GUEST_SUBNET -> $HOST_BRIDGE_IP:$dport ($comment)"
+    log "DROP -i $GUEST_BRIDGE -> host:$dport ($comment)"
   fi
 }
 
