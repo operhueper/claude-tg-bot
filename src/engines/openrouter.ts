@@ -770,6 +770,12 @@ export async function queryOpenRouter(
       inputTokens: totalPromptTokens,
       outputTokens: totalCompletionTokens,
     });
+  } else {
+    // OpenRouter usually returns usage; if not, surface the gap so we know
+    // we're undercounting (cost gets logged as $0 and is invisible later).
+    console.warn(
+      `[metering] OpenRouter usage missing for ${model} (user ${profile.userId})`
+    );
   }
 
   return finalText;

@@ -17,6 +17,8 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { readdirSync, statSync, existsSync } from "fs";
+import { dirname } from "path";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB Telegram limit
 
@@ -67,6 +69,38 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   };
 });
 
+/** Build a helpful "file not found" message listing what's actually in the directory. */
+function buildNotFoundMessage(filePath: string): string {
+  const dir = dirname(filePath);
+  let msg = `Error: file not found at ${filePath}\n`;
+  if (!existsSync(dir)) {
+    msg += `\nDirectory ${dir} doesn't exist either. Check the file was created.`;
+    return msg;
+  }
+  try {
+    const entries = readdirSync(dir)
+      .map((name) => {
+        try {
+          const mtime = statSync(`${dir}/${name}`).mtimeMs;
+          return { name, mtime };
+        } catch {
+          return { name, mtime: 0 };
+        }
+      })
+      .sort((a, b) => b.mtime - a.mtime)
+      .slice(0, 10)
+      .map((e) => `  - ${e.name}`);
+    if (entries.length === 0) {
+      msg += `\nDirectory ${dir} is empty.`;
+    } else {
+      msg += `\nFiles actually present in ${dir}/:\n${entries.join("\n")}\n\nUse one of these exact paths, or create the file first.`;
+    }
+  } catch {
+    msg += `\nCould not list directory ${dir}.`;
+  }
+  return msg;
+}
+
 // Handle tool calls
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (request.params.name !== "send_file") {
@@ -105,7 +139,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         content: [
           {
             type: "text" as const,
-            text: `Error: File not found or empty: ${filePath}`,
+            text: buildNotFoundMessage(filePath),
           },
         ],
         isError: true,

@@ -20,6 +20,83 @@ import { isGroupChat, shouldRespondInGroup } from "../group-filter";
 import { maybeAutoNew } from "./topic-helper";
 
 /**
+ * Detect messages that contain multiple independent subtasks and prepend an
+ * orchestration hint so the model knows to use mcp__parallel__run.
+ *
+ * Returns the (possibly prepended) message. Logs which rule triggered via
+ * console.log so it appears in the audit trail without going to the user.
+ */
+function maybePrependOrchestrationHint(text: string, userId: number): string {
+  // Suppression — explicit sequential request cancels all triggers
+  const sequential =
+    /\b(по\s+очереди|последовательно|сначала.*потом|не\s+торопись|по\s+одному)\b/i;
+  if (sequential.test(text)) {
+    return text;
+  }
+
+  // Rule 1: numeric multiplicity (2+ items of same type)
+  const numericMultiplicity =
+    /\b([2-9]|\d{2,})\s*(кофе|кафе|мест[ао]?|фото|картин|изображен|файл|документ|вариант[аов]?|штук|пример|сайт|компани[йяею]|вакансий?|статей?|пункт|товар|продукт|раздел|глав[ую]?|стран|город|идей?|совет|способ|шаг|этап)/i;
+  const numMatch = numericMultiplicity.exec(text);
+  if (numMatch) {
+    const n = numMatch[1];
+    console.log(
+      `[orchestrate] triggered for user ${userId} by rule: numericMultiplicity (${n})`
+    );
+    return `[ОРКЕСТРАЦИЯ: эта задача из ${n} независимых частей. Используй mcp__parallel__run одним вызовом с массивом задач.]\n\n${text}`;
+  }
+
+  // Rule 2: multiple sources
+  const multiSource =
+    /\b(из\s+нескольких\s+источников|сравни\s+\S+\s+и\s+\S+|на\s+авито\s+и\s+циан|в\s+гугле\s+и\s+яндексе|с\s+(?:разных|нескольких)\s+(?:сайтов|платформ))/i;
+  if (multiSource.test(text)) {
+    console.log(
+      `[orchestrate] triggered for user ${userId} by rule: multiSource`
+    );
+    return `[ОРКЕСТРАЦИЯ: эта задача из нескольких независимых частей. Используй mcp__parallel__run одним вызовом с массивом задач.]\n\n${text}`;
+  }
+
+  // Rule 3: enumeration (word, word и word)
+  const enumeration = /\b(\S{3,}),\s*\S{3,}\s+и\s+\S{3,}/i;
+  if (enumeration.test(text)) {
+    console.log(
+      `[orchestrate] triggered for user ${userId} by rule: enumeration`
+    );
+    return `[ОРКЕСТРАЦИЯ: эта задача из нескольких независимых частей. Используй mcp__parallel__run одним вызовом с массивом задач.]\n\n${text}`;
+  }
+
+  // Rule 4: multiple actions (verb X and process/combine Y)
+  const multiAction =
+    /\b(найди|собери|скачай|сгенери[рп]|создай|подготовь|посмотри)\s+\S+\s+и\s+(оформи|обработай|проанализируй|сравни|объедини|собери|сделай)/i;
+  if (multiAction.test(text)) {
+    console.log(
+      `[orchestrate] triggered for user ${userId} by rule: multiAction`
+    );
+    return `[ОРКЕСТРАЦИЯ: эта задача из нескольких независимых частей. Используй mcp__parallel__run одним вызовом с массивом задач.]\n\n${text}`;
+  }
+
+  // Rule 5: explicit parallel keywords
+  const explicitParallel =
+    /\b(параллельно|одновременно|разом|несколько штук|сразу несколько)\b/i;
+  if (explicitParallel.test(text)) {
+    console.log(
+      `[orchestrate] triggered for user ${userId} by rule: explicitParallel`
+    );
+    return `[ОРКЕСТРАЦИЯ: эта задача из нескольких независимых частей. Используй mcp__parallel__run одним вызовом с массивом задач.]\n\n${text}`;
+  }
+
+  // Rule 6: long structured brief (500+ chars with list markers)
+  if (text.length > 500 && /^[\s]*[-*•\d]+[.)]\s/m.test(text)) {
+    console.log(
+      `[orchestrate] triggered for user ${userId} by rule: longStructured`
+    );
+    return `[ОРКЕСТРАЦИЯ: эта задача из нескольких независимых частей. Используй mcp__parallel__run одним вызовом с массивом задач.]\n\n${text}`;
+  }
+
+  return text;
+}
+
+/**
  * Handle incoming text messages.
  */
 export async function handleText(ctx: Context): Promise<void> {
@@ -216,7 +293,16 @@ export async function handleText(ctx: Context): Promise<void> {
   let state = new StreamingState();
   let statusCallback: StatusCallback = createStatusCallback(ctx, state);
 
-  // 9. Send to Claude with retry logic for crashes
+  // 9. Prepend orchestration hint for any DeepSeek-routed session (owner or guest).
+  // DeepSeek-chat ignores Task even when it announces parallelism in thinking,
+  // so we route both profiles through mcp__parallel__run via this detector.
+  // Native Anthropic models (Sonnet) skip the hint and use Task directly.
+  const profile = session.profile;
+  if (profile.deepseekEnv) {
+    message = maybePrependOrchestrationHint(message, userId);
+  }
+
+  // 10. Send to Claude with retry logic for crashes
   const MAX_RETRIES = 1;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -230,10 +316,10 @@ export async function handleText(ctx: Context): Promise<void> {
         ctx
       );
 
-      // 10. Audit log
+      // 11. Audit log
       await auditLog(userId, username, "TEXT", message, response);
 
-      // 10b. Drain pending context queue accumulated during generation
+      // 11b. Drain pending context queue accumulated during generation
       const pendingMsg = session.consumePendingContext();
       if (pendingMsg) {
         // Remove the ⏳ reaction on all pending messages is not trivial,
@@ -309,7 +395,7 @@ export async function handleText(ctx: Context): Promise<void> {
     }
   }
 
-  // 11. Cleanup
+  // 12. Cleanup
   stopProcessing();
   typing.stop();
 }

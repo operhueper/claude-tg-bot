@@ -1,5 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionTranscript, MemoryGraph, AnalysisPatch } from "./types";
+import { recordUsage, type UsageSource } from "../metering";
 
 export interface AnalysisResult {
   patch: AnalysisPatch;
@@ -81,7 +82,16 @@ person=0.9, project/goal=0.8, trip=0.7, place/purchase=0.6, preference/health=0.
 export async function analyzeSession(
   transcript: SessionTranscript,
   existingGraph: MemoryGraph,
-  opts: { model?: string; cwd: string; env?: Record<string, string> }
+  opts: {
+    model?: string;
+    cwd: string;
+    env?: Record<string, string>;
+    // Metering hook — when both are provided, token usage from the analyzer's
+    // SDK call is recorded against the user. Optional so callers that don't
+    // care about billing (e.g. tests, scripts) can omit them.
+    userId?: number | string;
+    source?: UsageSource;
+  }
 ): Promise<AnalysisResult> {
   if (transcript.turns.length < 2) {
     return {
@@ -147,6 +157,31 @@ ${transcriptText}
       }
       // Some SDK versions return final text in result.result
       if (!rawJson && r.result) rawJson = r.result;
+
+      // Metering — record analyzer's token usage against the user.
+      // The analyzer fires every 6 turns and on /new, so silently skipping it
+      // hides a non-trivial chunk of cost.
+      if (opts.userId !== undefined && opts.source) {
+        const u = (event as unknown as {
+          usage?: {
+            input_tokens?: number;
+            output_tokens?: number;
+            cache_read_input_tokens?: number;
+            cache_creation_input_tokens?: number;
+          };
+        }).usage;
+        if (u && (u.input_tokens || u.output_tokens)) {
+          recordUsage({
+            userId: opts.userId,
+            source: opts.source,
+            model: opts.model ?? "claude-haiku-4-5",
+            inputTokens: u.input_tokens || 0,
+            outputTokens: u.output_tokens || 0,
+            cacheReadTokens: u.cache_read_input_tokens,
+            cacheCreationTokens: u.cache_creation_input_tokens,
+          });
+        }
+      }
     }
   }
 

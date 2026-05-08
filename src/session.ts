@@ -463,6 +463,8 @@ export class ClaudeSession {
     let lastTextUpdate = 0;
     let queryCompleted = false;
     let askUserTriggered = false;
+    let usageRecorded = false;
+    let currentUsage: TokenUsage | null = null;
     const toolsInSession: string[] = [];
 
     try {
@@ -505,6 +507,31 @@ export class ClaudeSession {
         }
 
         if (event.type === "assistant") {
+          // Capture per-turn usage early so ask-user/stop breaks (which exit
+          // before the final `result` event) still have something to bill.
+          // The `result` event below will overwrite this with aggregate usage
+          // on a normal completion — that's the more accurate number.
+          const turnUsage = (event.message as { usage?: unknown }).usage as
+            | {
+                input_tokens?: number;
+                output_tokens?: number;
+                cache_read_input_tokens?: number;
+                cache_creation_input_tokens?: number;
+              }
+            | undefined;
+          if (
+            turnUsage &&
+            (turnUsage.input_tokens || turnUsage.output_tokens)
+          ) {
+            currentUsage = {
+              input_tokens: turnUsage.input_tokens || 0,
+              output_tokens: turnUsage.output_tokens || 0,
+              cache_read_input_tokens: turnUsage.cache_read_input_tokens,
+              cache_creation_input_tokens: turnUsage.cache_creation_input_tokens,
+            };
+            this.lastUsage = currentUsage;
+          }
+
           for (const block of event.message.content) {
             if (block.type === "thinking") {
               const thinkingText = block.thinking;
@@ -687,8 +714,9 @@ export class ClaudeSession {
           queryCompleted = true;
 
           if ("usage" in event && event.usage) {
-            this.lastUsage = event.usage as TokenUsage;
-            const u = this.lastUsage;
+            const u = event.usage as TokenUsage;
+            currentUsage = u;
+            this.lastUsage = u;
             console.log(
               `[${this.profile.label}] Usage: in=${u.input_tokens} out=${
                 u.output_tokens
@@ -696,19 +724,6 @@ export class ClaudeSession {
                 u.cache_read_input_tokens || 0
               } cache_create=${u.cache_creation_input_tokens || 0}`
             );
-            // Metering: determine source based on whether DeepSeek env is injected
-            const source: UsageSource = this.profile.deepseekEnv
-              ? "bot-deepseek"
-              : "bot-anthropic";
-            recordUsage({
-              userId: this.profile.userId,
-              source,
-              model: this.profile.model,
-              inputTokens: u.input_tokens || 0,
-              outputTokens: u.output_tokens || 0,
-              cacheReadTokens: u.cache_read_input_tokens,
-              cacheCreationTokens: u.cache_creation_input_tokens,
-            });
           }
         }
       }
@@ -731,6 +746,30 @@ export class ClaudeSession {
         throw error;
       }
     } finally {
+      // Metering — write here so tokens are accounted on every exit path:
+      // normal completion, ask-user `break`, stop/abort `break`, or thrown error.
+      // currentUsage is local to this call so we never double-record from a
+      // previous query's leftover. `result` event provides aggregate usage;
+      // assistant events provide per-turn usage as a fallback for early breaks.
+      // Source is `bot-deepseek` whenever the SDK is routed through DeepSeek's
+      // Anthropic-compatible endpoint via injected env-vars; otherwise
+      // `bot-anthropic`. Today both owner and guests run on DeepSeek, but the
+      // branch stays so the wiring still works if Anthropic comes back.
+      if (!usageRecorded && currentUsage) {
+        const source: UsageSource = this.profile.deepseekEnv
+          ? "bot-deepseek"
+          : "bot-anthropic";
+        recordUsage({
+          userId: this.profile.userId,
+          source,
+          model: this.profile.model,
+          inputTokens: currentUsage.input_tokens || 0,
+          outputTokens: currentUsage.output_tokens || 0,
+          cacheReadTokens: currentUsage.cache_read_input_tokens,
+          cacheCreationTokens: currentUsage.cache_creation_input_tokens,
+        });
+        usageRecorded = true;
+      }
       this.isQueryRunning = false;
       this.abortController = null;
       this.queryStarted = null;
@@ -946,10 +985,19 @@ async function runBackgroundAnalysis(
   const store = new GraphStore(profile.memoryRoot, profile.userId);
   const graph = store.load();
 
+  // Same source rule as the main session — DeepSeek when env is injected,
+  // Anthropic otherwise (currently always DeepSeek in production).
+  const analyzerSource: UsageSource = profile.deepseekEnv
+    ? "bot-deepseek"
+    : "bot-anthropic";
+  const analyzerModel = profile.lightModel ?? "claude-haiku-4-5";
+
   const result = await analyzeSession(transcript, graph, {
-    model: profile.lightModel ?? "claude-haiku-4-5",
+    model: analyzerModel,
     cwd: profile.workingDir,
     env: profile.deepseekEnv,
+    userId: profile.userId,
+    source: analyzerSource,
   });
 
   store.applyAnalysisPatch(graph, result.patch, transcript.session_id);

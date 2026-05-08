@@ -19,6 +19,14 @@ export const MCP_SERVERS: Record<
   | { command: string; args?: string[]; env?: Record<string, string> }
   | { type: "http"; url: string; headers?: Record<string, string> }
 > = {
+  // Parallel - run independent subtasks concurrently via mcp__parallel__run.
+  // Surfaces to the model as mcp__parallel__run. Enabled for all users so the
+  // bot can natively fan out independent work instead of doing it sequentially.
+  "parallel": {
+    command: "bun",
+    args: ["run", `${REPO_ROOT}/parallel_mcp/server.ts`],
+  },
+
   // Ask User - present options as Telegram inline keyboard buttons
   // Uncomment to enable interactive button prompts
   // "ask-user": {

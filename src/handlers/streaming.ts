@@ -237,7 +237,7 @@ class IdleHeartbeat {
   private stopped = false;
 
   private static readonly INITIAL_DELAY = 15_000;
-  private static readonly TICK_INTERVAL = 6_000;
+  private static readonly TICK_INTERVAL = 10_000;
 
   constructor(private ctx: Context) {}
 
