@@ -251,8 +251,9 @@ export async function handleText(ctx: Context): Promise<void> {
   const [allowed, retryAfter] = rateLimiter.check(userId);
   if (!allowed) {
     await auditLogRateLimit(userId, username, retryAfter!);
+    const waitSec = Math.ceil(retryAfter!);
     await ctx.reply(
-      `⏳ Rate limited. Please wait ${retryAfter!.toFixed(1)} seconds.`
+      `⏳ Слишком много запросов подряд. Подожди ${waitSec} сек и попробуй снова.`
     );
     return;
   }

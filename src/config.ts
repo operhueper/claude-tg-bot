@@ -997,7 +997,9 @@ export function getUserProfile(userId: number): UserProfile {
       allowedPaths,
       settingSources: node?.settingSources ?? ["project"] as Array<"user" | "project" | "local">,
       systemPrompt: buildNewGuestSafetyPrompt(vaultDir, userId),
-      rateLimitEnabled: node?.rateLimitEnabled ?? false,
+      // Гости тратят токены владельца — лимит по умолчанию включён.
+      // Можно отключить точечно через node.rateLimitEnabled = false в users.json.
+      rateLimitEnabled: node?.rateLimitEnabled ?? true,
       rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
       rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
       model,
@@ -1072,7 +1074,9 @@ export function getUserProfile(userId: number): UserProfile {
     allowedPaths: OWNER_ALLOWED_PATHS,
     settingSources: node?.settingSources ?? ["user", "project"],
     systemPrompt: buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS, !!ownerDeepseekEnv),
-    rateLimitEnabled: node?.rateLimitEnabled ?? RATE_LIMIT_ENABLED_DEFAULT,
+    // Owner сам себя ограничивать смысла нет — по умолчанию без лимита.
+    // Если нужен лимит — выставить node.rateLimitEnabled = true в users.json.
+    rateLimitEnabled: node?.rateLimitEnabled ?? false,
     rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
     rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
     model: ownerModel,
