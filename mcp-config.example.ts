@@ -41,12 +41,15 @@ export const MCP_SERVERS: Record<
   //   args: ["run", `${REPO_ROOT}/send_file_mcp/server.ts`]
   // },
 
-  // Connect Google - initiate Google Workspace OAuth (Docs/Drive/Sheets/Gmail/Calendar)
-  // Uncomment to enable (requires COMPOSIO_API_KEY in .env)
-  // "connect-google": {
-  //   command: "bun",
-  //   args: ["run", `${REPO_ROOT}/connect_google_mcp/server.ts`]
-  // },
+  // Connect Google - initiate Google Workspace OAuth (Docs/Drive/Sheets/Gmail/Calendar).
+  // Surfaces to the model as mcp__connect-google__connect. The bot intercepts
+  // tool calls and renders Telegram OAuth inline-keyboard buttons via
+  // src/handlers/streaming.ts:checkPendingConnectGoogleRequests.
+  // Requires COMPOSIO_API_KEY in .env.
+  "connect-google": {
+    command: "bun",
+    args: ["run", `${REPO_ROOT}/connect_google_mcp/server.ts`],
+  },
 
   // Example: Typefully - draft and schedule social posts
   // Docs: https://support.typefully.com/en/articles/13128440-typefully-mcp-server

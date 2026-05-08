@@ -23,6 +23,9 @@ export function mcpServersForProfile(profile: UserProfile): McpServersMap {
   // In-process container Bash is a guest-only feature (owner runs Bash on host directly).
   if (profile.isOwner) {
     const result = { ...MCP_SERVERS } as McpServersMap;
+    // Drop connect-google for owner — they don't need OAuth (their account is
+    // already linked via /google or they're using Anthropic directly).
+    delete result["connect-google"];
     if (googleWorkspaceMcp) {
       result["google-workspace"] = googleWorkspaceMcp;
     }
@@ -32,6 +35,9 @@ export function mcpServersForProfile(profile: UserProfile): McpServersMap {
   const result: McpServersMap = {};
   for (const [key, value] of Object.entries(MCP_SERVERS)) {
     if (key === "openrouter-image") continue;
+    // connect-google only makes sense when Composio is configured —
+    // otherwise the OAuth flow can't complete. Drop it silently if not.
+    if (key === "connect-google" && !composioApiKey) continue;
     result[key] = value as McpServerConfig;
   }
 
