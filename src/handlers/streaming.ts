@@ -43,12 +43,17 @@ export function createAskUserKeyboard(
 
 /**
  * Check for pending ask-user requests and send inline keyboards.
+ * Globs only files belonging to this userId (per-user drop-box isolation).
  */
 export async function checkPendingAskUserRequests(
   ctx: Context,
-  chatId: number
+  chatId: number,
+  userId?: number
 ): Promise<boolean> {
-  const glob = new Bun.Glob("ask-user-*.json");
+  // Use per-user glob when userId is known; fall back to legacy pattern only
+  // for backwards compat (files written before this fix) — those are ignored below.
+  const pattern = userId ? `ask-user-${userId}-*.json` : "ask-user-*.json";
+  const glob = new Bun.Glob(pattern);
   let buttonsSent = false;
 
   for await (const filename of glob.scan({ cwd: "/tmp", absolute: false })) {
@@ -61,6 +66,12 @@ export async function checkPendingAskUserRequests(
       // Only process pending requests for this chat
       if (data.status !== "pending") continue;
       if (String(data.chat_id) !== String(chatId)) continue;
+      // Defense-in-depth: verify userId in JSON matches the caller, even if
+      // the filename already scoped the glob correctly.
+      if (userId && data.user_id && String(data.user_id) !== String(userId)) {
+        console.warn(`[ask-user] userId mismatch in ${filename} — skipping`);
+        continue;
+      }
 
       const question = data.question || "Please choose:";
       const options = data.options || [];
@@ -96,7 +107,9 @@ export async function checkPendingSendFileRequests(
   chatId: number,
   userId?: number
 ): Promise<boolean> {
-  const glob = new Bun.Glob("send-file-*.json");
+  // Use per-user glob when userId is known; fall back to legacy pattern.
+  const pattern = userId ? `send-file-${userId}-*.json` : "send-file-*.json";
+  const glob = new Bun.Glob(pattern);
   let fileSent = false;
 
   for await (const filename of glob.scan({ cwd: "/tmp", absolute: false })) {
@@ -109,8 +122,11 @@ export async function checkPendingSendFileRequests(
       // Only process pending requests for this chat
       if (data.status !== "pending") continue;
       if (String(data.chat_id) !== String(chatId)) continue;
-      // If user_id is recorded in the drop file, ensure it matches the current user
-      if (data.user_id && userId && String(data.user_id) !== String(userId)) continue;
+      // Defense-in-depth: verify userId in JSON matches the caller.
+      if (userId && data.user_id && String(data.user_id) !== String(userId)) {
+        console.warn(`[send-file] userId mismatch in ${filename} — skipping`);
+        continue;
+      }
 
       const filePath: string = data.file_path || "";
       const caption: string | undefined = data.caption || undefined;

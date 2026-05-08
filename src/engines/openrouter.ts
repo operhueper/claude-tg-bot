@@ -8,7 +8,7 @@
 import { readFileSync } from "fs";
 import * as fs from "fs";
 import * as path from "path";
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { STREAMING_THROTTLE_MS } from "../config";
 import type { UserProfile } from "../config";
 import { recordUsage } from "../metering";
@@ -317,6 +317,12 @@ export async function executeToolAsync(
       const [isSafe, reason] = checkCommandSafety(cmd, profile.allowedPaths);
       if (!isSafe) return `Error: command blocked — ${reason}`;
 
+      // Guests without a container must not run commands on the host as root.
+      // Fail closed — host-mode execution is only permitted for the owner.
+      if (!profile.isOwner && !profile.containerEnabled) {
+        return "Error: Запуск команд недоступен — контейнер не активирован для этого аккаунта";
+      }
+
       // Container-enabled users: route bash through their Docker sandbox.
       // The container's /workspace is the user's persistent volume, so we
       // ignore profile.workingDir here — the container's WORKDIR (set in
@@ -390,10 +396,10 @@ export async function executeToolAsync(
     if (name === "send_file") {
       const filePath = args.file_path || "";
       if (!filePath) return "Error: file_path is required";
-      // Allow any path accessible (file was just created, could be in /tmp or vault)
-      const allowedWithTmp = [...profile.allowedPaths, "/tmp"];
-      const isAllowed = allowedWithTmp.some((p) => filePath.startsWith(p));
-      if (!isAllowed) {
+      // Use isPathAllowedFor which resolves symlinks (realpath) and checks
+      // TEMP_PATHS (/tmp/telegram-bot) — deliberately excludes /tmp root so
+      // guests cannot exfiltrate other users' session files or audit logs.
+      if (!isPathAllowedFor(filePath, profile.allowedPaths)) {
         return `Error: access denied — ${filePath} is outside allowed directories`;
       }
       if (!fs.existsSync(filePath)) {
@@ -443,10 +449,10 @@ export async function executeToolAsync(
     if (name === "create_excel") {
       const filePath = args.file_path || "";
       if (!filePath) return "Error: file_path is required";
-      const allowedWithTmp = [...profile.allowedPaths, "/tmp"];
-      const isAllowed = allowedWithTmp.some((p) => filePath.startsWith(p));
-      if (!isAllowed)
+      // Validate output path with realpath resolution (symlink + traversal safe)
+      if (!isPathAllowedFor(filePath, profile.allowedPaths)) {
         return `Error: access denied — ${filePath} is outside allowed directories`;
+      }
 
       // Parse sheets from JSON string (args values are strings from tool call)
       let sheets: Array<{
@@ -489,13 +495,12 @@ print("OK")
       fs.writeFileSync(pyFile, pyScript);
       try {
         const sheetsArg = JSON.stringify(sheets);
-        const out = execSync(
-          `python3 "${pyFile}" '${sheetsArg.replace(/'/g, "'\\''")}' "${filePath}"`,
-          {
-            timeout: 30_000,
-            maxBuffer: 4 * 1024 * 1024,
-          }
-        );
+        // Use execFileSync (no shell) so filePath and sheetsArg cannot inject
+        // shell commands regardless of their content.
+        const out = execFileSync("python3", [pyFile, sheetsArg, filePath], {
+          timeout: 30_000,
+          maxBuffer: 4 * 1024 * 1024,
+        });
         fs.unlinkSync(pyFile);
         return `Excel file created: ${filePath} (${out.toString().trim()})`;
       } catch (e: unknown) {

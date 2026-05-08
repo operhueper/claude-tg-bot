@@ -8,6 +8,21 @@
  * The container itself just runs `sleep infinity` — the bot drives it via
  * `docker exec`. So no PORT/EXPOSE here, no entrypoint override. The image
  * (`claude-user-sandbox:latest`) is expected to default-cmd into sleep.
+ *
+ * Network isolation for guests:
+ *   Set CLAUDE_GUEST_NETWORK env var to a Docker network name to attach
+ *   guest containers to a restricted network. The network must be created
+ *   manually on the host before starting the bot. Recommended setup:
+ *
+ *     # Internet-accessible but guests cannot reach host-internal ports:
+ *     docker network create claude-guest-net
+ *     # Then add iptables rules to block 172.x.x.x -> host ports 22,3847,3848
+ *
+ *   Or for fully internal (no internet):
+ *     docker network create --internal claude-guest-net
+ *
+ *   If CLAUDE_GUEST_NETWORK is empty/unset, no --network flag is added and
+ *   Docker's default bridge is used — functional but less isolated.
  */
 
 import type { UserProfile } from "../config";
@@ -45,9 +60,6 @@ export function buildRunArgs(profile: UserProfile): string[] {
     // Vault: bind-mount, NOT a named volume — keeps host and container in sync.
     "-v",
     `${vaultPath}:${vaultPath}`,
-    // Claude credentials & settings — read-only so guests can't tamper
-    "-v",
-    "/root/.claude:/root/.claude:ro",
     // Host-side dropbox: how the bot hands files to / takes files from the container
     "-v",
     `${dropboxDir(userId)}:/tmp/dropbox`,
@@ -61,19 +73,73 @@ export function buildRunArgs(profile: UserProfile): string[] {
     args.push("-v", "/var/run/docker.sock:/var/run/docker.sock");
     args.push("-v", "/var/log:/var/log:ro");
     args.push("-v", "/opt:/opt");
+    // Owner gets their own ~/.claude (OAuth token, settings, skills, memory).
+    args.push("-v", "/root/.claude:/root/.claude:ro");
   } else {
-    // Guest sandbox limits. memory-swap >= memory; cap at 2x memory so a
-    // misbehaving process can't grind the host into swap. CPU capped at 1
-    // full core (but bursting allowed within that ceiling).
+    // -----------------------------------------------------------------------
+    // Guest sandbox hardening
+    // -----------------------------------------------------------------------
+
+    // Memory: 512 MB hard limit. --memory-swap == --memory means zero host
+    // swap available to this container — previously 1024m gave +512m of swap,
+    // which lets a misbehaving process silently grind the host swap partition.
     args.push("--memory", "512m");
-    args.push("--memory-swap", "1024m");
+    args.push("--memory-swap", "512m"); // no swap beyond the RAM limit
+
+    // CPU: capped at 1 full core (bursting within the ceiling is fine).
     args.push("--cpus", "1.0");
+
+    // Drop ALL Linux capabilities — guests don't need any (no raw sockets,
+    // no mknod, no sys_admin). Prevents privilege escalation via capabilities.
+    args.push("--cap-drop=ALL");
+
+    // Prevent any process inside the container from gaining new privileges via
+    // setuid binaries or filesystem capabilities (e.g. sudo, ping).
+    args.push("--security-opt=no-new-privileges");
+
+    // Docker applies its default seccomp profile automatically when no
+    // --security-opt=seccomp=... is passed. We rely on that default rather than
+    // overriding (passing "default" as a value is invalid Docker syntax).
+
+    // Limit total number of processes/threads. pids-limit stops fork-bombs:
+    // a fork-bomb that hits 128 stalls instead of OOM-killing the whole host.
+    args.push("--pids-limit=128");
+
+    // Restrict file-descriptor count — limits some DoS vectors (e.g. inotify
+    // exhaustion, socket floods). Soft 1024 / hard 2048.
+    args.push("--ulimit=nofile=1024:2048");
+
+    // nproc mirrors pids-limit at the ulimit layer (belt-and-suspenders).
+    args.push("--ulimit=nproc=128:128");
+
+    // Read-only root filesystem. Everything a guest writes must go to an
+    // explicit tmpfs or the bind-mounted vault. Prevents tampering with
+    // the image layer (e.g. replacing system binaries).
+    args.push("--read-only");
+
+    // Writable tmpfs for directories that tools legitimately need.
+    // exec flag on /tmp is required because Claude CLI unpacks native binaries
+    // there at startup; /run and /home need no exec.
+    args.push("--tmpfs=/tmp:size=128m,exec");
+    args.push("--tmpfs=/run:size=8m");
+    args.push("--tmpfs=/home:size=64m");
+
+    // Optional: attach to a dedicated guest Docker network. If CLAUDE_GUEST_NETWORK
+    // is set on the host, all guest containers share it and can be firewalled
+    // uniformly (e.g. block access to host-only ports 22/3847/3848 via iptables).
+    // See the file-level comment for network creation instructions.
+    const guestNetwork = process.env.CLAUDE_GUEST_NETWORK;
+    if (guestNetwork) {
+      args.push(`--network=${guestNetwork}`);
+    }
 
     // LXCFS: cgroup-aware /proc inside the container. Without these mounts
     // `free`, `top`, `/proc/meminfo` show the host's memory (e.g. 7.6 GB),
     // not the cgroup limit (512 MB) — guests then leak host info to users.
     // Hard requirement: lxcfs must be installed and running on the host
     // (`apt install lxcfs && systemctl enable --now lxcfs`).
+    // Mounted :ro — these are virtual files synthesised by lxcfs; write access
+    // is meaningless and the :rw flag is misleading / unnecessarily permissive.
     const lxcfsFiles = [
       "cpuinfo",
       "diskstats",
@@ -84,7 +150,7 @@ export function buildRunArgs(profile: UserProfile): string[] {
       "loadavg",
     ];
     for (const f of lxcfsFiles) {
-      args.push("-v", `/var/lib/lxcfs/proc/${f}:/proc/${f}:rw`);
+      args.push("-v", `/var/lib/lxcfs/proc/${f}:/proc/${f}:ro`);
     }
   }
 

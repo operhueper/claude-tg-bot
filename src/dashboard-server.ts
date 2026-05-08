@@ -375,7 +375,7 @@ export function startDashboardServer(): void {
         }
 
         if (method === "GET" && pathname === "/dashboard") {
-          return htmlResponse(renderDashboard());
+          return htmlResponse(renderDashboard({ allowMock: process.env.DASHBOARD_ALLOW_MOCK === "1" }));
         }
 
         if (method === "GET" && pathname === "/healthz") {

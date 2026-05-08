@@ -275,10 +275,23 @@ export function formatToolStatus(
   }
 
   if (toolName.startsWith("mcp__")) {
-    // Generic MCP tool formatting
+    // User-friendly label mapping for known MCP servers
+    const TOOL_LABELS: Record<string, string> = {
+      "container": "Выполнение",
+      "pollinations-image": "Картинка",
+      "openrouter-image": "Картинка",
+      "send-file": "Файл",
+      "ask-user": "Кнопки",
+      "google-workspace": "Google",
+      "connect-google": "Google",
+      "knowledge": "Поиск",
+      "parallel": "Параллельно",
+    };
+
     const parts = toolName.split("__");
     if (parts.length >= 3) {
       const server = parts[1]!;
+      const friendlyServer = TOOL_LABELS[server] ?? "Действие";
       let action = parts[2]!;
       // Remove redundant server prefix from action
       if (action.startsWith(`${server}_`)) {
@@ -296,13 +309,13 @@ export function formatToolStatus(
         "";
 
       if (summary) {
-        return `🔧 ${server} ${action}: ${escapeHtml(
+        return `🔧 ${friendlyServer}: ${escapeHtml(
           truncate(String(summary), 40)
         )}`;
       }
-      return `🔧 ${server}: ${action}`;
+      return `🔧 ${friendlyServer}`;
     }
-    return `🔧 ${escapeHtml(toolName)}`;
+    return `🔧 Действие`;
   }
 
   return `${emoji} ${escapeHtml(toolName)}`;

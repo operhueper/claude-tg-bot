@@ -4,7 +4,8 @@
  * (and /api/admin/all for admins) using Telegram WebApp initData for auth.
  */
 
-export function renderDashboard(): string {
+export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
+  const allowMock = opts.allowMock === true;
   return `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -382,7 +383,8 @@ export function renderDashboard(): string {
 
 <script>
   // ─── MOCK DATA ────────────────────────────────────────────────────────────
-  const MOCK = location.search.includes('mock=1');
+  const ALLOW_MOCK = ${allowMock ? "true" : "false"};
+  const MOCK = ALLOW_MOCK && location.search.includes('mock=1');
 
   const MOCK_ME = {
     ok: true,
@@ -390,8 +392,6 @@ export function renderDashboard(): string {
       id: 292228713,
       label: 'Евгений',
       role: 'owner',
-      model: 'claude-sonnet-4-6',
-      vaultDir: '/opt/vault/292228713',
       publicUrl: 'https://proboi.site/u/evgeniy'
     },
     today: {
@@ -471,7 +471,7 @@ export function renderDashboard(): string {
     // Header
     document.getElementById('user-label').textContent = u.label || '';
     document.getElementById('user-role').textContent = roleLabel(u.role);
-    document.getElementById('user-model').textContent = u.model || '';
+    document.getElementById('user-model').textContent = u.label ? '' : '';
 
     // Token card — sum of input + output today
     var todayTotal = (t.inputTokens || 0) + (t.outputTokens || 0);

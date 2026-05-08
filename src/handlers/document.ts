@@ -6,6 +6,8 @@
  */
 
 import type { Context } from "grammy";
+import { readdirSync, realpathSync, rmSync } from "fs";
+import path from "path";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR, inboxDirFor } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
@@ -201,7 +203,39 @@ function getArchiveExtension(fileName: string): string {
 }
 
 /**
+ * Guard against zip-slip: verify every extracted entry resolves inside extractDir.
+ * Throws and removes extractDir if any entry escaped.
+ */
+function assertNoZipSlip(extractDir: string): void {
+  const canonical = realpathSync(extractDir) + path.sep;
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      let resolved: string;
+      try {
+        resolved = realpathSync(full);
+      } catch {
+        // Broken symlinks, etc. — treat as suspicious
+        resolved = full;
+      }
+      if (!resolved.startsWith(canonical)) {
+        // Path escaped the sandbox — nuke the whole extract dir and fail
+        try { rmSync(extractDir, { recursive: true, force: true }); } catch {}
+        throw new Error(
+          `Zip-slip detected: entry "${entry.name}" resolved to "${resolved}" outside "${canonical}"`
+        );
+      }
+      if (entry.isDirectory()) {
+        walk(full);
+      }
+    }
+  };
+  walk(extractDir);
+}
+
+/**
  * Extract an archive to a temp directory.
+ * After extraction, verifies no entry escaped the target directory (zip-slip guard).
  */
 async function extractArchive(
   archivePath: string,
@@ -218,6 +252,9 @@ async function extractArchive(
   } else {
     throw new Error(`Unknown archive type: ${ext}`);
   }
+
+  // Reject any archive entry that escaped the extraction directory
+  assertNoZipSlip(extractDir);
 
   return extractDir;
 }

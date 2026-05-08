@@ -49,14 +49,14 @@ export async function handleStart(ctx: Context): Promise<void> {
   if (isNewGuest(userId) && !isNewGuestOnboarded(userId)) {
     await ctx.reply(
       `👋 <b>Привет! Я твой персональный ИИ-ассистент.</b>\n\n` +
-        `Работаю на DeepSeek + Gemini. Живу прямо в Telegram — без приложений, без регистрации.\n\n` +
+        `Отвечаю быстро, работаю 24/7. Живу прямо в Telegram, без приложений и регистрации.\n\n` +
         `<b>Что умею:</b>\n\n` +
         `🧠 <b>Запоминаю контекст</b> — граф памяти хранит связи между людьми, проектами, идеями. В следующей беседе уже знаю о чём говорили.\n\n` +
         `🎤 <b>Голос, фото, документы</b> — надиктуй голосовое, отправь PDF или картинку — расшифрую и отвечу.\n\n` +
         `🖼 <b>Генерирую картинки</b> — опиши что нужно, пришлю изображение.\n\n` +
         `💻 <b>Код, тексты, задачи</b> — пишу код, правлю тексты, помогаю думать и структурировать.\n\n` +
         `📊 <b>Личный дашборд</b> — у тебя уже есть страничка с виджетами. Можно кастомизировать под себя или создать с нуля — скажи «покажи дашборд».\n\n` +
-        `🧩 <b>Плагины</b> — можно подключить свои MCP-инструменты, спроси как.\n\n` +
+        `🧩 <b>Расширения</b> — подключай дополнительные возможности, спроси как.\n\n` +
         `─────────────────\n` +
         `Просто напиши что-нибудь — и начнём 🚀`,
       { parse_mode: "HTML" }
@@ -82,14 +82,18 @@ export async function handleStart(ctx: Context): Promise<void> {
   }
 
   const greeting = profile.isGuest
-    ? `🤖 <b>Твой персональный ассистент</b>\n\nПолный набор фич: память, RAG, MCP плагины.`
+    ? `🤖 <b>Твой персональный ассистент</b>\n\nПолный набор функций: память, расширения, интеграции.`
     : `🤖 <b>Claude Telegram Bot</b>`;
+
+  const workingDirLine = profile.isGuest
+    ? ""
+    : `Working directory: <code>${profile.workingDir}</code>\n`;
 
   await ctx.reply(
     `${greeting}\n\n` +
       `Status: ${status}\n` +
-      `Working directory: <code>${profile.workingDir}</code>\n\n` +
-      `<b>Commands:</b>\n` +
+      workingDirLine +
+      `\n<b>Commands:</b>\n` +
       commandLines.join("\n") +
       `\n\n<b>Tips:</b>\n` +
       `• Prefix with <code>!</code> to interrupt current query\n` +
@@ -216,7 +220,11 @@ export async function handleStatus(ctx: Context): Promise<void> {
     lines.push(`\n⚠️ Last error (${ago}s ago):`, `   ${session.lastError}`);
   }
 
-  lines.push(`\n📁 Working dir: <code>${profile.workingDir}</code>`);
+  if (!profile.isGuest) {
+    lines.push(`\n📁 Working dir: <code>${profile.workingDir}</code>`);
+  } else {
+    lines.push(`\n📁 Рабочая папка: ✅`);
+  }
 
   await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
 }

@@ -34,7 +34,7 @@ export function buildContainerBashMcp(
     tools: [
       tool(
         "Bash",
-        "Run a shell command inside the user's isolated Docker sandbox. State persists between calls (installed packages, cwd files). Use this instead of the built-in Bash tool — the built-in is disabled for sandboxed users.",
+        "Run a shell command in the user's working environment. State persists between calls (installed packages, created files). Use this instead of the built-in Bash tool.",
         {
           command: z.string().describe("The shell command to run (bash -lc syntax)."),
           timeout: z

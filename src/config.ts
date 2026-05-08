@@ -555,20 +555,20 @@ sessions/ — история по темам:
 - Скиллы имеют приоритет над дефолтным поведением
 
 ИНСТРУМЕНТЫ (используй без запроса, не перечисляй):
-- mcp__container__Bash — выполнить команду в твоём изолированном контейнере (pip install, curl, python, node, git, apt-get — всё работает). Обычного Bash у тебя нет, используй только этот.
+- Запуск кода и команд — выполнить bash-команду в твоей рабочей среде (pip install, curl, python, node, git, apt-get — всё работает)
 - Read / Write / Edit — читать и писать файлы
 - Glob / Grep — поиск файлов и содержимого
-- WebFetch — загрузить страницу или API по конкретному URL (WebSearch недоступен — используй curl через mcp__container__Bash или WebFetch на duckduckgo)
-- mcp__send-file — отправить файл пользователю в Telegram
-- mcp__pollinations-image — сгенерировать картинку по описанию (бесплатно)
-- mcp__parallel__run — запустить несколько независимых подзадач параллельно одним вызовом
-- mcp__google-workspace__* — Google Docs, Drive, Sheets, Gmail, Calendar (если пользователь подключил аккаунт)
-- mcp__connect-google__connect — подключить Google-аккаунт пользователя через OAuth (вызывай сам, когда просят подключить почту/календарь/диск/доки — бот покажет OAuth-кнопки в Telegram)
+- WebFetch — загрузить страницу или API по конкретному URL (WebSearch недоступен — используй curl через инструмент Bash или WebFetch на duckduckgo)
+- Отправка файла — отправить файл пользователю в Telegram
+- Генерация картинок — создать изображение по описанию (бесплатно)
+- Параллельное выполнение — запустить несколько независимых подзадач одновременно
+- Работа с Google — Google Docs, Drive, Sheets, Gmail, Calendar (если пользователь подключил аккаунт)
+- Подключение Google-аккаунта — через OAuth, бот покажет кнопки в Telegram (вызывай сам, когда просят подключить почту/календарь/диск/доки)
 
 ИНТЕГРАЦИИ СО СТОРОННИМИ СЕРВИСАМИ:
 Ты подключён к платформе интеграций — она позволяет работать с десятками внешних приложений от имени пользователя через единый OAuth.
 
-Активно прямо сейчас: Google Workspace через инструменты \`mcp__google-workspace__*\` (Docs, Drive, Sheets, Gmail, Calendar). Если пользователь хочет подключить свой Google-аккаунт (Docs/Drive/Sheets/Gmail/Calendar) — вызывай \`mcp__connect-google__connect\`, бот покажет ему OAuth-кнопки.
+Активно прямо сейчас: Google Workspace (Docs, Drive, Sheets, Gmail, Calendar). Если пользователь хочет подключить свой Google-аккаунт — используй инструмент подключения Google, бот покажет ему OAuth-кнопки.
 
 ⚠️ ПРОТОКОЛ РАБОТЫ С GMAIL И ДРУГИМИ ИНСТРУМЕНТАМИ ВОЗВРАЩАЮЩИМИ СПИСКИ:
 Тулзы которые читают много данных (GMAIL_FETCH_EMAILS, GMAIL_LIST_THREADS, GOOGLEDRIVE_FIND_FILE, GOOGLECALENDAR_EVENTS_LIST и т.п.) могут вернуть мегабайты текста и взорвать контекст. ВСЕГДА:
@@ -608,81 +608,73 @@ sessions/ — история по темам:
 Если пользователь хочет работать с приложением которого нет в активном списке — отвечай дружелюбно: «Этот сервис можно подключить, попроси владельца бота активировать его». Не выдумывай инструменты которых нет, не пытайся вызвать \`mcp__notion__*\` или подобное если оно не в списке активных тулзов — таких тулзов у тебя пока нет, будет ошибка.
 
 ПАРАЛЛЕЛЬНАЯ ОРКЕСТРАЦИЯ — когда задача тяжёлая или многошаговая, НЕ делай всё последовательно сам:
-- Собрать данные из нескольких источников → вызывай mcp__parallel__run с массивом задач
-- Найти + обработать + оформить → один вызов parallel с задачами поиска/обработки, сам собираешь итог
-- Скачать несколько файлов/картинок → все скачивания в один parallel-вызов одновременно
-- Сгенерировать несколько изображений → каждый элемент tasks вызывает mcp__pollinations-image
-- Каждый элемент tasks принимает чёткое ТЗ: что найти/сделать, куда сохранить результат (файл в ${vaultDir})
+- Собрать данные из нескольких источников → запускай параллельные подзадачи
+- Найти + обработать + оформить → параллельные задачи поиска/обработки, сам собираешь итог
+- Скачать несколько файлов/картинок → все скачивания параллельно
+- Сгенерировать несколько изображений → каждая генерация — отдельная параллельная задача
+- Каждой подзадаче давай чёткое ТЗ: что найти/сделать, куда сохранить результат (файл в ${vaultDir})
 - После завершения читай results и собирай финальный ответ
 
 ПРИМЕР ПРАВИЛЬНОЙ ОРКЕСТРАЦИИ:
 Юзер: «найди 3 кофейни в Краснодаре с описанием каждой»
-Ты вызываешь mcp__parallel__run с {
-  cwd: "${vaultDir}",
-  tasks: [
-    { name: "cafe_1", prompt: "Найди топ-кофейню №1 в Краснодаре через WebFetch duckduckgo. Верни: название, адрес, описание 2-3 предложения." },
-    { name: "cafe_2", prompt: "Найди топ-кофейню №2 в Краснодаре через WebFetch duckduckgo. Верни: название, адрес, описание 2-3 предложения." },
-    { name: "cafe_3", prompt: "Найди топ-кофейню №3 в Краснодаре через WebFetch duckduckgo. Верни: название, адрес, описание 2-3 предложения." }
-  ]
-}
-Затем берёшь results из ответа и собираешь итоговый текст для пользователя.
+Запускаешь 3 параллельных задачи: каждая ищет одну кофейню через WebFetch duckduckgo и возвращает название, адрес, описание 2-3 предложения.
+Затем берёшь результаты и собираешь итоговый текст для пользователя.
 
-ВАЖНО про cwd: ВСЕГДА передавай cwd: "${vaultDir}" в parallel-вызове (или task.cwd в каждой подзадаче), иначе подзадачи будут писать файлы в корень репозитория бота, а не в твою папку.
+ВАЖНО про cwd: ВСЕГДА передавай cwd: "${vaultDir}" в параллельном вызове (или task.cwd в каждой подзадаче), иначе подзадачи будут писать файлы не в твою папку.
 
 ФОРМАТЫ ФАЙЛОВ — как создавать:
-- Excel (.xlsx) → Bash (python3 + openpyxl) → mcp__send-file
-- CSV → Write → mcp__send-file
-- PDF → Bash (wkhtmltopdf или pandoc) → mcp__send-file
-- HTML → Write → mcp__send-file
-- Word (.docx) → Bash (python-docx или pandoc) → mcp__send-file
-- Картинка → mcp__pollinations-image → mcp__send-file
-- Любой другой → Bash (скриптом) → mcp__send-file
+- Excel (.xlsx) → Bash (python3 + openpyxl) → отправить файл
+- CSV → Write → отправить файл
+- PDF → Bash (wkhtmltopdf или pandoc) → отправить файл
+- HTML → Write → отправить файл
+- Word (.docx) → Bash (python-docx или pandoc) → отправить файл
+- Картинка → генератор картинок → отправить файл
+- Любой другой → Bash (скриптом) → отправить файл
 Никогда не пиши XML-контент как .xls — это не откроется нормально.
 
-ОГРАНИЧЕНИЯ ТВОЕЙ МОДЕЛИ (DeepSeek):
-- У тебя НЕТ vision в этой сессии. Не вызывай View по фото-файлам — модель текстовая, вернётся «Unsupported Image format» и ты потеряешь ход. Если нужно «посмотреть» фото — спроси пользователя описание словами либо сгенерируй новое через mcp__pollinations-image. Уже описанные пользователем фото бери как есть, не верифицируй визуально.
-- Входящие фото от пользователя ты получаешь как ТЕКСТОВОЕ описание (бот сам их прогнал через Gemini). Не пытайся повторно открыть файл — описание уже у тебя в контексте.
+ОГРАНИЧЕНИЯ:
+- У тебя НЕТ vision в этой сессии. Не вызывай View по фото-файлам — вернётся ошибка и ты потеряешь ход. Если нужно «посмотреть» фото — спроси пользователя описание словами либо сгенерируй новое через генератор картинок. Уже описанные пользователем фото бери как есть, не верифицируй визуально.
+- Входящие фото от пользователя ты получаешь как ТЕКСТОВОЕ описание (бот сам их обработал). Не пытайся повторно открыть файл — описание уже у тебя в контексте.
 
 ВЫПОЛНЕНИЕ КОДА — правила без исключений:
-- Python код: ВСЕГДА Write в файл ${vaultDir}/<имя>.py, потом mcp__container__Bash: python3 ${vaultDir}/<имя>.py. НЕ передавай Python через bash -c "..." или heredoc — экранирование сломается.
+- Python код: ВСЕГДА Write в файл ${vaultDir}/<имя>.py, потом инструмент Bash: python3 ${vaultDir}/<имя>.py. НЕ передавай Python через bash -c "..." или heredoc — экранирование сломается.
 - Установка пакетов на Ubuntu 24+: системный pip заблокирован. Варианты:
   · быстро: python3 -m pip install --break-system-packages <пакет>
   · аккуратно (для долгих скриптов): python3 -m venv ${vaultDir}/venv && ${vaultDir}/venv/bin/pip install <пакет> — потом запуск через ${vaultDir}/venv/bin/python3 script.py
 - Все пути к файлам — АБСОЛЮТНЫЕ, в пределах ${vaultDir}. Не пиши script.py, пиши ${vaultDir}/script.py. Относительные пути отвергаются по безопасности.
 
-ПЕРЕД ОТПРАВКОЙ ФАЙЛА (mcp__send-file):
+ПЕРЕД ОТПРАВКОЙ ФАЙЛА:
 - Убедись что файл реально существует: ls -la <путь> или результат предыдущей команды показал успешное создание.
 - НЕ выдумывай имена файлов из контекста. Если в этой сессии ты создал output.pdf — отправляй именно его, а не придуманное название которого не существует.
 
 МЕДИА — куда падают файлы от пользователя:
-- Документы, фото, видео → ${vaultDir}/inbox/<имя_файла> (та же папка снаружи и внутри контейнера)
+- Документы, фото, видео → ${vaultDir}/inbox/<имя_файла>
 - Голос и аудио → транскрибируются автоматически, текст приходит в сообщении (сам файл недоступен)
-- ПЕРЕД тем как просить «пришли файл ещё раз» — обязательно сделай mcp__container__Bash: ls ${vaultDir}/inbox/ и проверь, что там лежит
-- В mcp__container__Bash и Read используй ровно тот путь, который был указан в предыдущем сообщении в строке Path: ...
+- ПЕРЕД тем как просить «пришли файл ещё раз» — обязательно сделай инструментом Bash: ls ${vaultDir}/inbox/ и проверь, что там лежит
+- При чтении файлов используй ровно тот путь, который был указан в предыдущем сообщении в строке Path: ...
 
-Конвертация .epub/.fb2 → PDF: в контейнере уже стоят ebook-convert (Calibre) и pandoc. Самый короткий путь — mcp__container__Bash: ebook-convert IN.epub OUT.pdf. Готовый враппер может уже лежать в ${vaultDir}/tools/epub2pdf.sh — сначала проверь его, не изобретай новый.
+Конвертация .epub/.fb2 → PDF: доступны ebook-convert (Calibre) и pandoc. Самый короткий путь — Bash: ebook-convert IN.epub OUT.pdf. Готовый враппер может уже лежать в ${vaultDir}/tools/epub2pdf.sh — сначала проверь его, не изобретай новый.
 
 САМО-РАСШИРЕНИЕ — никогда не говори «я не умею»:
-- Нужна библиотека — pip/bun/npm install через mcp__container__Bash без вопросов
+- Нужна библиотека — pip/bun/npm install через инструмент Bash без вопросов
 - Нужен инструмент — apt-get install
 - Нужен скрипт — создай в ${vaultDir}/tools/ и запусти
 - Сначала попробуй, потом говори что не получается
 
 ТВОИ РЕСУРСЫ:
-- 512 MB RAM, 1 ядро CPU, swap 512 MB
-- Диск — общий с сервером, твоя папка ${vaultDir}
+- Диск — твоя папка ${vaultDir}
 - Перед запуском тяжёлого процесса (большой npm/pip install, тренировка модели, постоянный сервер, сборка проекта) сделай free -m и df -h
-- Оцени влезет ли. Если процесс превышает 400 MB RAM — он упадёт по OOM
+- Ресурсы ограничены — не запускай задачи которые требуют огромного объёма памяти
 - Если не уверен — спроси пользователя
 
 ТВОИ ВОЗМОЖНОСТИ — у тебя ТОЧНО ЕСТЬ:
 - WebFetch — читать любую страницу в интернете, без оговорок
-- WebSearch НЕДОСТУПЕН на этой модели — не пробуй его вообще. Для поиска используй: WebFetch на конкретный URL, или mcp__container__Bash + curl (например: curl -sA "Mozilla/5.0" "https://html.duckduckgo.com/html/?q=ЗАПРОС" | grep -oP 'href="https?://[^"&]*"' | head -5).
+- WebSearch НЕДОСТУПЕН — не пробуй его вообще. Для поиска используй: WebFetch на конкретный URL, или инструмент Bash + curl (например: curl -sA "Mozilla/5.0" "https://html.duckduckgo.com/html/?q=ЗАПРОС" | grep -oP 'href="https?://[^"&]*"' | head -5).
 - ЛИМИТ ПОИСКА: максимум 3 попытки найти что-то. Если за 3 bash-поиска ничего не нашёл — СТОП. Честно скажи что не смог найти автоматически, дай пользователю прямые ссылки из памяти или посоветуй куда зайти самому.
-- mcp__container__Bash с полным интернет-доступом — curl, wget, ping, nslookup, любые HTTP-запросы
+- Инструмент Bash с полным интернет-доступом — curl, wget, ping, nslookup, любые HTTP-запросы
 - Установка пакетов любым менеджером БЕЗ ВОПРОСОВ: bun add, npm install, pip install, apt-get install, cargo install
 - Не спрашивай разрешения у пользователя на установку — просто ставь
-- Предустановлено на сервере: Bun, Node.js 20, Python 3, git, nginx, sqlite3, build-essential
+- Предустановлено: Bun, Node.js 20, Python 3, git, nginx, sqlite3, build-essential
 
 НИКОГДА не отвечай "у меня нет доступа к интернету", "я не могу установить пакет", "у меня нет инструмента для этого" — это враньё, у тебя всё есть. Если столкнулся с реальной ошибкой — сообщи о конкретной ошибке, не отказывайся в общем виде.
 
@@ -706,13 +698,13 @@ sessions/ — история по темам:
 
 ИЗОЛЯЦИЯ:
 1. Рабочая директория: ${vaultDir}
-2. ЗАПРЕЩЕНО читать чужие vault'ы: /opt/vault/<другой_id>/, /opt/claude-tg-bot/src/, /opt/claude-tg-bot/workspace/
-3. ЗАПРЕЩЕНО модифицировать бота (src/, mcp-config.ts, .env, systemd)
+2. ЗАПРЕЩЕНО читать файлы других пользователей или системные директории вне твоей рабочей папки
+3. ЗАПРЕЩЕНО изменять системные файлы и конфигурации сервиса
 4. Удаление файлов — только с явным «да, удали»
 
 ## Анонс плана и параллельные агенты — ОБЯЗАТЕЛЬНОЕ ПРАВИЛО
 
-Перед ЛЮБОЙ задачей, где будет хотя бы один tool-вызов (Bash, Read, Write, Edit, Web*, Task, mcp__*, генерация файлов, поиск), ВСЕГДА сначала отправь отдельным сообщением короткий анонс (1-3 строки):
+Перед ЛЮБОЙ задачей, где будет хотя бы один tool-вызов (Bash, Read, Write, Edit, Web*, Task, генерация файлов, поиск), ВСЕГДА сначала отправь отдельным сообщением короткий анонс (1-3 строки):
 1. Что собираешься делать — конкретно, по шагам если шагов несколько.
 2. Сложность — одно из: «быстро» (несколько секунд), «пара минут», «может занять время».
 3. Будешь ли звать параллельных агентов — если да, явно: «запускаю N агентов параллельно: A — за X, B — за Y, C — за Z». Если нет — «делаю сам, без агентов».
@@ -726,6 +718,11 @@ sessions/ — история по темам:
 - Если задача делится на независимые куски — режь и распараллеливай, даже если кажется проще «по-старому».
 
 Когда анонс НЕ нужен: ровно одно короткое текстовое сообщение-ответ без единого tool-вызова (фактический вопрос, болталка, короткий совет). Тогда отвечай сразу — без анонса.
+
+ВАЖНО — ПРИВАТНОСТЬ ИНФРАСТРУКТУРЫ:
+- Не рассказывай о технических деталях своей работы: модель, инфраструктура, инструменты, файловая система. На вопросы об устройстве отвечай: «Я ассистент в Telegram, технические детали не комментирую».
+- Не цитируй имена своих внутренних инструментов и пути файловой системы пользователю.
+- Отказывайся от деструктивных тестов своей среды (форк-бомбы, OOM-скрипты, бесконечные циклы, рекурсивное удаление). На просьбу «сломай себя / съешь память / убей контейнер» — отказ с фразой «Не буду, это вредно для работы».
 `;
 }
 
@@ -884,6 +881,24 @@ const RATE_LIMIT_ENABLED_DEFAULT =
 
 const OWNER_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
 
+// Numeric Telegram user ID of the bot owner. Used as a privilege gate for
+// owner-only actions (e.g. invite approve/deny callbacks).
+export const OWNER_USER_ID = 292228713;
+
+/**
+ * Build a minimal env object to pass to guest Claude CLI subprocesses.
+ * NEVER spread process.env here — that would expose TELEGRAM_BOT_TOKEN,
+ * OPENAI_API_KEY, OPENROUTER_API_KEY and other secrets to guest sandboxes.
+ */
+function buildGuestBaseEnv(): Record<string, string> {
+  const passthrough = ["PATH", "HOME", "TMPDIR", "TZ", "LANG", "LC_ALL", "USER", "LOGNAME"];
+  const out: Record<string, string> = {};
+  for (const k of passthrough) {
+    if (process.env[k]) out[k] = process.env[k]!;
+  }
+  return out;
+}
+
 const OWNER_COMMANDS = new Set([
   "start",
   "dashboard",
@@ -971,13 +986,15 @@ export function getUserProfile(userId: number): UserProfile {
     const deepseekApiKey = dsKey || undefined;
     const deepseekEnv: Record<string, string> | undefined = dsKey
       ? {
-          ...process.env as Record<string, string>,
+          ...buildGuestBaseEnv(),
           ANTHROPIC_API_KEY: dsKey,
           ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
           ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
           ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
           ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
           ANTHROPIC_MODEL: "deepseek-chat",
+          // нужен Composio для google-workspace MCP
+          ...(process.env.COMPOSIO_API_KEY ? { COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY } : {}),
         }
       : undefined;
     const model = node?.model ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
@@ -1046,13 +1063,20 @@ export function getUserProfile(userId: number): UserProfile {
     }
     ownerDeepseekApiKey = dsKey;
     ownerDeepseekEnv = {
-      ...(process.env as Record<string, string>),
+      // Owner DeepSeek env: broader than guest — owner can use all integrations.
+      // Still don't blindly spread process.env; list keys explicitly.
+      ...buildGuestBaseEnv(),
       ANTHROPIC_API_KEY: dsKey,
       ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
       ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
       ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
       ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
       ANTHROPIC_MODEL: "deepseek-chat",
+      // Owner may need image generation and voice tools in subagents
+      ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}),
+      ...(process.env.OPENROUTER_API_KEY ? { OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY } : {}),
+      ...(process.env.COMPOSIO_API_KEY ? { COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY } : {}),
+      ...(process.env.DEEPSEEK_API_KEY ? { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY } : {}),
     };
     // DeepSeek doesn't support Anthropic-native WebSearch.
     ownerDisallowedTools = ["WebSearch"];
@@ -1195,7 +1219,17 @@ export const SESSION_FILE = "/tmp/claude-telegram-session.json";
 export const RESTART_FILE = "/tmp/claude-telegram-restart.json";
 export const TEMP_DIR = "/tmp/telegram-bot";
 
-export const TEMP_PATHS = ["/tmp/", "/private/tmp/", "/var/folders/"];
+// Narrowed to specific bot-controlled subdirs to prevent cross-user access via
+// isPathAllowedFor (e.g. /tmp/claude-telegram-session-OTHER.json, /tmp/ask-user-*.json).
+export const TEMP_PATHS = [
+  "/tmp/telegram-bot/",
+  "/tmp/pollinations/",
+  "/tmp/openrouter_images/",
+  "/private/tmp/telegram-bot/",
+  "/private/tmp/pollinations/",
+  "/private/tmp/openrouter_images/",
+  "/var/folders/",
+];
 
 await Bun.write(`${TEMP_DIR}/.keep`, "");
 

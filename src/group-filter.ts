@@ -5,12 +5,13 @@
  * This module decides whether a message warrants a response.
  *
  * Logic:
- * 1. Hard-pass: explicit @mention or reply to bot → always respond
- * 2. Hard-skip: forwarded messages, bot's own messages → never respond
- * 3. Claude Haiku via CLI: for everything else, classify YES/NO
+ * 1. Gate: reject groups that are not in the allowed list (fail-closed)
+ * 2. Hard-pass: explicit @mention or reply to bot → always respond
+ * 3. Hard-skip: forwarded messages, bot's own messages → never respond
  */
 
 import type { Context } from "grammy";
+import { GROUP_CHAT_ID } from "./config";
 
 // Bot username set at startup by index.ts
 let BOT_USERNAME = "";
@@ -93,11 +94,25 @@ export function getGroupHistory(chatId: number): GroupMessage[] {
 
 /**
  * Main entry point. Returns true if bot should respond to this group message.
+ *
+ * Fail-closed: if GROUP_CHAT_ID is not configured (i.e. env var absent) the
+ * default value in config.ts still applies. Any group chat whose id does NOT
+ * match GROUP_CHAT_ID is silently ignored so rogue groups added by third
+ * parties cannot drive the bot.
  */
 export async function shouldRespondInGroup(ctx: Context): Promise<boolean> {
   const botUsername = BOT_USERNAME;
   const chatId = ctx.chat?.id;
   if (!chatId) return false;
+
+  // Gate: only respond in the configured group chat.
+  // GROUP_CHAT_ID is read from env (default -5115756668).  If a chat id does
+  // not match, drop it — this prevents any user from adding the bot to an
+  // arbitrary group and forcing it to respond.
+  if (chatId !== GROUP_CHAT_ID) {
+    console.log(`[group-filter] Rejected unknown group chat ${chatId} (expected ${GROUP_CHAT_ID})`);
+    return false;
+  }
 
   // Record this message in history
   const text = ctx.message?.text || ctx.message?.caption || "";

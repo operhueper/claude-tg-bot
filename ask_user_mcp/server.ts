@@ -81,18 +81,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // Generate request ID and get chat context from environment
   const requestUuid = crypto.randomUUID().slice(0, 8);
   const chatId = process.env.TELEGRAM_CHAT_ID || "";
+  const userId = process.env.TELEGRAM_USER_ID || "";
 
-  // Write request file for the bot to pick up
+  // Write request file for the bot to pick up.
+  // Filename includes userId so each user's drop-box is isolated — the bot
+  // globs /tmp/ask-user-{userId}-*.json and never sees another user's files.
   const requestData = {
     request_id: requestUuid,
     question,
     options,
     status: "pending",
     chat_id: chatId,
+    user_id: userId,
     created_at: new Date().toISOString(),
   };
 
-  const requestFile = `/tmp/ask-user-${requestUuid}.json`;
+  const requestFile = `/tmp/ask-user-${userId}-${requestUuid}.json`;
   await Bun.write(requestFile, JSON.stringify(requestData, null, 2));
 
   return {

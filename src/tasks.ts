@@ -3,7 +3,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
-import { getUserProfile } from "./config";
+import { getUserProfile, OWNER_USER_ID } from "./config";
 import { GraphStore } from "./memory/graph";
 
 export interface PendingTask {
@@ -50,8 +50,23 @@ export function detectAssignee(text: string, fromUserId: number): number | null 
   return null;
 }
 
+/**
+ * Authorization helper: returns true if userId may assign tasks to others.
+ * Only the owner can write into another user's vault.
+ */
+export function canAssignTask(assignedBy: number, assignedTo: number): boolean {
+  if (assignedBy === assignedTo) return true; // self-assignment always allowed
+  return assignedBy === OWNER_USER_ID;
+}
+
 // Save confirmed task to vault and memory graph
 export function saveTaskToVault(task: PendingTask): void {
+  // Authorization: guests may only write into their own vault.
+  if (!canAssignTask(task.assignedBy, task.assignedTo)) {
+    throw new Error(
+      `Unauthorized: user ${task.assignedBy} cannot assign tasks to user ${task.assignedTo}`
+    );
+  }
   const vaultPath = `/opt/vault/${task.assignedTo}/inbox`;
   const tasksFile = `${vaultPath}/tasks.md`;
 
@@ -92,8 +107,14 @@ export function saveTaskToVault(task: PendingTask): void {
   }
 }
 
-// Save pending task to /tmp for confirmation
+// Save pending task to /tmp for confirmation.
+// Throws if the assigning user is not authorized to assign to the given target.
 export function savePendingTask(task: PendingTask): void {
+  if (!canAssignTask(task.assignedBy, task.assignedTo)) {
+    throw new Error(
+      `Unauthorized: user ${task.assignedBy} cannot assign tasks to user ${task.assignedTo}`
+    );
+  }
   const file = `/tmp/task-${task.id}.json`;
   writeFileSync(file, JSON.stringify(task, null, 2));
 }

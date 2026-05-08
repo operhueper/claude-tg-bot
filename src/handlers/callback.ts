@@ -7,7 +7,7 @@
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, NEW_GUEST_USERS, bootstrapNewGuestDir } from "../config";
+import { ALLOWED_USERS, NEW_GUEST_USERS, bootstrapNewGuestDir, OWNER_USER_ID } from "../config";
 import { isAuthorized } from "../security";
 import { auditLog, auditLogError, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -77,8 +77,13 @@ export async function handleCallback(ctx: Context): Promise<void> {
   const requestId = parts[1]!;
   const optionIndex = parseInt(parts[2]!, 10);
 
-  // 3. Load request file
-  const requestFile = `/tmp/ask-user-${requestId}.json`;
+  // 3. Load request file — try per-user path first (new format), fall back to
+  //    legacy path so buttons created before this fix still work.
+  const requestFileNew = `/tmp/ask-user-${userId}-${requestId}.json`;
+  const requestFileLegacy = `/tmp/ask-user-${requestId}.json`;
+  const requestFile = (await Bun.file(requestFileNew).exists())
+    ? requestFileNew
+    : requestFileLegacy;
   let requestData: {
     question: string;
     options: string[];
@@ -183,6 +188,12 @@ export async function handleCallback(ctx: Context): Promise<void> {
  * callback_data: invite_approve_{userId} | invite_deny_{userId}
  */
 async function handleInviteCallback(ctx: Context, callbackData: string): Promise<void> {
+  // Only the owner can approve/deny invites — reject any other user
+  if (ctx.from?.id !== OWNER_USER_ID) {
+    await ctx.answerCallbackQuery({ text: "Недоступно" });
+    return;
+  }
+
   const isApprove = callbackData.startsWith("invite_approve_");
   const rawId = callbackData.replace(isApprove ? "invite_approve_" : "invite_deny_", "");
   const targetUserId = parseInt(rawId, 10);

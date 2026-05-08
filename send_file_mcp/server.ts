@@ -200,7 +200,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     created_at: new Date().toISOString(),
   };
 
-  const requestFile = `/tmp/send-file-${requestUuid}.json`;
+  // Filename includes userId so each user's drop-box is isolated — the bot
+  // globs /tmp/send-file-{userId}-*.json and never sees another user's files.
+  const requestFile = `/tmp/send-file-${userId}-${requestUuid}.json`;
   await Bun.write(requestFile, JSON.stringify(requestData, null, 2));
 
   return {

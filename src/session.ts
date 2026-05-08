@@ -61,8 +61,26 @@ import { containerManager } from "./containers/manager";
  */
 const CONTAINER_BASH_PROMPT = `
 
-ВАЖНО — ПЕСОЧНИЦА:
-Ты работаешь внутри изолированного Docker-контейнера. Стандартный инструмент Bash отключён. Чтобы выполнить shell-команду используй инструмент mcp__container__Bash (параметр: command — строка). Внутри контейнера у тебя свой /opt/vault/<userId>/ как рабочая папка, доступ в интернет, python3, node, bun, git и обычные unix-утилиты. Состояние (установленные пакеты, файлы) сохраняется между сообщениями. Файлы созданные через mcp__container__Bash в /opt/vault/<userId>/ ВИДНЫ инструментам Read/Write/Edit и наоборот — это одна и та же папка на хосте и в контейнере.`;
+ВАЖНО — РАБОЧАЯ СРЕДА:
+У тебя есть инструмент для запуска shell-команд в твоей рабочей среде. Используй его для выполнения кода, обработки файлов, установки пакетов (pip install, npm install, apt-get и т.д.). Все команды работают в изолированной среде. Доступны python3, node, bun, git и обычные unix-утилиты. Состояние (установленные пакеты, файлы) сохраняется между сообщениями. Файлы созданные через инструмент Bash видны инструментам Read/Write/Edit и наоборот — это одна и та же рабочая папка.`;
+
+/**
+ * Infrastructure disclosure patterns that must not surface in guest-visible
+ * thinking blocks. If any pattern matches, the block is suppressed entirely.
+ */
+const GUEST_THINKING_BLOCK_PATTERN =
+  /\/opt\/vault|mcp__|Docker|DeepSeek|Anthropic|cgroup|OOM|exit code|claude-tg-bot|forkbomb|pids|seccomp|cap_|\/root\//i;
+
+/**
+ * Sanitize a thinking block before it is shown to a guest user.
+ * Returns the original text if it is safe, or null to suppress the block.
+ */
+function sanitizeThinkingForGuest(text: string): string | null {
+  if (GUEST_THINKING_BLOCK_PATTERN.test(text)) {
+    return null;
+  }
+  return text;
+}
 
 /**
  * Determine thinking token budget based on message keywords.
@@ -314,7 +332,7 @@ export class ClaudeSession {
         const openrouterKey = getNewGuestOpenRouterKey(this.profile.userId);
         if (!openrouterKey) {
           const errMsg =
-            "⚠️ API ключ не найден. Обратись к Евгению — он настроит доступ.";
+            "⚠️ Сервис временно недоступен. Обратись к администратору бота.";
           await statusCallback("segment_end", errMsg, 0);
           await statusCallback("done", "");
           return errMsg;
@@ -536,14 +554,23 @@ export class ClaudeSession {
             if (block.type === "thinking") {
               const thinkingText = block.thinking;
               if (thinkingText) {
+                // For guests: redact infrastructure details from console log
+                const logSnippet = this.profile.isGuest
+                  ? thinkingText.replace(GUEST_THINKING_BLOCK_PATTERN, "[…]").slice(0, 100)
+                  : thinkingText.slice(0, 100);
                 console.log(
-                  `[${this.profile.label}] THINKING BLOCK: ${thinkingText.slice(
-                    0,
-                    100
-                  )}...`
+                  `[${this.profile.label}] THINKING BLOCK: ${logSnippet}...`
                 );
                 if (SHOW_THINKING) {
-                  await statusCallback("thinking", thinkingText);
+                  if (this.profile.isGuest) {
+                    const safe = sanitizeThinkingForGuest(thinkingText);
+                    if (safe !== null) {
+                      await statusCallback("thinking", safe);
+                    }
+                    // null → suppress block entirely
+                  } else {
+                    await statusCallback("thinking", thinkingText);
+                  }
                 }
               }
             }
