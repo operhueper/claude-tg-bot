@@ -374,10 +374,15 @@ const OWNER_ALLOWED_PATHS: string[] = ownerAllowedPathsStr
 
 // ============== System Prompts ==============
 
-function buildOwnerSafetyPrompt(allowedPaths: string[]): string {
+function buildOwnerSafetyPrompt(allowedPaths: string[], isDeepSeek: boolean = false): string {
   const pathsList = allowedPaths
     .map((p) => `   - ${p} (and subdirectories)`)
     .join("\n");
+  const workspaceRootRaw = allowedPaths[0] || "/opt/claude-tg-bot/workspace";
+  const workspaceRoot = workspaceRootRaw.endsWith("/") ? workspaceRootRaw : `${workspaceRootRaw}/`;
+  const webCaps = isDeepSeek
+    ? "- WebFetch — full internet access (WebSearch unavailable on DeepSeek endpoint — use curl in Bash, or WebFetch on a specific URL like https://html.duckduckgo.com/html/?q=...)"
+    : "- WebFetch and WebSearch — full internet access, no caveats";
 
   return `
 CRITICAL SAFETY RULES FOR TELEGRAM BOT:
@@ -401,7 +406,7 @@ ${pathsList}
 You are running via Telegram, so the user cannot easily undo mistakes. Be extra careful!
 
 YOUR CAPABILITIES — you definitely have:
-- WebFetch and WebSearch — full internet access, no caveats
+${webCaps}
 - Bash with full internet — curl, wget, any HTTP requests
 - Install any package without asking: npm install, pip install, bun add, apt-get install
 - NEVER say "I don't have internet access" or "I can't install packages" — you can. Report specific errors if they occur.
@@ -411,15 +416,15 @@ MODEL LIMITATIONS (DeepSeek):
 - Incoming photos from the user arrive as a TEXT description (the bot ran them through Gemini). The description is already in your context — do not attempt to re-open the file path.
 
 CODE EXECUTION — strict rules:
-- Python code: ALWAYS Write to a file at /opt/claude-tg-bot/workspace/<name>.py, then Bash: python3 /opt/claude-tg-bot/workspace/<name>.py. NEVER pass Python via bash -c "..." or heredoc — escaping will break.
+- Python code: ALWAYS Write to a file at ${workspaceRoot}<name>.py, then Bash: python3 ${workspaceRoot}<name>.py. NEVER pass Python via bash -c "..." or heredoc — escaping will break.
 - Ubuntu 24+ pip: system pip is blocked. Options:
   · quick: python3 -m pip install --break-system-packages <package>
-  · clean (for long-running scripts): python3 -m venv /opt/claude-tg-bot/workspace/venv && /opt/claude-tg-bot/workspace/venv/bin/pip install <package> then run via /opt/claude-tg-bot/workspace/venv/bin/python3 script.py
-- All file paths must be ABSOLUTE. Write /opt/claude-tg-bot/workspace/script.py, not script.py. Relative paths are rejected by security checks.
+  · clean (for long-running scripts): python3 -m venv ${workspaceRoot}venv && ${workspaceRoot}venv/bin/pip install <package> then run via ${workspaceRoot}venv/bin/python3 script.py
+- All file paths must be ABSOLUTE. Write ${workspaceRoot}script.py, not script.py. Relative paths are rejected by security checks.
 
 INCOMING FILES FROM USER:
 - Photos and documents are saved to /tmp/telegram-bot/ (names like photo-<id>.jpg, document-<id>.<ext>).
-- To copy to workspace: cp /tmp/telegram-bot/photo-XXXX.jpg /opt/claude-tg-bot/workspace/
+- To copy to workspace: cp /tmp/telegram-bot/photo-XXXX.jpg ${workspaceRoot}
 - List recent incoming: ls -t /tmp/telegram-bot/ | head -20
 
 BEFORE SENDING A FILE (mcp__send-file):
@@ -549,15 +554,14 @@ sessions/ — история по темам:
 - Скиллы имеют приоритет над дефолтным поведением
 
 ИНСТРУМЕНТЫ (используй без запроса, не перечисляй):
-- Bash — выполнить команду в терминале (pip install, curl, python, node, и т.д.)
+- mcp__container__Bash — выполнить команду в твоём изолированном контейнере (pip install, curl, python, node, git, apt-get — всё работает). Обычного Bash у тебя нет, используй только этот.
 - Read / Write / Edit — читать и писать файлы
 - Glob / Grep — поиск файлов и содержимого
-- WebSearch / WebFetch — поиск в интернете
+- WebFetch — загрузить страницу или API по конкретному URL (WebSearch недоступен — используй curl через mcp__container__Bash или WebFetch на duckduckgo)
 - mcp__send-file — отправить файл пользователю в Telegram
 - mcp__pollinations-image — сгенерировать картинку по описанию (бесплатно)
 - mcp__parallel__run — запустить несколько независимых подзадач параллельно одним вызовом
-- mcp__google-workspace__* — Google Docs, Drive, Sheets, Gmail, Calendar (если пользователь подключил аккаунт)
-- mcp__connect-google__connect — подключить Google-аккаунт пользователя через OAuth (вызывай сам, когда просят)
+- mcp__google-workspace__* — Google Docs, Drive, Sheets, Gmail, Calendar (если пользователь подключил аккаунт; подключение — через команду /google в Telegram)
 
 ИНТЕГРАЦИИ СО СТОРОННИМИ СЕРВИСАМИ:
 Ты подключён к платформе интеграций — она позволяет работать с десятками внешних приложений от имени пользователя через единый OAuth.
@@ -633,16 +637,11 @@ sessions/ — история по темам:
 - Входящие фото от пользователя ты получаешь как ТЕКСТОВОЕ описание (бот сам их прогнал через Gemini). Не пытайся повторно открыть файл — описание уже у тебя в контексте.
 
 ВЫПОЛНЕНИЕ КОДА — правила без исключений:
-- Python код: ВСЕГДА Write в файл ${vaultDir}/<имя>.py, потом Bash: python3 ${vaultDir}/<имя>.py. НЕ передавай Python через bash -c "..." или heredoc — экранирование сломается.
+- Python код: ВСЕГДА Write в файл ${vaultDir}/<имя>.py, потом mcp__container__Bash: python3 ${vaultDir}/<имя>.py. НЕ передавай Python через bash -c "..." или heredoc — экранирование сломается.
 - Установка пакетов на Ubuntu 24+: системный pip заблокирован. Варианты:
   · быстро: python3 -m pip install --break-system-packages <пакет>
   · аккуратно (для долгих скриптов): python3 -m venv ${vaultDir}/venv && ${vaultDir}/venv/bin/pip install <пакет> — потом запуск через ${vaultDir}/venv/bin/python3 script.py
 - Все пути к файлам — АБСОЛЮТНЫЕ, в пределах ${vaultDir}. Не пиши script.py, пиши ${vaultDir}/script.py. Относительные пути отвергаются по безопасности.
-
-ГДЕ ЛЕЖАТ ВХОДЯЩИЕ ФАЙЛЫ:
-- Фото и документы от пользователя бот складывает в /tmp/telegram-bot/ (имена вида photo-<id>.jpg, document-<id>.<ext>). Папки inbox в твоём vault НЕТ, если сам не создал.
-- Перенести файл к себе в vault: cp /tmp/telegram-bot/photo-XXXX.jpg ${vaultDir}/photos/
-- ls свежих входящих: ls -t /tmp/telegram-bot/ | head -20
 
 ПЕРЕД ОТПРАВКОЙ ФАЙЛА (mcp__send-file):
 - Убедись что файл реально существует: ls -la <путь> или результат предыдущей команды показал успешное создание.
@@ -651,13 +650,13 @@ sessions/ — история по темам:
 МЕДИА — куда падают файлы от пользователя:
 - Документы, фото, видео → ${vaultDir}/inbox/<имя_файла> (та же папка снаружи и внутри контейнера)
 - Голос и аудио → транскрибируются автоматически, текст приходит в сообщении (сам файл недоступен)
-- ПЕРЕД тем как просить «пришли файл ещё раз» — обязательно сделай Bash: ls ${vaultDir}/inbox/ и проверь, что там лежит
-- В Bash и Read используй ровно тот путь, который был указан в предыдущем сообщении в строке Path: ...
+- ПЕРЕД тем как просить «пришли файл ещё раз» — обязательно сделай mcp__container__Bash: ls ${vaultDir}/inbox/ и проверь, что там лежит
+- В mcp__container__Bash и Read используй ровно тот путь, который был указан в предыдущем сообщении в строке Path: ...
 
-Конвертация .epub/.fb2 → PDF: в контейнере уже стоят ebook-convert (Calibre) и pandoc. Самый короткий путь — Bash: ebook-convert IN.epub OUT.pdf. Готовый враппер может уже лежать в ${vaultDir}/tools/epub2pdf.sh — сначала проверь его, не изобретай новый.
+Конвертация .epub/.fb2 → PDF: в контейнере уже стоят ebook-convert (Calibre) и pandoc. Самый короткий путь — mcp__container__Bash: ebook-convert IN.epub OUT.pdf. Готовый враппер может уже лежать в ${vaultDir}/tools/epub2pdf.sh — сначала проверь его, не изобретай новый.
 
 САМО-РАСШИРЕНИЕ — никогда не говори «я не умею»:
-- Нужна библиотека — pip/bun/npm install через Bash без вопросов
+- Нужна библиотека — pip/bun/npm install через mcp__container__Bash без вопросов
 - Нужен инструмент — apt-get install
 - Нужен скрипт — создай в ${vaultDir}/tools/ и запусти
 - Сначала попробуй, потом говори что не получается
@@ -671,9 +670,9 @@ sessions/ — история по темам:
 
 ТВОИ ВОЗМОЖНОСТИ — у тебя ТОЧНО ЕСТЬ:
 - WebFetch — читать любую страницу в интернете, без оговорок
-- WebSearch НЕДОСТУПЕН на этой модели — не пробуй его вообще. Для поиска используй: WebFetch на конкретный URL, или Bash + curl (например: curl -sA "Mozilla/5.0" "https://html.duckduckgo.com/html/?q=ЗАПРОС" | grep -oP 'href="https?://[^"&]*"' | head -5).
+- WebSearch НЕДОСТУПЕН на этой модели — не пробуй его вообще. Для поиска используй: WebFetch на конкретный URL, или mcp__container__Bash + curl (например: curl -sA "Mozilla/5.0" "https://html.duckduckgo.com/html/?q=ЗАПРОС" | grep -oP 'href="https?://[^"&]*"' | head -5).
 - ЛИМИТ ПОИСКА: максимум 3 попытки найти что-то. Если за 3 bash-поиска ничего не нашёл — СТОП. Честно скажи что не смог найти автоматически, дай пользователю прямые ссылки из памяти или посоветуй куда зайти самому.
-- Bash с полным интернет-доступом — curl, wget, ping, nslookup, любые HTTP-запросы
+- mcp__container__Bash с полным интернет-доступом — curl, wget, ping, nslookup, любые HTTP-запросы
 - Установка пакетов любым менеджером БЕЗ ВОПРОСОВ: bun add, npm install, pip install, apt-get install, cargo install
 - Не спрашивай разрешения у пользователя на установку — просто ставь
 - Предустановлено на сервере: Bun, Node.js 20, Python 3, git, nginx, sqlite3, build-essential
@@ -737,7 +736,9 @@ export function buildOnboardingPrompt(userId: number, vaultDir: string): string 
 3. Расскажи коротко что ты умеешь:
    - читать и писать текст, отвечать на вопросы
    - искать в интернете, читать сайты
-   - распознавать голос, фото, документы (PDF, Word, Excel)
+   - работать с файлами: создавать, читать, редактировать
+   - подключаться к Google-аккаунту и работать с почтой, календарём, документами
+   - распознавать голос, фото, документы (PDF, Word, Excel, все другие форматы)
    - писать и запускать код, делать сайты
    - запоминать важное в твоей памяти
    - у тебя есть твоя публичная страничка по адресу: https://proboi.site/u/${userId}/
@@ -900,7 +901,11 @@ const GUEST_COMMANDS = new Set([
   "restart",
 ]);
 
-const OWNER_SAFETY_PROMPT = buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS);
+// Owner system prompt is now computed per-call inside getUserProfile so we
+// can branch on whether the owner is currently routed through DeepSeek
+// (where WebSearch isn't available). The legacy export below keeps the
+// non-DeepSeek variant for any old code that imports SAFETY_PROMPT.
+const OWNER_SAFETY_PROMPT = buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS, false);
 
 const GROUP_COMMANDS = new Set(["new", "stop", "status"]);
 
@@ -1061,7 +1066,7 @@ export function getUserProfile(userId: number): UserProfile {
     memoryRoot: ownerVaultDir,
     allowedPaths: OWNER_ALLOWED_PATHS,
     settingSources: node?.settingSources ?? ["user", "project"],
-    systemPrompt: OWNER_SAFETY_PROMPT,
+    systemPrompt: buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS, !!ownerDeepseekEnv),
     rateLimitEnabled: node?.rateLimitEnabled ?? RATE_LIMIT_ENABLED_DEFAULT,
     rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
     rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
