@@ -1,0 +1,111 @@
+#!/usr/bin/env bun
+/**
+ * Connect Google MCP Server - Initiates Google Workspace OAuth connection.
+ *
+ * When Claude calls connect(), this server writes a request file that the
+ * Telegram bot monitors. The bot then fetches Composio OAuth URLs and sends
+ * inline-keyboard buttons to the user.
+ *
+ * Fire-and-forget: Claude continues generating after calling this tool.
+ *
+ * Uses the official MCP TypeScript SDK for proper protocol compliance.
+ */
+
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
+
+// Create the MCP server
+const server = new Server(
+  {
+    name: "connect-google",
+    version: "1.0.0",
+  },
+  {
+    capabilities: {
+      tools: {},
+    },
+  }
+);
+
+// List available tools
+server.setRequestHandler(ListToolsRequestSchema, async () => {
+  return {
+    tools: [
+      {
+        name: "connect",
+        description:
+          "Initiate Google Workspace OAuth connection. Call this when the user asks to connect/link/authorize their Google account (Docs, Drive, Sheets, Gmail, Calendar). The bot will display inline keyboard buttons with OAuth redirect URLs.",
+        inputSchema: {
+          type: "object" as const,
+          properties: {
+            reason: {
+              type: "string",
+              description:
+                "Optional reason or context for the connection request (for logging)",
+            },
+          },
+          required: [],
+        },
+      },
+    ],
+  };
+});
+
+// Handle tool calls
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  if (request.params.name !== "connect") {
+    throw new Error(`Unknown tool: ${request.params.name}`);
+  }
+
+  // Get chat context from environment (set by session.ts before spawning the MCP)
+  const chatId = process.env.TELEGRAM_CHAT_ID || "";
+  const userId = process.env.TELEGRAM_USER_ID || "";
+
+  if (!chatId) {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: "Error: TELEGRAM_CHAT_ID not set. Cannot determine recipient.",
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  // Write request file for the bot to pick up
+  const requestId = crypto.randomUUID().slice(0, 8);
+
+  const requestData = {
+    request_id: requestId,
+    chat_id: chatId,
+    user_id: userId,
+    status: "pending",
+    created_at: new Date().toISOString(),
+  };
+
+  const requestFile = `/tmp/connect-google-${requestId}.json`;
+  await Bun.write(requestFile, JSON.stringify(requestData, null, 2));
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: "Google connection request sent — OAuth buttons will appear in the chat.",
+      },
+    ],
+  };
+});
+
+// Run the server
+async function main() {
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error("Connect Google MCP server running on stdio");
+}
+
+main().catch(console.error);

@@ -8,7 +8,6 @@
  */
 
 import type { Context } from "grammy";
-import { InlineKeyboard } from "grammy";
 import { execSync } from "child_process";
 import { existsSync, unlinkSync } from "fs";
 import { getSession } from "../session-registry";
@@ -23,7 +22,6 @@ import {
 import { isAuthorized } from "../security";
 import { replyFriendly } from "../utils";
 import { requestAccess } from "../containers/invites";
-import { initiateGoogleConnections, getComposioApiKey } from "../composio";
 
 /** Reject command if the profile doesn't permit it. */
 function commandAllowed(userId: number, command: string): boolean {
@@ -411,50 +409,6 @@ export async function handleDashboard(ctx: Context): Promise<void> {
       ]],
     },
   });
-}
-
-/**
- * /google - Connect Google account via Composio OAuth.
- *
- * Sends 5 inline-keyboard buttons (one per Google toolkit) with short-lived
- * OAuth redirect URLs from Composio. The user taps each button and authorises
- * the corresponding Google service independently. After authorisation Claude
- * can call mcp__google-workspace__* tools on their behalf.
- */
-export async function handleGoogle(ctx: Context): Promise<void> {
-  const userId = ctx.from?.id;
-
-  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
-    await ctx.reply("Unauthorized.");
-    return;
-  }
-
-  if (!getComposioApiKey()) {
-    await ctx.reply(
-      "Google-интеграция временно недоступна. Обратись к владельцу."
-    );
-    return;
-  }
-
-  let connections;
-  try {
-    connections = await initiateGoogleConnections(userId);
-  } catch (e) {
-    await replyFriendly(ctx, e, "подключение Google");
-    return;
-  }
-
-  const keyboard = new InlineKeyboard();
-  for (const conn of connections) {
-    keyboard.url(`${conn.emoji} ${conn.label}`, conn.redirectUrl).row();
-  }
-
-  await ctx.reply(
-    "🔑 Подключи свой Google-аккаунт. Нажми каждую кнопку и пройди OAuth " +
-      "(можно по одной — те сервисы что не нужны не подключай). " +
-      "После авторизации можешь сразу просить меня что-то сделать в Google Docs/Drive/Sheets/Gmail/Calendar.",
-    { reply_markup: keyboard }
-  );
 }
 
 /**

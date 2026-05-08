@@ -447,6 +447,7 @@ class ContainerManager {
       "mcp__send-file",
       "mcp__pollinations-image",
       "mcp__knowledge",
+      "mcp__connect-google",
       "mcp__container",
       "mcp__container__Bash",
     ];

@@ -34,7 +34,6 @@ import {
   handleReloadBot,
   handleRetry,
   handleDashboard,
-  handleGoogle,
   handleText,
   handleVoice,
   handlePhoto,
@@ -143,7 +142,6 @@ bot.command("restart", handleRestart);
 bot.command("reloadbot", handleReloadBot);
 bot.command("retry", handleRetry);
 bot.command("dashboard", handleDashboard);
-bot.command("google", handleGoogle);
 
 // ============== Message Handlers ==============
 
@@ -199,7 +197,6 @@ console.log(`Container manager initialized for ${containerProfiles.length} user(
 // (safe for everyone). /reloadbot performs a full systemd restart and is owner-only.
 const baseCommands = [
   { command: "dashboard", description: "🧠 Second Brain — задачи и календарь" },
-  { command: "google", description: "Подключить Google-аккаунт" },
   { command: "new", description: "Start fresh session" },
   { command: "stop", description: "Stop current query" },
   { command: "status", description: "Show detailed status" },

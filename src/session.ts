@@ -29,6 +29,7 @@ import { formatToolStatus, escapeHtml } from "./formatting";
 import {
   checkPendingAskUserRequests,
   checkPendingSendFileRequests,
+  checkPendingConnectGoogleRequests,
 } from "./handlers/streaming";
 import { TranscriptRecorder } from "./memory/transcript";
 import { GraphStore } from "./memory/graph";
@@ -589,7 +590,8 @@ export class ClaudeSession {
               if (
                 SHOW_TOOL_USE &&
                 !toolName.startsWith("mcp__ask-user") &&
-                !toolName.startsWith("mcp__send-file")
+                !toolName.startsWith("mcp__send-file") &&
+                !toolName.startsWith("mcp__connect-google")
               ) {
                 await statusCallback("tool", toolDisplay);
               }
@@ -621,6 +623,27 @@ export class ClaudeSession {
                 await new Promise((resolve) => setTimeout(resolve, 200));
                 for (let attempt = 0; attempt < 3; attempt++) {
                   const sent = await checkPendingSendFileRequests(
+                    ctx,
+                    chatId,
+                    this.profile.userId
+                  );
+                  if (sent) break;
+                  if (attempt < 2) {
+                    await new Promise((resolve) =>
+                      setTimeout(resolve, 100)
+                    );
+                  }
+                }
+              }
+
+              if (
+                toolName.startsWith("mcp__connect-google") &&
+                ctx &&
+                chatId
+              ) {
+                await new Promise((resolve) => setTimeout(resolve, 200));
+                for (let attempt = 0; attempt < 3; attempt++) {
+                  const sent = await checkPendingConnectGoogleRequests(
                     ctx,
                     chatId,
                     this.profile.userId

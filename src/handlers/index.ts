@@ -12,7 +12,6 @@ export {
   handleReloadBot,
   handleRetry,
   handleDashboard,
-  handleGoogle,
 } from "./commands";
 export { handleText } from "./text";
 export { handleVoice } from "./voice";

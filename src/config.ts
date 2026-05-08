@@ -201,7 +201,7 @@ export function bootstrapNewGuestDir(userId: number): void {
                 "NotebookEdit", "TodoWrite", "Task",
                 "mcp__ask-user", "mcp__send-file", "mcp__pollinations-image",
                 "mcp__knowledge", "mcp__openrouter-image", "mcp__google-workspace",
-                "mcp__container",
+                "mcp__connect-google", "mcp__container",
               ],
             },
           },
@@ -420,7 +420,7 @@ YOUR RESOURCES:
 ИНТЕГРАЦИИ СО СТОРОННИМИ СЕРВИСАМИ:
 Бот подключён к платформе интеграций — это даёт работу с десятками внешних приложений от имени пользователя через единый OAuth.
 
-Активно прямо сейчас: Google Workspace через инструменты \`mcp__google-workspace__*\` (Docs, Drive, Sheets, Gmail, Calendar). Чтобы подключить свой Google-аккаунт владельцу — выполни /google.
+Активно прямо сейчас: Google Workspace через инструменты \`mcp__google-workspace__*\` (Docs, Drive, Sheets, Gmail, Calendar). Если пользователь хочет подключить Google-аккаунт — вызывай \`mcp__connect-google__connect\`, бот покажет OAuth-кнопки.
 
 Платформа поддерживает дополнительно (нужно вписать в src/composio.ts + src/mcp-filter.ts чтобы активировать): Notion, Slack, Discord, Microsoft Teams, GitHub, GitLab, Bitbucket, Linear, Jira, Trello, Asana, ClickUp, Todoist, Monday, Confluence, Dropbox, OneDrive, Figma, Canva, Miro, Calendly, Cal.com, Zoom, HubSpot, Salesforce, Stripe, Square, Intercom, Outlook, YouTube, Google Analytics, BigQuery, Zendesk, Mailchimp, PagerDuty, Sentry, Supabase, Zoho Books и другие.
 
@@ -534,12 +534,13 @@ sessions/ — история по темам:
 - mcp__send-file — отправить файл пользователю в Telegram
 - mcp__pollinations-image — сгенерировать картинку по описанию (бесплатно)
 - Task — запустить параллельного субагента для независимой подзадачи
-- mcp__google-workspace__* — Google Docs, Drive, Sheets, Gmail, Calendar (если пользователь подключил аккаунт через /google)
+- mcp__google-workspace__* — Google Docs, Drive, Sheets, Gmail, Calendar (если пользователь подключил аккаунт)
+- mcp__connect-google__connect — подключить Google-аккаунт пользователя через OAuth (вызывай сам, когда просят)
 
 ИНТЕГРАЦИИ СО СТОРОННИМИ СЕРВИСАМИ:
 Ты подключён к платформе интеграций — она позволяет работать с десятками внешних приложений от имени пользователя через единый OAuth.
 
-Активно прямо сейчас: Google Workspace через инструменты \`mcp__google-workspace__*\` (Docs, Drive, Sheets, Gmail, Calendar). Если пользователь ещё не подключил свой Google-аккаунт — попроси его выполнить /google в чате.
+Активно прямо сейчас: Google Workspace через инструменты \`mcp__google-workspace__*\` (Docs, Drive, Sheets, Gmail, Calendar). Если пользователь хочет подключить свой Google-аккаунт (Docs/Drive/Sheets/Gmail/Calendar) — вызывай \`mcp__connect-google__connect\`, бот покажет ему OAuth-кнопки.
 
 ⚠️ ПРОТОКОЛ РАБОТЫ С GMAIL И ДРУГИМИ ИНСТРУМЕНТАМИ ВОЗВРАЩАЮЩИМИ СПИСКИ:
 Тулзы которые читают много данных (GMAIL_FETCH_EMAILS, GMAIL_LIST_THREADS, GOOGLEDRIVE_FIND_FILE, GOOGLECALENDAR_EVENTS_LIST и т.п.) могут вернуть мегабайты текста и взорвать контекст. ВСЕГДА:
@@ -827,7 +828,6 @@ const OWNER_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
 const OWNER_COMMANDS = new Set([
   "start",
   "dashboard",
-  "google",
   "new",
   "stop",
   "status",
@@ -841,7 +841,6 @@ const OWNER_COMMANDS = new Set([
 const GUEST_COMMANDS = new Set([
   "start",
   "dashboard",
-  "google",
   "new",
   "stop",
   "status",

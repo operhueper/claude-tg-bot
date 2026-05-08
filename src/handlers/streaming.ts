@@ -17,6 +17,8 @@ import {
   BUTTON_LABEL_MAX_LENGTH,
 } from "../config";
 import { pickRandomPhrase } from "../idle-phrases";
+import { initiateGoogleConnections, getComposioApiKey } from "../composio";
+import { replyFriendly } from "../utils";
 
 /**
  * Create inline keyboard for ask_user options.
@@ -151,6 +153,64 @@ export async function checkPendingSendFileRequests(
   }
 
   return fileSent;
+}
+
+/**
+ * Check for pending connect-google requests and send OAuth inline keyboards.
+ */
+export async function checkPendingConnectGoogleRequests(
+  ctx: Context,
+  chatId: number,
+  userId: number
+): Promise<boolean> {
+  const glob = new Bun.Glob("connect-google-*.json");
+  let buttonsSent = false;
+
+  for await (const filename of glob.scan({ cwd: "/tmp", absolute: false })) {
+    const filepath = `/tmp/${filename}`;
+    try {
+      const file = Bun.file(filepath);
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // Only process pending requests for this chat
+      if (data.status !== "pending") continue;
+      if (String(data.chat_id) !== String(chatId)) continue;
+
+      // Clean up the request file before doing async work
+      try { unlinkSync(filepath); } catch { /* ignore */ }
+
+      if (!getComposioApiKey()) {
+        await ctx.reply(
+          "Google-интеграция временно недоступна. Обратись к владельцу."
+        );
+        buttonsSent = true;
+        continue;
+      }
+
+      try {
+        const connections = await initiateGoogleConnections(userId);
+        const keyboard = new InlineKeyboard();
+        for (const conn of connections) {
+          keyboard.url(`${conn.emoji} ${conn.label}`, conn.redirectUrl).row();
+        }
+        await ctx.reply(
+          "🔑 Подключи свой Google-аккаунт. Нажми каждую кнопку и пройди OAuth " +
+            "(можно по одной — те сервисы что не нужны не подключай). " +
+            "После авторизации можешь сразу просить меня что-то сделать в Google Docs/Drive/Sheets/Gmail/Calendar.",
+          { reply_markup: keyboard }
+        );
+        buttonsSent = true;
+      } catch (e) {
+        await replyFriendly(ctx, e, "подключение Google");
+        buttonsSent = true;
+      }
+    } catch (error) {
+      console.warn(`Failed to process connect-google file ${filepath}:`, error);
+    }
+  }
+
+  return buttonsSent;
 }
 
 /**
