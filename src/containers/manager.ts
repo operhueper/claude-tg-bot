@@ -20,7 +20,7 @@
  */
 
 import { execFile } from "child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { chownSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { promisify } from "util";
 
@@ -45,6 +45,25 @@ export type ContainerState = "absent" | "running" | "paused" | "stopped";
 const IDLE_PAUSE_MS = 15 * 60 * 1000; // 15 min → docker pause
 const IDLE_STOP_MS = 24 * 60 * 60 * 1000; // 24 h  → docker stop
 const DEFAULT_EXEC_TIMEOUT_MS = 30_000;
+
+// Match Dockerfile.user — guest containers run as uid:gid 1000:1000.
+// Bind-mounted host dirs (vault, dropbox) must be writable by this uid or
+// the sandbox process can't create files in its own workdir.
+const SANDBOX_UID = 1000;
+const SANDBOX_GID = 1000;
+
+/**
+ * chown a host dir to sandbox uid/gid. Silently no-ops on permission errors
+ * (e.g. running locally as a non-root user) — production runs as root and
+ * will succeed; dev environments don't have docker active anyway.
+ */
+function chownToSandbox(path: string): void {
+  try {
+    chownSync(path, SANDBOX_UID, SANDBOX_GID);
+  } catch {
+    // EPERM (not root) or ENOENT (dir already gone) — both are fine.
+  }
+}
 
 // If /opt/vault/<id>/.daemons.yaml has at least one `enabled: true` daemon,
 // we never pause/stop the container — the user has long-running automations
@@ -120,6 +139,14 @@ class ContainerManager {
         mkdirSync(dropboxDir(p.userId), { recursive: true });
         mkdirSync(userDataDir(p.userId), { recursive: true });
         mkdirSync(p.workingDir, { recursive: true });
+        // Guest containers run as uid 1000 (sandbox); without ownership on the
+        // bind-mounted dirs, the sandbox process gets EACCES on any write.
+        // Owner runs as root and doesn't care about the chown.
+        if (!p.isOwner) {
+          chownToSandbox(dropboxDir(p.userId));
+          chownToSandbox(userDataDir(p.userId));
+          chownToSandbox(p.workingDir);
+        }
       } catch (err) {
         this.log(p.userId, `dropbox mkdir failed: ${(err as Error).message}`);
       }
@@ -350,6 +377,13 @@ class ContainerManager {
       // If it doesn't exist on the host, `docker run -v` creates an empty
       // host dir owned by root with weird perms — better to do it ourselves.
       mkdirSync(profile.workingDir, { recursive: true });
+      // Guests run as uid 1000 (see Dockerfile.user) — bind-mount dirs must
+      // belong to that uid or sandbox can't write to its own workdir.
+      if (!profile.isOwner) {
+        chownToSandbox(dropboxDir(userId));
+        chownToSandbox(userDataDir(userId));
+        chownToSandbox(profile.workingDir);
+      }
     } catch (err) {
       this.log(
         userId,

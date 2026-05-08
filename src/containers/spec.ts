@@ -83,6 +83,9 @@ export function buildRunArgs(profile: UserProfile): string[] {
     args.push("-v", "/opt:/opt");
     // Owner gets their own ~/.claude (OAuth token, settings, skills, memory).
     args.push("-v", "/root/.claude:/root/.claude:ro");
+    // Image defaults to USER sandbox; owner needs root for /opt access and
+    // docker.sock control. Override the image-level USER directive.
+    args.push("--user", "root");
   } else {
     // -----------------------------------------------------------------------
     // Guest sandbox hardening
@@ -119,6 +122,13 @@ export function buildRunArgs(profile: UserProfile): string[] {
 
     // nproc mirrors pids-limit at the ulimit layer (belt-and-suspenders).
     args.push("--ulimit=nproc=128:128");
+
+    // Run as the non-root sandbox user defined in Dockerfile.user. Without this
+    // override Docker would respect the image-level `USER sandbox`, but pinning
+    // it explicitly here makes the security posture obvious from the run-spec
+    // and survives image changes. Critical: closes /proc/1/root host FS read
+    // (root in container could read host root files via that path).
+    args.push("--user", "1000:1000");
 
     // Read-only root filesystem. Everything a guest writes must go to an
     // explicit tmpfs or the bind-mounted vault. Prevents tampering with

@@ -12,16 +12,19 @@ RUN apt-get update && apt-get install -y \
     procps lsof \
     && rm -rf /var/lib/apt/lists/*
 
-# Bun
+# Bun installs to /usr/local so the sandbox user (uid=1000) can use it.
+# Default install location is $HOME/.bun — that lands in /root/.bun, which
+# is mode 0700 and unreachable for non-root users.
+ENV BUN_INSTALL=/usr/local
 RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:$PATH"
+ENV PATH="/usr/local/bin:$PATH"
 
 # Node.js 20 LTS
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Global tools
+# Global tools (land in /usr/local/bin via BUN_INSTALL)
 RUN bun install -g typescript tsx pnpm
 
 # nginx default config для пользовательских сайтов
@@ -35,6 +38,16 @@ RUN mkdir -p /tmp/dropbox
 COPY scripts/daemon-runner/daemon-runner /usr/local/bin/daemon-runner
 RUN chmod +x /usr/local/bin/daemon-runner
 
+# Non-root sandbox user for guest containers. uid/gid 1000 must match the
+# values manager.ts uses when chown'ing the bind-mounted vault/dropbox on
+# the host — otherwise the sandbox user can't write to its own workdir.
+# Owner containers override this with --user=root via spec.ts.
+RUN groupadd -g 1000 sandbox \
+    && useradd -m -u 1000 -g 1000 -s /bin/bash sandbox \
+    && mkdir -p /workspace \
+    && chown sandbox:sandbox /workspace
+
 WORKDIR /workspace
+USER sandbox
 
 CMD ["/usr/local/bin/daemon-runner"]
