@@ -4,7 +4,7 @@
  * not touching config.ts.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, renameSync } from "fs";
 import { resolve, dirname } from "path";
 
 export type UserRole = "owner" | "guest" | "new_guest";
@@ -41,6 +41,16 @@ export interface UserNode {
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");
+
+/**
+ * Atomic write: write to a sibling .tmp file then rename. Prevents losing
+ * users.json entries when two approves race or the process dies mid-write.
+ */
+function writeUsersAtomic(users: UserNode[]): void {
+  const tmp = USERS_FILE + ".tmp";
+  writeFileSync(tmp, JSON.stringify(users, null, 2) + "\n");
+  renameSync(tmp, USERS_FILE);
+}
 
 let _cache: UserNode[] | null = null;
 
@@ -82,7 +92,7 @@ export class UserRegistry {
     } else {
       users.push(node);
     }
-    writeFileSync(USERS_FILE, JSON.stringify(users, null, 2) + "\n");
+    writeUsersAtomic(users);
     _cache = users;
   }
 
