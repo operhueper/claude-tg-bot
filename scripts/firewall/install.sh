@@ -13,16 +13,18 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 # ── 1. Копировать скрипты ─────────────────────────────────────────────────────
 
-install -m 0750 "$SCRIPT_DIR/setup-firewall.sh"  "$SBIN/claude-setup-firewall.sh"
-install -m 0750 "$SCRIPT_DIR/firewall-flush.sh"  "$SBIN/claude-firewall-flush.sh"
-install -m 0750 "$SCRIPT_DIR/egress-monitor.sh"  "$SBIN/claude-egress-monitor.sh"
-install -m 0750 "$SCRIPT_DIR/egress-reset.sh"    "$SBIN/claude-egress-reset.sh"
+install -m 0750 "$SCRIPT_DIR/setup-firewall.sh"      "$SBIN/claude-setup-firewall.sh"
+install -m 0750 "$SCRIPT_DIR/firewall-flush.sh"      "$SBIN/claude-firewall-flush.sh"
+install -m 0750 "$SCRIPT_DIR/egress-monitor.sh"      "$SBIN/claude-egress-monitor.sh"
+install -m 0750 "$SCRIPT_DIR/egress-reset.sh"        "$SBIN/claude-egress-reset.sh"
+install -m 0750 "$SCRIPT_DIR/setup-guest-network.sh" "$SBIN/claude-setup-guest-network.sh"
 log "Скрипты скопированы в $SBIN"
 
 # ── 2. Копировать systemd unit'ы ──────────────────────────────────────────────
 
 for UNIT in \
   claude-firewall.service \
+  claude-guest-network.service \
   claude-egress-monitor.service \
   claude-egress-monitor.timer \
   claude-egress-reset.service \
@@ -57,6 +59,7 @@ fi
 systemctl daemon-reload
 systemctl enable --now \
   claude-firewall.service \
+  claude-guest-network.service \
   claude-egress-monitor.timer \
   claude-egress-reset.timer
 log "Сервисы активированы"

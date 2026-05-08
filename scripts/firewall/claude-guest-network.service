@@ -1,0 +1,14 @@
+[Unit]
+Description=Claude guest container network isolation (claude-guest-net + iptables)
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/local/sbin/claude-setup-guest-network.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
