@@ -61,9 +61,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     description:
                       "Полное ТЗ для подзадачи: что найти/сделать, куда сохранить результат",
                   },
+                  cwd: {
+                    type: "string",
+                    description:
+                      "Рабочая директория именно для этой подзадачи. Если не указана — берётся общий cwd этого вызова, иначе TELEGRAM_PARALLEL_CWD.",
+                  },
                 },
                 required: ["name", "prompt"],
               },
+            },
+            cwd: {
+              type: "string",
+              description:
+                "Общий cwd для всех подзадач (если в задаче не указан свой). Передавай свою рабочую папку (например vault), чтобы файлы создавались в правильном месте, а не в корне репо бота.",
             },
           },
           required: ["tasks"],
@@ -79,7 +89,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   const args = request.params.arguments as {
-    tasks?: Array<{ name: string; prompt: string }>;
+    tasks?: Array<{ name: string; prompt: string; cwd?: string }>;
+    cwd?: string;
   };
 
   const tasks = args.tasks;
@@ -95,21 +106,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
-  const cwd = process.env.TELEGRAM_PARALLEL_CWD || process.cwd();
+  const rootCwd =
+    args.cwd || process.env.TELEGRAM_PARALLEL_CWD || process.cwd();
   const model =
     process.env.TELEGRAM_PARALLEL_MODEL ||
     process.env.ANTHROPIC_MODEL ||
     "deepseek-chat";
 
   console.error(
-    `[parallel] Running ${tasks.length} tasks in parallel (model=${model}, cwd=${cwd})`
+    `[parallel] Running ${tasks.length} tasks in parallel (model=${model}, rootCwd=${rootCwd})`
   );
 
   // Run all tasks concurrently. Each gets an isolated query() session.
   // mcp__parallel__run is excluded from child sessions to prevent recursion.
   const results = await Promise.all(
     tasks.map(async (task) => {
-      console.error(`[parallel] Starting subtask: ${task.name}`);
+      const taskCwd = task.cwd ?? rootCwd;
+      console.error(
+        `[parallel] Starting subtask: ${task.name} (cwd=${taskCwd})`
+      );
       try {
         const responseParts: string[] = [];
 
@@ -117,7 +132,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           prompt: task.prompt,
           options: {
             model,
-            cwd,
+            cwd: taskCwd,
             // Prevent recursive parallel calls in child sessions
             disallowedTools: ["mcp__parallel__run"],
             // Allow reasonable tool turns for each subtask
