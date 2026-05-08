@@ -729,12 +729,24 @@ export class ClaudeSession {
       }
     } catch (error) {
       const errorStr = String(error).toLowerCase();
+      const isAborted =
+        this.stopRequested || this.abortController?.signal.aborted === true;
+      // Claude CLI exit code 1 frequently lands in the catch when the SDK
+      // is aborted at an unlucky moment (the subprocess exits before the
+      // abort listener tags the error as AbortError). If we know the query
+      // was aborted, treat exit-code-1 as cleanup noise instead of a real
+      // failure — otherwise users see "process exited with code 1" every
+      // time they hit /stop or send a follow-up message.
       const isCleanupError =
-        errorStr.includes("cancel") || errorStr.includes("abort");
+        errorStr.includes("cancel") ||
+        errorStr.includes("abort") ||
+        (isAborted &&
+          (errorStr.includes("exited with code 1") ||
+            errorStr.includes("exit code 1")));
 
       if (
         isCleanupError &&
-        (queryCompleted || askUserTriggered || this.stopRequested)
+        (queryCompleted || askUserTriggered || isAborted)
       ) {
         console.warn(
           `[${this.profile.label}] Suppressed post-completion error: ${error}`
