@@ -25,7 +25,14 @@ const (
 	maxLogSize     = 10 * 1024 * 1024 // 10 MB
 	gracePeriod    = 10 * time.Second
 	crashWindow    = 10 * time.Minute
-	crashThreshold = 3
+	crashThreshold = 5
+	// Падения короче этого порога не идут в счётчик crashloop — это
+	// типичные ошибки импорта/конфига во время правки .daemons.yaml.
+	// Backoff всё равно выполняется, но алерт не улетит.
+	minRunForCrash = 5 * time.Second
+	// Если процесс отработал дольше этого, считаем его «выздоровевшим»
+	// и обнуляем накопленную историю падений.
+	healUptime = 60 * time.Second
 )
 
 // backoffSteps in seconds
@@ -201,12 +208,14 @@ func (d *daemon) run(r *runner) {
 		d.cmd = cmd
 		d.mu.Unlock()
 
+		startedAt := time.Now()
 		startErr := cmd.Start()
 		if startErr != nil {
 			writeLog(lf, "[ERROR] start failed: %v", startErr)
 		} else {
 			cmd.Wait()
 		}
+		runDuration := time.Since(startedAt)
 
 		d.mu.Lock()
 		d.cmd = nil
@@ -218,7 +227,7 @@ func (d *daemon) run(r *runner) {
 		} else if cmd.ProcessState != nil {
 			exitMsg = fmt.Sprintf("exit %d", cmd.ProcessState.ExitCode())
 		}
-		writeLog(lf, "[EXIT] %s", exitMsg)
+		writeLog(lf, "[EXIT] %s (uptime %s)", exitMsg, runDuration.Round(time.Second))
 
 		// Check if stop was requested while process was running.
 		select {
@@ -227,10 +236,22 @@ func (d *daemon) run(r *runner) {
 		default:
 		}
 
-		// Record crash and check window.
+		// Если процесс прожил достаточно долго — считаем его «здоровым»
+		// и обнуляем историю падений, накопленную ранее.
 		now := time.Now()
 		d.mu.Lock()
-		d.crashes = append(d.crashes, crashEvent{at: now, err: exitMsg})
+		if startErr == nil && runDuration >= healUptime {
+			d.crashes = nil
+			d.backoff = 0
+		}
+
+		// Слишком короткие падения (импорт/конфиг во время правки)
+		// в счётчик не идут — backoff'а достаточно.
+		if startErr != nil || runDuration >= minRunForCrash {
+			d.crashes = append(d.crashes, crashEvent{at: now, err: exitMsg})
+		} else {
+			writeLog(lf, "[SKIP-COUNT] crash too fast (%s < %s), not counting", runDuration.Round(time.Millisecond), minRunForCrash)
+		}
 		// Prune old events outside window.
 		cutoff := now.Add(-crashWindow)
 		filtered := d.crashes[:0]

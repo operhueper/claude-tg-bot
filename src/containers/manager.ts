@@ -139,6 +139,12 @@ class ContainerManager {
         mkdirSync(dropboxDir(p.userId), { recursive: true });
         mkdirSync(userDataDir(p.userId), { recursive: true });
         mkdirSync(p.workingDir, { recursive: true });
+        // Каталоги для daemon-runner — создаём заранее с правильным owner'ом,
+        // иначе sandbox-процесс не сможет писать логи и события (EACCES).
+        const logsPath = `${p.workingDir.replace(/\/$/, "")}/logs`;
+        const eventsPath = `${p.workingDir.replace(/\/$/, "")}/.daemons-events`;
+        mkdirSync(logsPath, { recursive: true });
+        mkdirSync(eventsPath, { recursive: true });
         // Guest containers run as uid 1000 (sandbox); without ownership on the
         // bind-mounted dirs, the sandbox process gets EACCES on any write.
         // Owner runs as root and doesn't care about the chown.
@@ -146,6 +152,8 @@ class ContainerManager {
           chownToSandbox(dropboxDir(p.userId));
           chownToSandbox(userDataDir(p.userId));
           chownToSandbox(p.workingDir);
+          chownToSandbox(logsPath);
+          chownToSandbox(eventsPath);
         }
       } catch (err) {
         this.log(p.userId, `dropbox mkdir failed: ${(err as Error).message}`);
@@ -161,6 +169,24 @@ class ContainerManager {
     }
 
     this.log(0, `init done (${profiles.filter(p => p.containerEnabled).length} container-enabled users)`);
+
+    // Always-on: для юзеров с активными демонами поднять контейнер сразу,
+    // не дожидаясь первого сообщения. Иначе после удаления/рестарта сервера
+    // их боты лежат, пока юзер не зайдёт в чат.
+    const alwaysOn = profiles.filter(
+      (p) => p.containerEnabled && hasActiveDaemons(p.userId),
+    );
+    for (const p of alwaysOn) {
+      try {
+        await this.getOrStart(p);
+        this.log(p.userId, "always-on: container revived");
+      } catch (err) {
+        this.log(
+          p.userId,
+          `always-on revive failed: ${(err as Error).message}`,
+        );
+      }
+    }
   }
 
   /**
@@ -377,12 +403,18 @@ class ContainerManager {
       // If it doesn't exist on the host, `docker run -v` creates an empty
       // host dir owned by root with weird perms — better to do it ourselves.
       mkdirSync(profile.workingDir, { recursive: true });
+      const logsPath = `${profile.workingDir.replace(/\/$/, "")}/logs`;
+      const eventsPath = `${profile.workingDir.replace(/\/$/, "")}/.daemons-events`;
+      mkdirSync(logsPath, { recursive: true });
+      mkdirSync(eventsPath, { recursive: true });
       // Guests run as uid 1000 (see Dockerfile.user) — bind-mount dirs must
       // belong to that uid or sandbox can't write to its own workdir.
       if (!profile.isOwner) {
         chownToSandbox(dropboxDir(userId));
         chownToSandbox(userDataDir(userId));
         chownToSandbox(profile.workingDir);
+        chownToSandbox(logsPath);
+        chownToSandbox(eventsPath);
       }
     } catch (err) {
       this.log(

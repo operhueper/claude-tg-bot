@@ -4,6 +4,7 @@ import { notifyGuest, notifyProblemChannel } from "./owner-alerts";
 
 const VAULT_ROOT = "/opt/vault";
 const POLL_INTERVAL_MS = 30_000;
+const ALERT_COOLDOWN_MS = 60 * 60 * 1000;
 
 interface CrashEvent {
   timestamp: string;
@@ -52,6 +53,23 @@ async function processOnce(): Promise<void> {
       if (!ev) continue;
 
       const handledPath = path.replace(/\.json$/, ".handled.json");
+
+      // Кулдаун: если по этому же демону уже алертили < 1 ч назад,
+      // просто помечаем событие как обработанное, не дублируем шум.
+      if (existsSync(handledPath)) {
+        try {
+          const ageMs = Date.now() - statSync(handledPath).mtimeMs;
+          if (ageMs < ALERT_COOLDOWN_MS) {
+            try {
+              renameSync(path, handledPath);
+            } catch {}
+            console.log(
+              `[crashloop-watcher] cooldown: skipping ${userId}/${ev.daemon} (last alert ${Math.round(ageMs / 1000)}s ago)`,
+            );
+            continue;
+          }
+        } catch {}
+      }
 
       const userMsg =
         `⚠️ Твоя автоматизация <b>${ev.daemon}</b> упала 3 раза подряд за 10 минут — больше не перезапускаю.\n\n` +
