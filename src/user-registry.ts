@@ -32,12 +32,6 @@ export interface UserNode {
    * provisioned. Read at startup and on each profile lookup.
    */
   containerEnabled?: boolean;
-  /**
-   * Whether this user has completed the onboarding dialogue.
-   * Explicitly false for users added via invite flow.
-   * Absent (treated as true) for pre-existing users so they are never re-onboarded.
-   */
-  onboardingComplete?: boolean;
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");
@@ -100,17 +94,6 @@ export class UserRegistry {
   static reload(): void {
     _cache = null;
   }
-}
-
-/**
- * Mark onboarding as complete for a user. No-op if user is not in the registry.
- */
-export function markOnboardingComplete(userId: number): void {
-  const users = UserRegistry.getAllUsers();
-  const node = users.find((u) => u.userId === userId);
-  if (!node) return;
-  node.onboardingComplete = true;
-  UserRegistry.saveUser(node);
 }
 
 /**

@@ -512,6 +512,24 @@ NEVER suggest "send /restart so I can do it then" as a workaround for tasks you 
 
 function buildNewGuestSafetyPrompt(vaultDir: string, userId: number): string {
   return `
+ТЫ В КОНТЕЙНЕРЕ — РАБОЧАЯ СРЕДА:
+У тебя есть полноценный изолированный Linux-контейнер (Debian bookworm). В нём предустановлены:
+- python3.11, node, bun, npm, git, curl, nginx, pip, apt-get
+- стандартные unix-утилиты
+
+Дополнительные тулзы — доустанавливай по необходимости через apt-get / pip (apt сам сохраняется между сообщениями, повторно ставить не надо):
+- PDF: poppler-utils (pdftotext), wkhtmltopdf
+- Документы: pandoc, libreoffice
+- Excel/PPTX: pip install openpyxl python-pptx python-docx
+- OCR: tesseract-ocr tesseract-ocr-rus
+- Видео/аудио: ffmpeg
+- Изображения: imagemagick, pip install pillow
+
+Интернет работает в обе стороны. Твоя рабочая папка — ${vaultDir}.
+
+ОСНОВНОЙ ИНСТРУМЕНТ ДЛЯ КОМАНД И КОДА — mcp__container__Bash.
+Нативного Bash у тебя НЕТ. Если попробуешь его вызвать — получишь отказ от системы. Всегда mcp__container__Bash.
+
 КТО ТЫ: Ты персональный ИИ-ассистент. Работаешь через Telegram. У тебя есть долгосрочная память, полный набор инструментов, и ты учишься у каждого пользователя в процессе общения. Никогда не говори «как языковая модель я...» — ты просто ассистент, который умеет делать всё.
 Рабочая директория: ${vaultDir}
 
@@ -555,10 +573,10 @@ sessions/ — история по темам:
 - Скиллы имеют приоритет над дефолтным поведением
 
 ИНСТРУМЕНТЫ (используй без запроса, не перечисляй):
-- Запуск кода и команд — выполнить bash-команду в твоей рабочей среде (pip install, curl, python, node, git, apt-get — всё работает)
+- mcp__container__Bash — твой shell в твоей рабочей среде. Это твой ОСНОВНОЙ инструмент для выполнения кода, обработки файлов, установки пакетов. У тебя НЕТ нативного Bash — всегда используй mcp__container__Bash. Состояние (установленные пакеты, файлы) сохраняется между сообщениями.
 - Read / Write / Edit — читать и писать файлы
 - Glob / Grep — поиск файлов и содержимого
-- WebFetch — загрузить страницу или API по конкретному URL (WebSearch недоступен — используй curl через инструмент Bash или WebFetch на duckduckgo)
+- WebFetch — загрузить страницу или API по конкретному URL (WebSearch недоступен — используй curl через mcp__container__Bash или WebFetch на duckduckgo)
 - Отправка файла — отправить файл пользователю в Telegram
 - Генерация картинок — создать изображение по описанию (бесплатно)
 - Параллельное выполнение — запустить несколько независимых подзадач одновременно
@@ -736,63 +754,6 @@ sessions/ — история по темам:
 `;
 }
 
-// ============== Onboarding ==============
-
-export function buildOnboardingPrompt(userId: number, vaultDir: string): string {
-  return `Ты — ИИ-ассистент в Telegram. Это первая встреча с новым пользователем. Твоя задача — провести знакомство и помочь человеку начать работу с тобой.
-
-ПЛАН ЗНАКОМСТВА (6 шагов, веди один за другим, не задавай несколько вопросов сразу):
-
-1. Поздоровайся, представься коротко («я твой персональный ИИ-помощник»). Спроси как к тебе обращаться (имя или ник).
-
-2. Спроси чем человек занимается в жизни — работа, учёба, хобби. Это поможет тебе понимать контекст его задач.
-
-3. Расскажи коротко что ты умеешь:
-   - читать и писать текст, отвечать на вопросы
-   - искать в интернете, читать сайты
-   - работать с файлами: создавать, читать, редактировать
-   - подключаться к Google-аккаунту и работать с почтой, календарём, документами
-   - распознавать голос, фото, документы (PDF, Word, Excel, все другие форматы)
-   - писать и запускать код, делать сайты
-   - запоминать важное в твоей памяти
-   - у тебя есть твоя публичная страничка по адресу: https://proboi.site/u/${userId}/
-   - есть веб-дашборд с твоей статистикой
-   Спроси какие из этих возможностей ему интереснее всего, чтобы ты понимал, на чём фокусироваться.
-
-4. Спроси какие задачи он хотел бы решать с твоей помощью — рабочие, личные, учебные. Любые примеры. Запиши конкретно.
-
-5. Спроси про предпочтения в общении: на ты или на вы, отвечать коротко или развёрнуто, использовать ли эмодзи. Скажи что эти настройки можно поменять в любой момент.
-
-6. Скажи что готов начать. Спроси с чего хочет попробовать — например первая задача. Если человек не знает — предложи 2-3 простых варианта (например «давай напишем тебе короткую заметку, или поищу что-то в интернете, или сделаю тебе простую страничку»).
-
-ВАЖНО:
-- По ходу ответов сохраняй важное в файл ${vaultDir}/memory/${userId}/profile.md (создай папку если нужно через bash).
-- Один шаг — одно сообщение, не вали всё сразу.
-- Адаптируйся: если человек отвечает коротко — будь короче, если развёрнуто — отзеркаливай.
-- Если человек явно не хочет проходить опрос («давай по делу», «я тороплюсь», «потом») — уважительно прерви, скажи «понял, в любой момент можешь спросить меня "что ты умеешь" или зайти в веб-дашборд», и заверши онбординг.
-
-КОГДА ОНБОРДИНГ ЗАВЕРШЁН (либо все 6 шагов прошли, либо пользователь попросил прервать):
-- В САМОМ КОНЦЕ своего последнего сообщения добавь на отдельной строке маркер: [ONBOARDING_COMPLETE]
-- Этот маркер пользователь не увидит, бот его уберёт. Не объясняй пользователю про маркер.
-
-## Анонс плана и параллельные агенты — ОБЯЗАТЕЛЬНОЕ ПРАВИЛО
-
-Перед ЛЮБОЙ задачей, где будет хотя бы один tool-вызов (Bash, Read, Write, Edit, Web*, Task, mcp__*, генерация файлов, поиск), ВСЕГДА сначала отправь отдельным сообщением короткий анонс (1-3 строки):
-1. Что собираешься делать — конкретно, по шагам если шагов несколько.
-2. Сложность — одно из: «быстро» (несколько секунд), «пара минут», «может занять время».
-3. Будешь ли звать параллельных агентов — если да, явно: «запускаю N агентов параллельно: A — за X, B — за Y, C — за Z». Если нет — «делаю сам, без агентов».
-
-Анонс — ОТДЕЛЬНОЕ первое сообщение, до первого tool-вызова. Не сливай его с финальным ответом, не прячь внутри Bash-вывода. Сразу после анонса — начинай работу.
-
-ПАРАЛЛЕЛЬНЫЕ АГЕНТЫ — дефолт почти для всего:
-- Любая задача дольше 10 секунд → запускай Task'и параллельно (одним сообщением несколько Task-вызовов одновременно, не по очереди).
-- Поиск из >1 источника, скачивание/генерация >1 файла, обработка >1 куска данных, чтение >1 длинного документа — каждый независимый поток в свой Task.
-- НИКОГДА не делай последовательно то, что можно делать параллельно — скорость важнее аккуратности по умолчанию.
-- Если задача делится на независимые куски — режь и распараллеливай, даже если кажется проще «по-старому».
-
-Когда анонс НЕ нужен: ровно одно короткое текстовое сообщение-ответ без единого tool-вызова (фактический вопрос, болталка, короткий совет). Тогда отвечай сразу — без анонса.`;
-}
-
 // ============== User Profile ==============
 
 export interface UserProfile {
@@ -856,12 +817,6 @@ export interface UserProfile {
    * `containerEnabled` field in system/users.json. Default false.
    */
   containerEnabled?: boolean;
-  /**
-   * Whether the user has completed the onboarding dialogue.
-   * False only for new users added via the invite flow who haven't yet finished onboarding.
-   * For all pre-existing users this is always true so onboarding never triggers.
-   */
-  onboardingComplete: boolean;
   /**
    * Tools to block at the SDK level via --disallowedTools.
    * Used to prevent DeepSeek guests from calling Anthropic-only tools like WebSearch
@@ -959,7 +914,6 @@ export function getGroupProfile(): UserProfile {
     allowedCommands: GROUP_COMMANDS,
     label: "Клод (группа)",
     timezone: "Asia/Shanghai",
-    onboardingComplete: true,
   };
 }
 
@@ -1013,10 +967,6 @@ export function getUserProfile(userId: number): UserProfile {
     const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
     const allowedPaths = [vaultDir, "/tmp/telegram-bot"];
 
-    // onboardingComplete: if node exists and field is explicitly false → false.
-    // If field is absent (pre-existing users migrated from before onboarding) → true.
-    const onboardingComplete = node?.onboardingComplete === false ? false : true;
-
     return {
       userId,
       isOwner: false,
@@ -1042,7 +992,6 @@ export function getUserProfile(userId: number): UserProfile {
       deepseekApiKey,
       deepseekEnv,
       containerEnabled: node?.containerEnabled ?? true,
-      onboardingComplete,
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
       // to prevent "does not support this tool_choice" errors.
       disallowedTools: ["WebSearch"],
@@ -1122,7 +1071,6 @@ export function getUserProfile(userId: number): UserProfile {
     label: node?.label ?? "owner",
     timezone: node?.timezone ?? "Asia/Shanghai",
     containerEnabled: node?.containerEnabled ?? false,
-    onboardingComplete: true,
     deepseekApiKey: ownerDeepseekApiKey,
     deepseekEnv: ownerDeepseekEnv,
     disallowedTools: ownerDisallowedTools,

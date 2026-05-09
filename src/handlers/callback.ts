@@ -223,7 +223,6 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
       rateLimitEnabled: false,
       model: "deepseek-chat",
       containerEnabled: true,
-      onboardingComplete: true,
     });
     // Also add to in-memory NEW_GUEST_USERS so getUserProfile picks it up immediately
     if (!NEW_GUEST_USERS.includes(targetUserId)) {
