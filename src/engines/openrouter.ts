@@ -536,7 +536,8 @@ async function openRouterRequest(
   systemPrompt: string,
   withTools: boolean,
   statusCallback: StatusCallback,
-  accumulatedText: string
+  accumulatedText: string,
+  abortSignal?: AbortSignal
 ): Promise<{
   text: string;
   toolCalls: Array<{ id: string; name: string; args: Record<string, string> }>;
@@ -562,6 +563,7 @@ async function openRouterRequest(
       "X-Title": "Claude Telegram Bot",
     },
     body: JSON.stringify(body),
+    signal: abortSignal,
   });
 
   if (!resp.ok || !resp.body) {
@@ -584,6 +586,10 @@ async function openRouterRequest(
   > = {};
 
   while (true) {
+    if (abortSignal?.aborted) {
+      await reader.cancel();
+      throw new Error("AbortError: OpenRouter request aborted");
+    }
     const { done, value } = await reader.read();
     if (done) break;
 
@@ -669,7 +675,8 @@ export async function queryOpenRouter(
   statusCallback: StatusCallback,
   _budgetFile: string | null,
   profile: UserProfile,
-  chatId?: number
+  chatId?: number,
+  abortSignal?: AbortSignal
 ): Promise<string> {
   const MAX_TOOL_ROUNDS = 10;
   let conversationMessages = [...messages];
@@ -682,6 +689,9 @@ export async function queryOpenRouter(
   const seenToolCalls = new Set<string>();
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    if (abortSignal?.aborted) {
+      throw new Error("AbortError: queryOpenRouter aborted before round " + round);
+    }
     const isLastRound = round === MAX_TOOL_ROUNDS - 1;
     const { text, toolCalls, promptTokens, completionTokens } =
       await openRouterRequest(
@@ -691,7 +701,8 @@ export async function queryOpenRouter(
         systemPrompt,
         !isLastRound, // no tools on last round to force text answer
         statusCallback,
-        accumulatedText
+        accumulatedText,
+        abortSignal
       );
 
     totalPromptTokens += promptTokens;
