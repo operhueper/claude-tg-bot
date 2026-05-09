@@ -164,7 +164,7 @@ Existing users (owner + early testers) have no `onboardingComplete` key in `user
 
 **Adding a guest-only tool restriction**: add the tool name to `profile.disallowedTools` inside `getUserProfile()` in `src/config.ts`. The field is picked up automatically by `src/session.ts` and passed to SDK `query()`. Use this for tools that are structurally incompatible with a guest's model/endpoint (not for permission-level restrictions, which belong in `/root/.claude/settings.json`).
 
-**After code changes**: Restart the bot so changes can be tested. Locally use `bun run start` or `launchctl kickstart -k gui/$(id -u)/com.claude-telegram-ts`. On the server use `ssh root@5.223.82.96 'systemctl restart claude-tg-bot'` (see Production Deployment).
+**After code changes**: Restart the bot so changes can be tested. Locally use `bun run start` or `launchctl kickstart -k gui/$(id -u)/com.claude-telegram-ts`. On the server use `ssh root@89.167.125.175 'systemctl restart claude-tg-bot'` (see Production Deployment).
 
 ## Standalone Build
 
@@ -192,14 +192,22 @@ Do not add "Generated with Claude Code" footers or "Co-Authored-By" trailers to 
 
 ## Production Deployment
 
-The bot runs on jinru server as a systemd service. This is the canonical runtime — local execution is dev-only.
+The bot runs as a systemd service on the prod server. This is the canonical runtime — local execution is dev-only.
 
-- Host: `root@5.223.82.96`, repo root: `/opt/claude-tg-bot/`
+**Server topology (canonical, post-2026-05-07 migration):**
+
+| Role | Host | hostname | Telegram bot |
+|---|---|---|---|
+| **PROD** | `root@89.167.125.175` | `proboi-bot` | `@proboiAI_bot` |
+| **TEST** | `root@5.223.82.96` | `jinru` | `@ORCH7_bot` (token `8678975502:...`) |
+
+> If you read `hostname` and see `proboi-bot` — you are on PROD. If `jinru` — you are on TEST. Don't trust folder names or env labels alone.
+
 - Owner workspace: `CLAUDE_WORKING_DIR=/opt/claude-tg-bot/workspace/` (contains owner's `CLAUDE.md`)
 - Guest workdirs: `/opt/vault/{userId}/` — auto-bootstrapped per user, each with its own `CLAUDE.md`
 - Allowlist: `TELEGRAM_ALLOWED_USERS=292228713,893951298,403360614,...` (owner Евгений + all guests)
 - Service: `systemctl {status,restart,stop} claude-tg-bot`
-- Logs: `/var/log/claude-tg-bot.log`, `/var/log/claude-tg-bot.err.log`
+- Logs: `journalctl -u claude-tg-bot` (older paths `/var/log/claude-tg-bot.log` and `.err.log` may be empty)
 - Native Claude CLI: `/root/.local/share/claude/versions/2.1.126`
 - OAuth credentials: `/root/.claude/.credentials.json` (already provisioned)
 - Claude Code permissions live in `/root/.claude/settings.json` — `defaultMode: "acceptEdits"` plus a broad `permissions.allow` list (Bash, Write, Edit, WebSearch, etc.). This is how the bot avoids interactive permission prompts; do NOT pass `permissionMode`/`allowDangerouslySkipPermissions` from the SDK side (see SDK Permission Mode below).
@@ -209,16 +217,18 @@ The bot runs on jinru server as a systemd service. This is the canonical runtime
 Deploy after local edits:
 
 ```bash
-# Production (jinru, @proboiAI_bot)
-rsync -az --exclude node_modules --exclude .git --exclude .env ./ root@5.223.82.96:/opt/claude-tg-bot/
-ssh root@5.223.82.96 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
-
-# Test (proboi-bot, @ORCH7_bot) — token is 8678975502:... configured on the server, never sync .env
-rsync -az --exclude node_modules --exclude .git --exclude .env ./ root@89.167.125.175:/opt/claude-tg-bot/
+# PROD (proboi-bot, @proboiAI_bot) — real users
+rsync -az --exclude node_modules --exclude .git --exclude .env --exclude 'metering.sqlite*' \
+  ./ root@89.167.125.175:/opt/claude-tg-bot/
 ssh root@89.167.125.175 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
+
+# TEST (jinru, @ORCH7_bot) — staging, token configured on the server, never sync .env
+rsync -az --exclude node_modules --exclude .git --exclude .env --exclude 'metering.sqlite*' \
+  ./ root@5.223.82.96:/opt/claude-tg-bot/
+ssh root@5.223.82.96 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
 ```
 
-⚠️ **Never rsync `.env`** — each server has its own token. Syncing `.env` overwrites the test server token with the prod token, causing 409 Conflict crash-loop on prod (jinru) and restart-notification spam to all users.
+⚠️ **Never rsync `.env`** — each server has its own token. Syncing `.env` overwrites the test server token with the prod token, causing 409 Conflict crash-loop on prod and restart-notification spam to all users.
 
 ⚠️ **musl/glibc trap**: bun resolves to `@anthropic-ai/claude-agent-sdk-linux-x64-musl` but the server runs glibc Ubuntu. Production has a manual binary swap inside `node_modules/.../claude` to a glibc build. A clean `bun install` overwrites this — re-do the swap or the SDK subprocess exits 1.
 
@@ -227,7 +237,7 @@ Symptom: every query fails with `ReferenceError: Claude Code native binary not f
 Recovery (run after every `bun install` on the server):
 
 ```bash
-ssh root@5.223.82.96 'cp /root/.local/share/claude/versions/2.1.126 \
+ssh root@89.167.125.175 'cp /root/.local/share/claude/versions/2.1.126 \
   /opt/claude-tg-bot/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/claude && \
   chmod +x /opt/claude-tg-bot/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/claude && \
   systemctl restart claude-tg-bot'
