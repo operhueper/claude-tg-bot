@@ -8,7 +8,7 @@
  */
 
 import type { Context } from "grammy";
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { existsSync, unlinkSync } from "fs";
 import { getSession } from "../session-registry";
 import {
@@ -311,15 +311,24 @@ export async function handleRestart(ctx: Context): Promise<void> {
   }
 
   const session = getSession(userId);
+  const profile = getUserProfile(userId);
 
   // Stop any running query first so the session can be cleared cleanly.
   if (session.isRunning) {
     const stopped = await session.stop();
     if (stopped) {
-      await Bun.sleep(100);
+      // Give the abort signal time to propagate into the SDK subprocess.
+      // 2 sec covers most graceful exits; anything still alive after gets SIGKILL'd below.
+      await Bun.sleep(2000);
       session.clearStopRequested();
     }
   }
+
+  // Hard-kill any Claude CLI subprocess still alive for THIS user only.
+  // The CLI subprocess is started with `--add-dir <workingDir>`, which uniquely
+  // identifies the user (guest vault path or owner workspace). Other users'
+  // processes won't match and stay untouched.
+  const killed = killUserClaudeProcesses(profile.workingDir);
 
   // Flush in-flight memory before tearing the session down.
   if (session.isActive) {
@@ -332,7 +341,6 @@ export async function handleRestart(ctx: Context): Promise<void> {
   await session.kill();
 
   // Drop the on-disk session history so /resume won't pick it up.
-  const profile = getUserProfile(userId);
   try {
     if (existsSync(profile.sessionFile)) {
       unlinkSync(profile.sessionFile);
@@ -341,7 +349,43 @@ export async function handleRestart(ctx: Context): Promise<void> {
     console.warn(`[/restart] Failed to delete session file for ${userId}:`, e);
   }
 
-  await ctx.reply("Сессия сброшена. Начинаем заново 🔄");
+  const reply = killed > 0
+    ? `Сессия сброшена. Прибил ${killed} зависш${killed === 1 ? "ий процесс" : "их процесса"} 🔪`
+    : "Сессия сброшена. Начинаем заново 🔄";
+  await ctx.reply(reply);
+}
+
+/**
+ * Find all Claude CLI subprocesses launched for a given user (matched by
+ * `--add-dir <workingDir>` in their cmdline) and SIGKILL them. Returns the
+ * number of processes actually killed. Safe to call when nothing is running —
+ * pgrep exits 1 with no matches and we treat that as zero.
+ */
+function killUserClaudeProcesses(workingDir: string): number {
+  let pids: number[] = [];
+  try {
+    const out = execFileSync(
+      "pgrep",
+      ["-f", `--add-dir ${workingDir}`],
+      { encoding: "utf-8" }
+    );
+    pids = out.trim().split("\n").filter(Boolean).map(Number).filter(n => Number.isFinite(n) && n > 0);
+  } catch {
+    return 0;
+  }
+  let killed = 0;
+  for (const pid of pids) {
+    try {
+      process.kill(pid, "SIGKILL");
+      killed++;
+    } catch (e) {
+      console.warn(`[/restart] Failed to SIGKILL pid ${pid}:`, e);
+    }
+  }
+  if (killed > 0) {
+    console.log(`[/restart] Killed ${killed} stuck Claude CLI process(es) for ${workingDir}`);
+  }
+  return killed;
 }
 
 /**
