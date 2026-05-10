@@ -2,9 +2,9 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
-## Состояние: 2026-05-08 после миграции автоматизаций (коммит `96bcc67`)
+## Состояние: 2026-05-10 — Этапы 4-6 задеплоены на прод (коммит `165d005`)
 
-Граф пересчитан по seed-файлам 01–15. Размер: **162 узла, 146 рёбер, 31 сообщество** (было 117/98/28).
+Граф пересчитан по seed-файлам 01–15. Размер: **162 узла, 146 рёбер, 31 сообщество** (было 117/98/28). Обновлён вручную 2026-05-10 после деплоя на прод.
 
 Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-out/graph.html`. Аудит: `graphify-out/GRAPH_REPORT.md`.
 
@@ -73,6 +73,7 @@ Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-o
 - `--init` (tini) для всех гостевых контейнеров (коммит 3f63b8e): reap zombie-дочерей
 - LXCFS: 7 /proc/... bind-mount для cgroup-aware free/top (512 MB виден как лимит, не 7.6 GB хоста)
 - mcp__connect-google и mcp__parallel добавлены в авто-мердж allow-листа (manager.ts)
+- `python-is-python3` добавлен в образ (2026-05-10): команда `python` теперь работает наравне с `python3`; промпт гостя обновлён
 
 ### Server state
 
@@ -109,34 +110,28 @@ Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-o
 
 ## Открытые задачи (см. UNIFIED_ROADMAP.md)
 
-### Обновление 2026-05-10 (сессия security + SPEC)
+### Обновление 2026-05-10 (сессия security + SPEC + прод-деплой)
 
-**✅ ЗАКРЫТО за эту сессию (53 коммита, задеплоено на jinru):**
+**✅ ЗАКРЫТО за эту сессию (56 коммитов, всё задеплоено на прод 89.167.125.175):**
+
 - Этап 0: все 17 HIGH security (S-01–S-17) + S-07b hotfix lxcfs
 - Этап 2: все 22 MEDIUM security (S-18–S-39)
 - Этап 8: все 14 LOW security (S-40–S-53)
-- Этап 1: M-01/M-02 сняты — Anthropic модели не используются в боте вообще
+- Этап 1: M-01/M-02 сняты — Anthropic модели не используются в боте
 - Этап 3 SPEC: skill-pack (7 рецептов в `skills/`, bootstrap, промпт, migrate-skills.ts)
 - Этап 7 SPEC: web-публикация (промпт /public/ + URL)
-- Этапы 4-6 SPEC: scheduler + фоновые задачи + шаблон бота (3 коммита, ждёт деплоя)
-
-**⏳ ЖДЁТ «ок» для деплоя Этапов 4-6 на прод (89.167.125.175):**
-
-Деплой требует пересборки Docker-образа (добавлен scheduler binary):
-```
-rsync + bun install + systemctl restart
-docker build -t claude-user-sandbox:latest -f Dockerfile.user .   # пересборка образа
-VAULT_BASE=/opt/vault bun scripts/migrate-scheduler.ts             # добавить scheduler в .daemons.yaml гостей
-```
-
-Что войдёт (3 коммита от 2026-05-10):
-- fd42c35: scheduler binary (5.2MB linux/amd64), notify-bridge port 3849 в dashboard-server.ts, maxDaemons=5
-- aaa6b24: bootstrap .daemons.yaml, промпты РАСПИСАНИЕ + ДОЛГИЕ ЗАДАЧИ
-- 165d005: migrate-scheduler.ts, skills/background_tasks.md, skills/create_telegram_bot.md
+- Этап 4 SPEC: Go scheduler daemon (5.2 MB linux/amd64, notify-bridge port 3849, maxDaemons=5)
+- Этап 5 SPEC: .daemons.yaml bootstrap, промпты РАСПИСАНИЕ + ДОЛГИЕ ЗАДАЧИ
+- Этап 6 SPEC: migrate-scheduler.ts, skills/background_tasks.md, skills/create_telegram_bot.md
+- **Прод-деплой**: rsync ✅ → bun install ✅ → systemctl active ✅ → docker rebuild ✅ → migrate-scheduler ✅ (13 вольтов обработано)
 
 **🔴 Открыто (требует решений):**
-- Subscription gate активация (текст отказа утверждён: «вы не подписаны на @ProBoiAI — подпишитесь прежде чем мы продолжим»)
+- Subscription gate активация (текст отказа утверждён: «вы не подписаны на @ProBoiAI — подпишитесь прежде чем мы продолжим»; нужен REQUIRED_CHANNEL_ID)
 - AAAA DNS/IPv6 TLS для proboi.site
-- Тарифы и ребрендинг
+- Тарифы и ребрендинг (Бесплатный/Базовый/Профи/Студия)
+- Метеринг баги H1/H2/H3 (потери токенов при ask-user, stop, memory analyzer)
+- fast-path (uncommitted, src/fast-path.ts + src/engines/deepseek-fast.ts)
+- S-03: параллельные подагенты без sandbox (parallel_mcp — нужен investigation)
+- openrouter.ts execSync → async (блокирует event loop)
 
 Архивированы (закрыто): `archive/NEXT_SESSION_FIXES_2026-05-08.md`, `archive/NEXT_SESSION_CLEANUP_2026-05-08.md`, `archive/SECURITY_AUDIT_REPORT_2026-05-08.md`.
