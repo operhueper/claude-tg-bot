@@ -154,10 +154,19 @@ func (d *daemon) run(r *runner) {
 	defer close(d.doneCh)
 	logsD := r.logsDir()
 
-	f, err := openLog(logsD, d.spec.Name)
-	if err != nil {
-		log.Printf("[daemon-runner] cannot open log for %s: %v", d.spec.Name, err)
-		return
+	var f *os.File
+	for {
+		var err error
+		f, err = openLog(logsD, d.spec.Name)
+		if err == nil {
+			break
+		}
+		log.Printf("[daemon-runner] cannot open log for %s: %v. Retrying in 5s", d.spec.Name, err)
+		select {
+		case <-d.cancelCh:
+			return
+		case <-time.After(5 * time.Second):
+		}
 	}
 	d.mu.Lock()
 	d.logFile = f
