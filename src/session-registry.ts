@@ -7,6 +7,7 @@
  */
 
 import * as fs from "fs";
+import { writeFileSync, renameSync } from "node:fs";
 import { getUserProfile, getGroupProfile } from "./config";
 import { ClaudeSession } from "./session";
 
@@ -67,7 +68,9 @@ export function persistUserActivity(userId: number, chatId: number): void {
   }
   data[String(userId)] = { chatId, lastActivity: Date.now() };
   try {
-    fs.writeFileSync(ACTIVE_USERS_FILE, JSON.stringify(data), "utf-8");
+    const tmpPath = `${ACTIVE_USERS_FILE}.tmp.${process.pid}`;
+    writeFileSync(tmpPath, JSON.stringify(data), "utf-8");
+    renameSync(tmpPath, ACTIVE_USERS_FILE);
   } catch {
     /* ignore */
   }
