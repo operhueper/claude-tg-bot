@@ -4,7 +4,7 @@
  * Provides a reusable status callback for streaming Claude responses.
  */
 
-import { unlinkSync } from "fs";
+import { unlinkSync, realpathSync } from "fs";
 import type { Context } from "grammy";
 import type { Message } from "grammy/types";
 import { InlineKeyboard, InputFile } from "grammy";
@@ -16,6 +16,8 @@ import {
   STREAMING_THROTTLE_MS,
   BUTTON_LABEL_MAX_LENGTH,
 } from "../config";
+import { getUserProfile } from "../config";
+import { isPathAllowedFor } from "../security";
 import { pickRandomPhrase } from "../idle-phrases";
 import { initiateGoogleConnections, getComposioApiKey } from "../composio";
 import { replyFriendly } from "../utils";
@@ -137,6 +139,24 @@ export async function checkPendingSendFileRequests(
         continue;
       }
 
+      // Path validation: resolve symlinks and check against user's allowed paths
+      let realFilePath: string;
+      try {
+        realFilePath = realpathSync(filePath);
+      } catch {
+        console.error(`[audit] send_file path-not-found userId=${userId} requested=${filePath}`);
+        await ctx.reply("Не могу отправить файл: путь не существует.");
+        try { unlinkSync(filepath); } catch { /* ignore */ }
+        continue;
+      }
+      const sendProfile = getUserProfile(userId ?? 0);
+      if (!isPathAllowedFor(realFilePath, sendProfile.allowedPaths)) {
+        console.error(`[audit] send_file path-rejected userId=${userId} requested=${filePath} real=${realFilePath}`);
+        await ctx.reply("Не могу отправить файл вне твоей рабочей папки.");
+        try { unlinkSync(filepath); } catch { /* ignore */ }
+        continue;
+      }
+
       try {
         const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
         const inputFile = new InputFile(filePath);
@@ -179,7 +199,10 @@ export async function checkPendingConnectGoogleRequests(
   chatId: number,
   userId: number
 ): Promise<boolean> {
-  const glob = new Bun.Glob("connect-google-*.json");
+  // Scope glob to this userId's files; fall back to legacy pattern only for
+  // files written before this fix (those will fail the userId check below).
+  const pattern = `connect-google-${userId}-*.json`;
+  const glob = new Bun.Glob(pattern);
   let buttonsSent = false;
 
   for await (const filename of glob.scan({ cwd: "/tmp", absolute: false })) {
@@ -192,6 +215,11 @@ export async function checkPendingConnectGoogleRequests(
       // Only process pending requests for this chat
       if (data.status !== "pending") continue;
       if (String(data.chat_id) !== String(chatId)) continue;
+      // Defense-in-depth: verify userId in JSON matches the caller.
+      if (data.user_id && String(data.user_id) !== String(userId)) {
+        console.warn(`[connect-google] userId mismatch in ${filename} — skipping`);
+        continue;
+      }
 
       // Clean up the request file before doing async work
       try { unlinkSync(filepath); } catch { /* ignore */ }
