@@ -88,7 +88,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     created_at: new Date().toISOString(),
   };
 
-  const requestFile = `/tmp/connect-google-${requestId}.json`;
+  const requestFile = `/tmp/connect-google-${userId || "unknown"}-${requestId}.json`;
   await Bun.write(requestFile, JSON.stringify(requestData, null, 2));
 
   return {
