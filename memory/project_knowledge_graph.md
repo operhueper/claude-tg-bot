@@ -109,13 +109,25 @@ Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-o
 
 ## Открытые задачи (см. UNIFIED_ROADMAP.md)
 
-Полный план в [UNIFIED_ROADMAP.md](../UNIFIED_ROADMAP.md). Краткая сводка:
+### Обновление 2026-05-10 (сессия security + SPEC)
 
-- **Этап 0** (🟢, ~5h): 17 HIGH security findings из SECURITY_AUDIT_2026_05_10. Главное — S-01 (send_file path-auth, утечка .env через MCP).
-- **Этап 1** (🟢, ~30мин): метеринг хвосты (M-01 haiku-4-5 pricing, M-02 model from event).
-- **Этап 2** (🟢, ~3h): 22 MEDIUM security findings.
-- **Этап 8** (🟢, ~1h): 14 LOW security findings + полировка.
-- **Этапы 3-7 SPEC_PROMISE_DELIVERY** (🟡, ~10h): skill-pack, scheduler, фоновые, шаблон бота, web-публикация. ЖЁЛТАЯ зона — пауза перед прод-деплоем.
-- **🔴 Красная зона**: subscription gate активация, AAAA DNS/IPv6, изменения цен, ребрендинг — НЕ автономно.
+**✅ ЗАКРЫТО за эту сессию (53 коммита, задеплоено на jinru):**
+- Этап 0: все 17 HIGH security (S-01–S-17) + S-07b hotfix lxcfs
+- Этап 2: все 22 MEDIUM security (S-18–S-39)
+- Этап 8: все 14 LOW security (S-40–S-53)
+- Этап 1: M-01/M-02 сняты — Anthropic модели не используются в боте вообще
+- Этап 3 SPEC: skill-pack (7 рецептов в `skills/`, bootstrap, промпт, migrate-skills.ts)
+- Этап 7 SPEC: web-публикация (промпт /public/ + URL)
+
+**⏳ ЖДЁТ «ок» для деплоя на прод (89.167.125.175):**
+- rsync + bun install + systemctl restart
+- Добавить `include /etc/nginx/snippets/rate-limiting.conf;` в nginx.conf http{}
+- Запустить `VAULT_BASE=/opt/vault bun scripts/migrate-skills.ts` для существующих гостей
+
+**🔴 Открыто (требует решений):**
+- Этапы 4-6 SPEC (scheduler, фоновые задачи, шаблон бота) — архитектурный review нужен
+- Subscription gate активация (текст отказа утверждён: «вы не подписаны на @ProBoiAI — подпишитесь прежде чем мы продолжим»)
+- AAAA DNS/IPv6 TLS для proboi.site
+- Тарифы и ребрендинг
 
 Архивированы (закрыто): `archive/NEXT_SESSION_FIXES_2026-05-08.md`, `archive/NEXT_SESSION_CLEANUP_2026-05-08.md`, `archive/SECURITY_AUDIT_REPORT_2026-05-08.md`.

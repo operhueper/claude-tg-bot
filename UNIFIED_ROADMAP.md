@@ -2,7 +2,11 @@
 
 > Объединённый план из четырёх источников (`SECURITY_AUDIT_2026_05_10.md` + `SPEC_PROMISE_DELIVERY.md` + архивные `NEXT_SESSION_FIXES`/`NEXT_SESSION_CLEANUP`), очищенный от уже сделанного. Каждая задача атомарная: ID, файл, что фиксим, тест, rollback. Подходит для автономной работы Opus-агента 6+ часов.
 >
-> **Статус на 2026-05-10 06:50 MSK:** этапы 1-2 SPEC и старая security-волна закрыты. Открыты 17 HIGH из свежего аудита, 22 MEDIUM, 14 LOW, 5 фич-этапов SPEC (3-7), 2 хвоста метеринга.
+> **Статус на 2026-05-10 (обновлён после сессии):**
+> ✅ **ЗАКРЫТО:** Этап 0 (17 HIGH security), Этап 2 (22 MEDIUM security), Этап 8 (14 LOW security), Этап 3 SPEC (skill-pack), Этап 7 SPEC (web-публикация промпт). Итого 53 коммита.
+> ✅ **Задеплоено на jinru (тест).** Typecheck чистый. Бот активен.
+> ⏳ **Ждёт «ок» перед прод-деплоем** (89.167.125.175). При деплое: добавить `include /etc/nginx/snippets/rate-limiting.conf;` в nginx.conf http{}, запустить `bun scripts/migrate-skills.ts`.
+> 🔴 **Открыто:** Этапы 4-6 SPEC (scheduler, фоновые, свой бот) — красная/жёлтая зона, не начинать без review. Метеринг M-01/M-02 сняты (Anthropic не используется). Subscription gate активация — красная зона.
 
 ---
 
@@ -429,22 +433,7 @@ limit_req zone=api burst=20 nodelay;
 
 ## M-02. Использовать `event.model` из SDK ответа 🟢 (LOW)
 
-**Файл:** [src/session.ts:706](src/session.ts#L706)
-
-**Что:** `model` берётся из `profile.model`, не из `event.model`. При silent fallback в SDK или несоответствии имён DeepSeek (`deepseek-chat` vs реальный response) — цена считается не по той строке прайс-листа.
-
-**Фикс:** если `event.model` присутствует и отличается — использовать `event.model` + warning в лог:
-```typescript
-const actualModel = event.model && event.model !== this.profile.model
-  ? (console.warn(`[metering] model mismatch profile=${this.profile.model} event=${event.model}`), event.model)
-  : this.profile.model;
-```
-
-**Тест:** typecheck. Не критично, но при mismatch будет логирование.
-
-**Rollback:** `git revert`.
-
-**Зависит:** ничего. **Делать после M-01**, для consistency.
+~~**Снято** — Anthropic SDK не используется в боте (все пользователи на DeepSeek + OpenRouter). event.model из Anthropic SDK никогда не приходит.~~
 
 ---
 
@@ -703,10 +692,10 @@ const actualModel = event.model && event.model !== this.profile.model
 
 # Открытые вопросы (зафиксированы как заблоченные пока не ответишь)
 
-1. **claude-haiku-4-5 pricing**: WebFetch может упасть. Если упал — продолжаю с `// TODO verify` и записываю в отчёт.
-2. **Subscription gate UX**: гейт «вы не подписаны на @ProBoiAI» — какой текст отказа? Ссылка в кнопке? — НЕ начинаю без тебя.
-3. **Этап 4 архитектура**: notify-bridge на новом порту 3849 или через existing dashboard-server? — пауза перед коддингом.
-4. **Этап 6 BotFather token policy**: автоматически прятать в audit.log или явное согласие пользователя «принимаю что мой токен видит бот»? — короткий вопрос, потом начинаю.
+1. **claude-haiku-4-5 pricing**: ~~WebFetch может упасть. Если упал — продолжаю с `// TODO verify` и записываю в отчёт.~~ **СНЯТО** — haiku никогда не используется в боте. M-01 исключается из плана.
+2. **Subscription gate UX**: ~~гейт «вы не подписаны на @ProBoiAI» — какой текст отказа? Ссылка в кнопке?~~ **ОТВЕТ:** текст отказа — `«вы не подписаны на @ProBoiAI - подпишитесь прежде чем мы продолжим»`.
+3. **Этап 4 архитектура**: notify-bridge на новом порту 3849 или через existing dashboard-server? — **ЗАБЛОКИРОВАН** (пользователь ещё не определился).
+4. **Этап 6 BotFather token policy**: ~~автоматически прятать в audit.log или явное согласие пользователя?~~ **ОТВЕТ:** автоматически прятать `\d+:[A-Za-z0-9_-]{35}` в audit.log без запроса согласия. Шифрование контейнеров — позже.
 
 ---
 
