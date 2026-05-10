@@ -15,7 +15,20 @@
 import { execFileSync } from "node:child_process";
 import * as fs from "fs";
 
-export const VAULT_QUOTA_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
+const DEFAULT_VAULT_QUOTA_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
+
+// Per-user disk quota overrides (userId → bytes). Increase when a user
+// needs more vault space than the default 2 GB.
+const VAULT_QUOTA_OVERRIDES: Record<number, number> = {
+  946882308: 6 * 1024 * 1024 * 1024, // 6 GB (+4 GB granted 2026-05-10)
+};
+
+export function getVaultQuotaBytes(userId: number): number {
+  return VAULT_QUOTA_OVERRIDES[userId] ?? DEFAULT_VAULT_QUOTA_BYTES;
+}
+
+/** @deprecated Use getVaultQuotaBytes(userId) instead */
+export const VAULT_QUOTA_BYTES = DEFAULT_VAULT_QUOTA_BYTES;
 
 interface QuotaResult {
   sizeBytes: number;
@@ -57,7 +70,7 @@ export function checkVaultQuota(userId: number): QuotaResult {
 
   const result: QuotaResult = {
     sizeBytes,
-    exceeded: sizeBytes > VAULT_QUOTA_BYTES,
+    exceeded: sizeBytes > getVaultQuotaBytes(userId),
     vaultPath,
   };
   cache.set(userId, { result, ts: Date.now() });

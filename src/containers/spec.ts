@@ -32,6 +32,16 @@ import {
   dropboxDir,
 } from "./paths";
 
+// Per-user memory overrides (userId → megabytes). Increase here when a user
+// needs more RAM than the default 512 MB (e.g. heavy daemons, ML workloads).
+const GUEST_MEMORY_OVERRIDES: Record<number, number> = {};
+const DEFAULT_GUEST_MEMORY_MB = 512;
+
+// Per-user pids-limit overrides. Raise for users running persistent daemons
+// (bot-scheduler etc.) that spawn many threads. Default 512 is fork-bomb-safe.
+const GUEST_PIDS_OVERRIDES: Record<number, number> = {};
+const DEFAULT_GUEST_PIDS = 512;
+
 export function buildRunArgs(profile: UserProfile): string[] {
   const userId = profile.userId;
   const isOwner = profile.isOwner;
@@ -91,11 +101,11 @@ export function buildRunArgs(profile: UserProfile): string[] {
     // Guest sandbox hardening
     // -----------------------------------------------------------------------
 
-    // Memory: 512 MB hard limit. --memory-swap == --memory means zero host
-    // swap available to this container — previously 1024m gave +512m of swap,
-    // which lets a misbehaving process silently grind the host swap partition.
-    args.push("--memory", "512m");
-    args.push("--memory-swap", "512m"); // no swap beyond the RAM limit
+    // Memory limit. Per-user overrides in GUEST_MEMORY_OVERRIDES; default 512 MB.
+    // --memory-swap == --memory means zero host swap (prevents silent swap grind).
+    const memMb = GUEST_MEMORY_OVERRIDES[userId] ?? DEFAULT_GUEST_MEMORY_MB;
+    args.push("--memory", `${memMb}m`);
+    args.push("--memory-swap", `${memMb}m`);
 
     // CPU: capped at 1 full core (bursting within the ceiling is fine).
     args.push("--cpus", "1.0");
@@ -112,16 +122,22 @@ export function buildRunArgs(profile: UserProfile): string[] {
     // --security-opt=seccomp=... is passed. We rely on that default rather than
     // overriding (passing "default" as a value is invalid Docker syntax).
 
-    // Limit total number of processes/threads. pids-limit stops fork-bombs:
-    // a fork-bomb that hits 128 stalls instead of OOM-killing the whole host.
-    args.push("--pids-limit=128");
+    // Limit total number of processes/threads. 512 is still fork-bomb-safe
+    // (exhausting this stalls the container, not the host) while giving daemons
+    // (bot-scheduler, etc.) enough room. Per-user overrides in GUEST_PIDS_OVERRIDES.
+    const pidsLimit = GUEST_PIDS_OVERRIDES[userId] ?? DEFAULT_GUEST_PIDS;
+    args.push(`--pids-limit=${pidsLimit}`);
 
     // Restrict file-descriptor count — limits some DoS vectors (e.g. inotify
     // exhaustion, socket floods). Soft 1024 / hard 2048.
     args.push("--ulimit=nofile=1024:2048");
 
-    // nproc mirrors pids-limit at the ulimit layer (belt-and-suspenders).
-    args.push("--ulimit=nproc=128:128");
+    // NOTE: --ulimit=nproc is intentionally NOT set here. nproc is a per-UID
+    // limit on the HOST, so setting it 128 on each container means all containers
+    // sharing uid 1000 compete for the same 128-slot budget. Once the total
+    // threads for uid 1000 reach 128, every new fork in every container fails
+    // with EAGAIN. The cgroup --pids-limit above provides the correct per-container
+    // fork-bomb protection without this cross-container interference.
 
     // Run as the non-root sandbox user defined in Dockerfile.user. Without this
     // override Docker would respect the image-level `USER sandbox`, but pinning
