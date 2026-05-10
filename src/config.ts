@@ -1095,6 +1095,17 @@ export const BLOCKED_PATTERNS = [
   "> /dev/sd",
   "mkfs.",
   "dd if=",
+  "sh -c",
+  "bash -c",
+  "python -c",
+  "python3 -c",
+  "| bash",
+  "| sh",
+  "; eval ",
+  "$(eval ",
+  "`eval ",
+  " eval ",
+  "exec(",
 ];
 
 // Query timeout (3 minutes)
