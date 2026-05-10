@@ -174,15 +174,14 @@ export async function checkPendingSendFileRequests(
         }
 
         fileSent = true;
+        // Clean up the request file only after successful delivery.
+        try { unlinkSync(filepath); } catch { /* ignore */ }
       } catch (sendError) {
         console.error(`Failed to send file ${filePath}:`, sendError);
         await ctx.reply(
           `Failed to send file: ${filePath.split("/").pop() || "unknown"}`
         );
       }
-
-      // Always clean up the request file
-      try { unlinkSync(filepath); } catch { /* ignore */ }
     } catch (error) {
       console.warn(`Failed to process send-file request ${filepath}:`, error);
     }
