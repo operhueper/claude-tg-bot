@@ -60,4 +60,18 @@ ensure_drop_rule 22   "claude-guest-block-ssh"
 ensure_drop_rule 3847 "claude-guest-block-health"
 ensure_drop_rule 3848 "claude-guest-block-dashboard"
 
+# ── 3. Блокировать Hetzner metadata endpoint из гостевых контейнеров ─────────
+
+GUEST_SUBNET=$(docker network inspect "$GUEST_NET_NAME" --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)
+if [ -n "$GUEST_SUBNET" ]; then
+  # Блокировать Hetzner metadata endpoint
+  iptables -C FORWARD -s "$GUEST_SUBNET" -d 169.254.169.254/32 -j DROP 2>/dev/null || \
+      iptables -I FORWARD 1 -s "$GUEST_SUBNET" -d 169.254.169.254/32 -j DROP
+  iptables -C FORWARD -s "$GUEST_SUBNET" -d 169.254.169.254/32 -p tcp -j DROP 2>/dev/null || \
+      iptables -I FORWARD 1 -s "$GUEST_SUBNET" -d 169.254.169.254/32 -p tcp -j DROP
+  log "DROP FORWARD -> 169.254.169.254 для $GUEST_SUBNET"
+else
+  log "WARN: не удалось получить подсеть $GUEST_NET_NAME, пропускаю metadata block"
+fi
+
 log "setup-guest-network.sh завершён успешно"
