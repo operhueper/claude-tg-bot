@@ -17,7 +17,8 @@ export function isSubscriptionGateEnabled(): boolean {
   return REQUIRED_CHANNEL_ID.length > 0;
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_POSITIVE_MS = 5 * 60 * 1000;
+const CACHE_TTL_NEGATIVE_MS = 60 * 1000;
 const cache = new Map<number, { subscribed: boolean; ts: number }>();
 
 function parseChannelId(raw: string): string | number {
@@ -46,8 +47,11 @@ export async function isSubscribed(api: Api, userId: number): Promise<boolean> {
   if (!isSubscriptionGateEnabled()) return true;
 
   const cached = cache.get(userId);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS && cached.subscribed) {
-    return true;
+  if (cached) {
+    const ttl = cached.subscribed ? CACHE_TTL_POSITIVE_MS : CACHE_TTL_NEGATIVE_MS;
+    if (Date.now() - cached.ts < ttl) {
+      return cached.subscribed;
+    }
   }
 
   try {
