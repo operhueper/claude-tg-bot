@@ -162,7 +162,16 @@ export function buildRunArgs(profile: UserProfile): string[] {
     // Mounted :ro — these are virtual files synthesised by lxcfs; write access
     // is meaningless and the :rw flag is misleading / unnecessarily permissive.
     const lxcfsBase = "/var/lib/lxcfs/proc";
-    if (fs.existsSync(`${lxcfsBase}/meminfo`)) {
+    let lxcfsWorking = false;
+    try {
+      // existsSync is not enough — file may exist but fuse daemon may be down.
+      // readFileSync throws if the fuse mount is broken.
+      fs.readFileSync(`${lxcfsBase}/meminfo`, { encoding: "utf8" });
+      lxcfsWorking = true;
+    } catch {
+      lxcfsWorking = false;
+    }
+    if (lxcfsWorking) {
       const lxcfsFiles = [
         "cpuinfo",
         "diskstats",
