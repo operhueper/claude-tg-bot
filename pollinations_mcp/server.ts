@@ -18,7 +18,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { mkdirSync } from "fs";
 
-const OUTPUT_DIR = "/tmp/pollinations_images";
+const OUTPUT_DIR = process.env.POLLINATIONS_OUTPUT_DIR || "/tmp/pollinations";
 const BASE_URL = "https://image.pollinations.ai/prompt";
 
 const server = new Server(
