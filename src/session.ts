@@ -53,6 +53,7 @@ import {
 import { persistUserActivity } from "./session-registry";
 import { mcpServersForProfile } from "./mcp-filter";
 import { recordUsage, type UsageSource } from "./metering";
+import { checkVaultQuota, formatBytes, VAULT_QUOTA_BYTES } from "./containers/vault-quota";
 import { containerManager } from "./containers/manager";
 
 /**
@@ -231,6 +232,20 @@ export class ClaudeSession {
     // Deliver any files that were queued but not sent in a previous session
     if (ctx && chatId) {
       await checkPendingSendFileRequests(ctx, chatId);
+    }
+
+    // Vault quota check (guests only — owner vault is bot workspace, no limit needed)
+    if (!this.profile.isOwner) {
+      const quota = checkVaultQuota(this.profile.userId);
+      if (quota.exceeded) {
+        const msg =
+          `⚠️ Превышен лимит хранилища: ${formatBytes(quota.sizeBytes)} из ${formatBytes(VAULT_QUOTA_BYTES)}.\n\n` +
+          `Удали ненужное в своей рабочей папке (через сообщение боту: «удали ${quota.vaultPath}/<что-то>») ` +
+          `или попроси владельца расширить лимит. Пока лимит превышен — новые сообщения не обрабатываются, чтобы не сломать диск сервера.`;
+        await statusCallback("segment_end", msg, 0);
+        await statusCallback("done", "");
+        return msg;
+      }
     }
 
     const isNewSession = !this.isActive;

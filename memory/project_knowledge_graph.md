@@ -89,15 +89,15 @@ Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-o
 
 ## Известные баги (аудит 2026-05-08)
 
-### Промпты (4 CRITICAL, 4 HIGH)
-- **C1** [text.ts](../src/handlers/text.ts) — `buildOnboardingPrompt` определена в config.ts:727 но НЕ вызывается; маркер `[ONBOARDING_COMPLETE]` нигде не стрипается → попадает в чат как есть
-- **C2** [config.ts:642-644](../src/config.ts#L642) vs [config.ts:651-653](../src/config.ts#L651) — гостевой промпт врёт: говорит «фото в /tmp/telegram-bot/», реально `inboxDirFor()` кладёт в `${vaultDir}/inbox/`
-- **C3** [config.ts:559](../src/config.ts#L559) — промпт обещает `mcp__connect-google__connect`, но `connect-google` закомментирован в `mcp-config.example.ts:45-48` и не инжектируется в `mcp-filter.ts`
-- **C4** [config.ts:557](../src/config.ts#L557) + [text.ts:301](../src/handlers/text.ts#L301) — гостям обещан `mcp__parallel__run` и форсится через `maybePrependOrchestrationHint`, но `parallel` не активен в mcp-config и фильтре
-- **H1** [config.ts:551](../src/config.ts#L551) — промпт говорит «Bash есть», `session.ts:375-378` его блокирует для контейнерных гостей
-- **H2** [config.ts:554](../src/config.ts#L554) — `WebSearch` в списке доступных, но в `disallowedTools` (config.ts:1006)
-- **H3** [config.ts:404](../src/config.ts#L404) — owner на DeepSeek получает обещание WebSearch без оговорки
-- **H4** [config.ts:414-418](../src/config.ts#L414) — owner-промпт жёстко зашит на `/opt/claude-tg-bot/workspace/`, не использует `allowedPaths[0]`
+### Промпты — Этап 1 SPEC_PROMISE_DELIVERY закрыт 2026-05-09 (коммит `41aab2d`)
+- ✅ **C1 ЗАКРЫТ** — `buildOnboardingPrompt` удалён, поле `onboardingComplete` выпилено из `UserProfile`/`UserNode`/`addUser`, `markOnboardingComplete` удалена. Онбординг был выпилен ранее в `f575052`, мёртвый код снесён.
+- ✅ **C2 ЗАКРЫТ** — блок про `/tmp/telegram-bot/` уже отсутствовал (был удалён ранее), осталась только корректная секция МЕДИА с `${vaultDir}/inbox/`.
+- ✅ **H1 ЗАКРЫТ** — `Bash → mcp__container__Bash` в списке инструментов, добавлен явный блок «ТЫ В КОНТЕЙНЕРЕ» в начало промпта с реальным составом окружения.
+- ✅ **H2 ЗАКРЫТ** — упоминание Bash заменено на `mcp__container__Bash` в подсказке WebFetch. WebSearch уже был помечен как недоступный.
+- 🟡 **C3** — `connect-google` АКТИВЕН на проде в `mcp-config.ts` (проверено 2026-05-09); пункт уже не актуален.
+- 🟡 **C4** — `parallel` АКТИВЕН на проде в `mcp-config.ts` (проверено 2026-05-09); пункт уже не актуален.
+- ❌ **H3** — owner на DeepSeek всё ещё получает обещание WebSearch. Откладываем (не блокер для гостевого UX).
+- ❌ **H4** — хардкод `/opt/claude-tg-bot/workspace/` в owner-промпте. Откладываем.
 
 ### Метеринг (3 HIGH, 3 MEDIUM)
 - **H1** [session.ts:680-681](../src/session.ts#L680) — `askUserTriggered` break до `event.type === "result"` → токены за все ask-user туры теряются
@@ -109,11 +109,10 @@ Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-o
 
 ## Открытые задачи
 
+- [ ] **Этапы SPEC_PROMISE_DELIVERY 2-7** — образ v2 (предустановка ffmpeg/pandoc/libreoffice/tesseract), skill-pack, scheduler, фоновые задачи, шаблон собственного бота, web-публикация
 - [ ] **Метеринг — починить ask-user/stop/analyzer пропуски** (систематическая потеря токенов в самых горячих ветках)
-- [ ] **Промпты — починить C1–C4 + H1–H4** (модель уверенно делает не то)
-- [ ] Задеплоить uncommitted изменения (fast-path, orchestration hint, parallel mcp, модельные ограничения в промптах) на proboi-bot
+- [ ] Промпты H3 + H4 (owner-DeepSeek WebSearch обещание + хардкод workspace path) — отложены
 - [ ] Активировать subscription gate (REQUIRED_CHANNEL_ID=@ProBoiAI + REQUIRED_CHANNEL_URL)
-- [ ] Протестировать mcp__parallel на живых пользователях
 - [ ] AAAA DNS/IPv6 TLS
 - [ ] hf_llm_mcp — найти модель с живыми провайдерами
 - [ ] openrouter.ts: execSync → async (всё ещё блокирует event loop)
