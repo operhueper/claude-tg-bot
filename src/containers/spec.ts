@@ -142,14 +142,17 @@ export function buildRunArgs(profile: UserProfile): string[] {
     args.push("--tmpfs=/run:size=8m");
     args.push("--tmpfs=/home:size=64m");
 
-    // Optional: attach to a dedicated guest Docker network. If CLAUDE_GUEST_NETWORK
-    // is set on the host, all guest containers share it and can be firewalled
-    // uniformly (e.g. block access to host-only ports 22/3847/3848 via iptables).
-    // See the file-level comment for network creation instructions.
+    // Required: attach to a dedicated guest Docker network. All guest containers
+    // share it and can be firewalled uniformly (e.g. block access to host-only
+    // ports 22/3847/3848 via iptables). See the file-level comment for network
+    // creation instructions.
     const guestNetwork = process.env.CLAUDE_GUEST_NETWORK;
-    if (guestNetwork) {
-      args.push(`--network=${guestNetwork}`);
+    if (!guestNetwork) {
+      throw new Error(
+        "CLAUDE_GUEST_NETWORK env var is required. Set it to the docker network name (e.g. claude-guest-net)."
+      );
     }
+    args.push(`--network=${guestNetwork}`);
 
     // LXCFS: cgroup-aware /proc inside the container. Without these mounts
     // `free`, `top`, `/proc/meminfo` show the host's memory (e.g. 7.6 GB),
