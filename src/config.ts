@@ -547,7 +547,7 @@ function buildNewGuestSafetyPrompt(vaultDir: string, userId: number): string {
   return `
 ТЫ В КОНТЕЙНЕРЕ — РАБОЧАЯ СРЕДА:
 У тебя есть полноценный изолированный Linux-контейнер (Debian bookworm). В нём предустановлены:
-- python 3.11 (доступен как `python` и `python3`), node, bun, npm, git, curl, nginx, pip, apt-get
+- python 3.11 (доступен как «python» и «python3»), node, bun, npm, git, curl, nginx, pip, apt-get
 - стандартные unix-утилиты
 
 Дополнительные тулзы — доустанавливай по необходимости через apt-get / pip (apt сам сохраняется между сообщениями, повторно ставить не надо):
