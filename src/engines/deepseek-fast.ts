@@ -50,6 +50,7 @@ export async function queryDeepSeekFast(
   apiKey: string,
   statusCallback: StatusCallback,
   userId: number = 0,
+  signal?: AbortSignal,
 ): Promise<string> {
   // Build messages array
   const messages: FastPathMessage[] = [];
@@ -84,6 +85,7 @@ export async function queryDeepSeekFast(
       Accept: "text/event-stream",
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!resp.ok || !resp.body) {
@@ -100,6 +102,10 @@ export async function queryDeepSeekFast(
   let completionTokens = 0;
 
   while (true) {
+    if (signal?.aborted) {
+      reader.cancel();
+      break;
+    }
     const { done, value } = await reader.read();
     if (done) break;
 
