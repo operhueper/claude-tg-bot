@@ -7,7 +7,14 @@ export function registerAlertBot(b: Bot): void {
   botRef = b;
 }
 
-const OWNER_PROBLEM_CHANNEL_ID = process.env.OWNER_PROBLEM_CHANNEL_ID || "";
+const rawChannelId = process.env.OWNER_PROBLEM_CHANNEL_ID;
+if (rawChannelId && !/^-?\d+$/.test(rawChannelId)) {
+  console.warn(
+    `[owner-alerts] OWNER_PROBLEM_CHANNEL_ID "${rawChannelId}" невалидный (ожидается число). Используется DM.`
+  );
+}
+const OWNER_PROBLEM_CHANNEL_ID =
+  rawChannelId && /^-?\d+$/.test(rawChannelId) ? parseInt(rawChannelId, 10) : null;
 
 async function send(chatId: number | string, text: string): Promise<void> {
   if (!botRef) {
@@ -22,7 +29,7 @@ async function send(chatId: number | string, text: string): Promise<void> {
 }
 
 export async function notifyProblemChannel(text: string): Promise<void> {
-  if (OWNER_PROBLEM_CHANNEL_ID) {
+  if (OWNER_PROBLEM_CHANNEL_ID !== null) {
     await send(OWNER_PROBLEM_CHANNEL_ID, text);
   } else {
     await send(OWNER_USER_ID, `[no channel set]\n${text}`);
