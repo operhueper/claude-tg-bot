@@ -628,8 +628,9 @@ export class ClaudeSession {
               const toolName = block.name;
               const toolInput = block.input as Record<string, unknown>;
 
-              // Bash safety
-              if (toolName === "Bash") {
+              // Bash safety (skipped for container guests — they use mcp__container__Bash;
+              // the built-in Bash is disallowed for them and can't reach the host anyway)
+              if (toolName === "Bash" && !useContainer) {
                 const command = String(toolInput.command || "");
                 const [isSafe, reason] = checkCommandSafety(
                   command,

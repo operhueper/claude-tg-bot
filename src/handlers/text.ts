@@ -335,97 +335,102 @@ export async function handleText(ctx: Context): Promise<void> {
   // 10. Send to Claude with retry logic for crashes
   const MAX_RETRIES = 1;
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await session.sendMessageStreaming(
-        message,
-        username,
-        userId,
-        statusCallback,
-        chatId,
-        ctx
-      );
-
-      // 11. Audit log
-      await auditLog(userId, username, "TEXT", message, response);
-
-      // 11b. Drain pending context queue accumulated during generation
-      const pendingMsg = session.consumePendingContext();
-      if (pendingMsg) {
-        // Remove the ⏳ reaction on all pending messages is not trivial,
-        // so we simply send the accumulated context as a new turn.
-        stopProcessing();
-        typing.stop();
-
-        // Re-enter full send flow for the pending context
-        const pendingState = new StreamingState();
-        const pendingCallback = createStatusCallback(ctx, pendingState);
-        const pendingTyping = startTypingIndicator(ctx);
-        const stopPendingProcessing = session.startProcessing();
-        try {
-          const pendingResponse = await session.sendMessageStreaming(
-            pendingMsg,
-            username,
-            userId,
-            pendingCallback,
-            chatId,
-            ctx
-          );
-          await auditLog(userId, username, "TEXT", pendingMsg, pendingResponse);
-        } catch (pendingError) {
-          console.error("Error processing pending context:", pendingError);
-        } finally {
-          stopPendingProcessing();
-          pendingTyping.stop();
-        }
-        return; // stopProcessing and typing already called above
-      }
-
-      break; // Success - exit retry loop
-    } catch (error) {
-      const errorStr = String(error);
-      const isClaudeCodeCrash = errorStr.includes("exited with code");
-
-      // Clean up any partial messages from this attempt
-      for (const toolMsg of state.toolMessages) {
-        try {
-          await ctx.api.deleteMessage(toolMsg.chat.id, toolMsg.message_id);
-        } catch {
-          // Ignore cleanup errors
-        }
-      }
-
-      // Retry on Claude Code crash (not user cancellation)
-      if (isClaudeCodeCrash && attempt < MAX_RETRIES) {
-        console.log(
-          `Claude Code crashed, retrying (attempt ${attempt + 2}/${MAX_RETRIES + 1})...`
+  try {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await session.sendMessageStreaming(
+          message,
+          username,
+          userId,
+          statusCallback,
+          chatId,
+          ctx
         );
-        await session.kill(); // Clear corrupted session
-        await ctx.reply(`⚠️ Claude crashed, retrying...`);
-        // Reset state for retry
-        state = new StreamingState();
-        statusCallback = createStatusCallback(ctx, state);
-        continue;
-      }
 
-      // Final attempt failed or non-retryable error
-      console.error("Error processing message:", error);
+        // 11. Audit log
+        await auditLog(userId, username, "TEXT", message, response);
 
-      // Check if it was a cancellation
-      if (errorStr.includes("abort") || errorStr.includes("cancel")) {
-        // Only show "Query stopped" if it was an explicit stop, not an interrupt from a new message
-        const wasInterrupt = session.consumeInterruptFlag();
-        if (!wasInterrupt) {
-          await ctx.reply("🛑 Query stopped.");
+        // 11b. Drain pending context queue accumulated during generation
+        const pendingMsg = session.consumePendingContext();
+        if (pendingMsg) {
+          // Remove the ⏳ reaction on all pending messages is not trivial,
+          // so we simply send the accumulated context as a new turn.
+          stopProcessing();
+          typing.stop();
+
+          // Re-enter full send flow for the pending context
+          const pendingState = new StreamingState();
+          const pendingCallback = createStatusCallback(ctx, pendingState);
+          const pendingTyping = startTypingIndicator(ctx);
+          const stopPendingProcessing = session.startProcessing();
+          try {
+            const pendingResponse = await session.sendMessageStreaming(
+              pendingMsg,
+              username,
+              userId,
+              pendingCallback,
+              chatId,
+              ctx
+            );
+            await auditLog(userId, username, "TEXT", pendingMsg, pendingResponse);
+          } catch (pendingError) {
+            console.error("Error processing pending context:", pendingError);
+          } finally {
+            await pendingState.cleanup();
+            stopPendingProcessing();
+            pendingTyping.stop();
+          }
+          return; // stopProcessing and typing already called above
         }
-      } else {
-        await replyFriendly(ctx, error, "обработка текста");
-      }
-      break; // Exit loop after handling error
-    }
-  }
 
-  // 12. Cleanup
-  stopProcessing();
-  typing.stop();
+        break; // Success - exit retry loop
+      } catch (error) {
+        const errorStr = String(error);
+        const isClaudeCodeCrash = errorStr.includes("exited with code");
+
+        // Clean up any partial messages from this attempt
+        for (const toolMsg of state.toolMessages) {
+          try {
+            await ctx.api.deleteMessage(toolMsg.chat.id, toolMsg.message_id);
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
+
+        // Retry on Claude Code crash (not user cancellation)
+        if (isClaudeCodeCrash && attempt < MAX_RETRIES) {
+          console.log(
+            `Claude Code crashed, retrying (attempt ${attempt + 2}/${MAX_RETRIES + 1})...`
+          );
+          await state.cleanup(); // stop heartbeat before creating new state
+          await session.kill(); // Clear corrupted session
+          await ctx.reply(`⚠️ Claude crashed, retrying...`);
+          // Reset state for retry
+          state = new StreamingState();
+          statusCallback = createStatusCallback(ctx, state);
+          continue;
+        }
+
+        // Final attempt failed or non-retryable error
+        console.error("Error processing message:", error);
+
+        // Check if it was a cancellation
+        if (errorStr.includes("abort") || errorStr.includes("cancel")) {
+          // Only show "Query stopped" if it was an explicit stop, not an interrupt from a new message
+          const wasInterrupt = session.consumeInterruptFlag();
+          if (!wasInterrupt) {
+            await ctx.reply("🛑 Query stopped.");
+          }
+        } else {
+          await replyFriendly(ctx, error, "обработка текста");
+        }
+        break; // Exit loop after handling error
+      }
+    }
+  } finally {
+    // 12. Cleanup — always runs even on abort/cancel/crash
+    await state.cleanup();
+    stopProcessing();
+    typing.stop();
+  }
 }

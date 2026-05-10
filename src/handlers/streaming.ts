@@ -265,6 +265,16 @@ export class StreamingState {
   lastEditTimes = new Map<number, number>(); // segment_id -> last edit time
   lastContent = new Map<number, string>(); // segment_id -> last sent content
   maxSegmentId: number = -1; // highest segment_id seen so far
+  private _heartbeat: IdleHeartbeat | null = null;
+
+  set heartbeat(h: IdleHeartbeat) { this._heartbeat = h; }
+
+  async cleanup(): Promise<void> {
+    if (this._heartbeat) {
+      await this._heartbeat.stop();
+      this._heartbeat = null;
+    }
+  }
 }
 
 /**
@@ -348,6 +358,15 @@ class IdleHeartbeat {
       if (!s.includes("not modified")) {
         console.debug("IdleHeartbeat: rotate edit failed:", err);
       }
+      // Stop hammering if Telegram rate-limits us for this chat
+      if (s.includes("429")) {
+        const match = s.match(/retry after (\d+)/i);
+        const retryAfter = match ? parseInt(match[1]!, 10) : 0;
+        if (retryAfter > 30) {
+          console.warn(`IdleHeartbeat: rate limited ${retryAfter}s for chat ${this.idleMessage?.chat.id}, stopping`);
+          void this.stop();
+        }
+      }
     }
   }
 
@@ -423,6 +442,7 @@ export function createStatusCallback(
 ): StatusCallback {
   const heartbeat = new IdleHeartbeat(ctx);
   heartbeat.start();
+  state.heartbeat = heartbeat;
 
   return async (statusType: string, content: string, segmentId?: number) => {
     heartbeat.tick();
