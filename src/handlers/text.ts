@@ -5,7 +5,7 @@
 import type { Context } from "grammy";
 import type { StatusCallback } from "../types";
 import { getSession, getGroupSession } from "../session-registry";
-import { ALLOWED_USERS } from "../config";
+import { ALLOWED_USERS, GROUP_CHAT_ID } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { requestAccess } from "../containers/invites";
 import {
@@ -147,7 +147,7 @@ export async function handleText(ctx: Context): Promise<void> {
   const inGroup = isGroupChat(ctx);
 
   // Task detection in group chat (only in the family group chat)
-  if (inGroup && chatId === -5115756668) {
+  if (inGroup && chatId === GROUP_CHAT_ID) {
     const {
       detectTaskIntent,
       detectAssignee,
