@@ -14,8 +14,8 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 # ── Снять все throttle-классы и фильтры tc ───────────────────────────────────
 
 if tc qdisc show dev "$IFACE" 2>/dev/null | grep -q "htb"; then
-  # Удалить все фильтры
-  tc filter del dev "$IFACE" parent 1: 2>/dev/null || true
+  # Удалить только наши фильтры (prio 1, protocol ip)
+  tc filter del dev "$IFACE" parent 1: protocol ip prio 1 2>/dev/null || true
   # Удалить все дочерние классы кроме default
   tc class show dev "$IFACE" 2>/dev/null | awk '{print $3}' | grep -v "^$" | while read -r classid; do
     [[ "$classid" == "1:9999" ]] && continue
