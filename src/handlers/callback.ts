@@ -14,6 +14,7 @@ import { StreamingState, createStatusCallback } from "./streaming";
 import { getPendingInvite, removePendingInvite } from "../containers/invites";
 import { addUser } from "../user-registry";
 import { invalidateSubscription, isSubscribed, isSubscriptionGateEnabled } from "../subscription";
+import { handleGoalCallback } from "./goals";
 
 /**
  * Handle callback queries from inline keyboards.
@@ -59,6 +60,16 @@ export async function handleCallback(ctx: Context): Promise<void> {
   // 2b. Task confirmation callbacks
   if (callbackData.startsWith("task_confirm:")) {
     await handleTaskConfirmCallback(ctx, callbackData);
+    return;
+  }
+
+  // 2c. Goal callbacks
+  if (
+    callbackData.startsWith("goal_done:") ||
+    callbackData.startsWith("goal_pause:") ||
+    callbackData.startsWith("goal_delete:")
+  ) {
+    await handleGoalCallback(ctx, callbackData);
     return;
   }
 
