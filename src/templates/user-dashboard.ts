@@ -430,6 +430,13 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
   };
 
   // ─── UTILITIES ────────────────────────────────────────────────────────────
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/[<>&"']/g, function(c) {
+      return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
   function fmt(n) {
     if (n == null) return '—';
     return Number(n).toLocaleString('ru-RU');
@@ -552,8 +559,8 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
       var todayTok = (today.inputTokens || 0) + (today.outputTokens || 0);
       var totalTok = (total.inputTokens || 0) + (total.outputTokens || 0);
       rows += '<tr>' +
-        '<td>' + (item.label || '—') + '</td>' +
-        '<td>' + (item.model || '—') + '</td>' +
+        '<td>' + (item.label ? esc(item.label) : '—') + '</td>' +
+        '<td>' + (item.model ? esc(item.model) : '—') + '</td>' +
         '<td class="td-mono">' + fmt(todayTok) + '</td>' +
         '<td class="td-mono">' + fmt(totalTok) + '</td>' +
         '<td class="td-mono">' + fmtCost(total.costUsd) + '</td>' +
