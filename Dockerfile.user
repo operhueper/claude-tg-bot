@@ -2,7 +2,7 @@ FROM debian:bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl wget git ca-certificates \
     build-essential python3 python3-pip python3-venv \
     unzip sqlite3 nginx \
@@ -11,6 +11,40 @@ RUN apt-get update && apt-get install -y \
     net-tools dnsutils iputils-ping \
     procps lsof \
     && rm -rf /var/lib/apt/lists/*
+
+# Document tooling — PDF, Excel, PPTX, видео, OCR
+# Размер: +800MB (libreoffice ~400MB, ffmpeg ~150MB, pandoc ~150MB).
+# Без этого набора каждое первое использование тратит 30-90с на apt install.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    poppler-utils \
+    pandoc \
+    wkhtmltopdf \
+    libreoffice-impress libreoffice-calc libreoffice-writer \
+    imagemagick \
+    ffmpeg \
+    tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng \
+    fonts-liberation fonts-dejavu fonts-noto-core \
+    && rm -rf /var/lib/apt/lists/*
+
+# ImageMagick: отключаем опасные кодеки (RCE через специально сформированный SVG/MVG/EPS).
+# Известная атаковая поверхность с CVE-2016-3714 ("ImageTragick") и последующими.
+# Гость работает с любыми input-файлами, поэтому ужесточаем policy.
+RUN POLICY=/etc/ImageMagick-6/policy.xml; \
+    if [ -f "$POLICY" ]; then \
+        for p in URL HTTPS MVG MSL TEXT SHOW WIN PLT PS PS2 PS3 EPS PDF XPS LABEL SVG; do \
+            grep -q "pattern=\"$p\"" "$POLICY" || \
+            sed -i "/<\/policymap>/i\\  <policy domain=\"coder\" rights=\"none\" pattern=\"$p\" />" "$POLICY"; \
+        done; \
+    fi
+
+# Python data/doc stack — самые частые библиотеки для отчётов и обработки
+RUN pip3 install --no-cache-dir --break-system-packages \
+    openpyxl pandas numpy \
+    python-pptx python-docx \
+    pillow reportlab pypdf2 pdfplumber \
+    requests beautifulsoup4 lxml \
+    matplotlib \
+    yt-dlp
 
 # Bun installs to /usr/local so the sandbox user (uid=1000) can use it.
 # Default install location is $HOME/.bun — that lands in /root/.bun, which
