@@ -451,6 +451,33 @@ export class ClaudeSession {
       };
     }
 
+    // S-03 security: propagate sandbox constraints so parallel_mcp subtasks
+    // inherit the correct guest restrictions (vault cwd, disallowed tools,
+    // settingSources). These env vars are read by parallel_mcp/server.ts.
+    {
+      const allowedPathsForSubtasks = this.profile.allowedPaths.join(",");
+      const disallowedToolsForSubtasks = [
+        "mcp__parallel__run",
+        ...(this.profile.disallowedTools ?? []),
+      ].join(",");
+      const settingsSourcesForSubtasks = (
+        this.profile.settingSources ?? ["project"]
+      ).join(",");
+
+      options.env = {
+        ...(options.env ?? {}),
+        TELEGRAM_PARALLEL_CWD: this.profile.workingDir,
+        TELEGRAM_PARALLEL_MODEL: this.profile.model,
+        TELEGRAM_PARALLEL_ALLOWED_PATHS: allowedPathsForSubtasks,
+        TELEGRAM_PARALLEL_DISALLOWED_TOOLS: disallowedToolsForSubtasks,
+        TELEGRAM_PARALLEL_SETTINGS_SOURCES: settingsSourcesForSubtasks,
+        TELEGRAM_PARALLEL_IS_GUEST: this.profile.isOwner ? "0" : "1",
+        TELEGRAM_PARALLEL_MAX_TURNS: String(
+          this.profile.maxTurns ?? 10
+        ),
+      };
+    }
+
     if (process.env.CLAUDE_CODE_PATH) {
       options.pathToClaudeCodeExecutable = process.env.CLAUDE_CODE_PATH;
     }

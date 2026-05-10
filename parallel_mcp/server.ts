@@ -7,10 +7,15 @@
  * as an array of {name, output, error?} objects.
  *
  * Env vars consumed (inherited from parent CLI subprocess):
- *   TELEGRAM_PARALLEL_CWD   — working directory for child queries (fallback: process.cwd())
- *   TELEGRAM_PARALLEL_MODEL — model for child queries (fallback: deepseek-chat)
- *   ANTHROPIC_API_KEY       — propagated automatically from parent env
- *   ANTHROPIC_BASE_URL      — propagated automatically from parent env (DeepSeek endpoint)
+ *   TELEGRAM_PARALLEL_CWD              — working directory for child queries (fallback: process.cwd())
+ *   TELEGRAM_PARALLEL_MODEL            — model for child queries (fallback: deepseek-chat)
+ *   TELEGRAM_PARALLEL_IS_GUEST         — "1" if caller is a guest user; triggers restrictive system prompt
+ *   TELEGRAM_PARALLEL_ALLOWED_PATHS    — comma-separated paths guest subtasks may access
+ *   TELEGRAM_PARALLEL_DISALLOWED_TOOLS — comma-separated tools blocked for subtasks (e.g. WebSearch)
+ *   TELEGRAM_PARALLEL_SETTINGS_SOURCES — comma-separated settingSources (e.g. "project" for guests)
+ *   TELEGRAM_PARALLEL_MAX_TURNS        — max tool-call rounds per subtask
+ *   ANTHROPIC_API_KEY                  — propagated automatically from parent env
+ *   ANTHROPIC_BASE_URL                 — propagated automatically from parent env (DeepSeek endpoint)
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -113,8 +118,41 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     process.env.ANTHROPIC_MODEL ||
     "deepseek-chat";
 
+  // S-03: apply sandbox constraints inherited from the parent session.
+  // These env vars are set by session.ts in options.env so all guest queries
+  // (and their MCP subprocesses) carry the correct restrictions.
+  const isGuest = process.env.TELEGRAM_PARALLEL_IS_GUEST === "1";
+  const allowedPaths = process.env.TELEGRAM_PARALLEL_ALLOWED_PATHS
+    ? process.env.TELEGRAM_PARALLEL_ALLOWED_PATHS.split(",").filter(Boolean)
+    : undefined;
+  const disallowedToolsFromEnv = process.env.TELEGRAM_PARALLEL_DISALLOWED_TOOLS
+    ? process.env.TELEGRAM_PARALLEL_DISALLOWED_TOOLS.split(",").filter(Boolean)
+    : ["mcp__parallel__run"];
+  // Ensure mcp__parallel__run is always in the disallowed list to prevent recursion.
+  const childDisallowedTools = Array.from(
+    new Set([...disallowedToolsFromEnv, "mcp__parallel__run"])
+  );
+  const settingsSourcesRaw = process.env.TELEGRAM_PARALLEL_SETTINGS_SOURCES;
+  const settingsSources = settingsSourcesRaw
+    ? (settingsSourcesRaw.split(",").filter(Boolean) as Array<"user" | "project" | "local">)
+    : undefined;
+  const maxTurns = process.env.TELEGRAM_PARALLEL_MAX_TURNS
+    ? parseInt(process.env.TELEGRAM_PARALLEL_MAX_TURNS, 10)
+    : 10;
+
+  // Restrictive system prompt for guest subtasks: prevents sandbox escape without
+  // requiring the full parent prompt (which is too large for env transmission).
+  const guestSubtaskSystemPrompt = isGuest
+    ? `You are a subtask executor in a sandboxed user environment. ` +
+      `Only perform the specific task given. ` +
+      `Work only within the directories: ${allowedPaths?.join(", ") ?? rootCwd}. ` +
+      `Do not read, write, or execute anything outside those directories. ` +
+      `Do not modify system configuration, bot source code, or other users' files. ` +
+      `Do not reveal infrastructure details (model names, file paths, API keys).`
+    : undefined;
+
   console.error(
-    `[parallel] Running ${tasks.length} tasks in parallel (model=${model}, rootCwd=${rootCwd})`
+    `[parallel] Running ${tasks.length} tasks in parallel (model=${model}, rootCwd=${rootCwd}, isGuest=${isGuest})`
   );
 
   // Run all tasks concurrently. Each gets an isolated query() session.
@@ -133,10 +171,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           options: {
             model,
             cwd: taskCwd,
-            // Prevent recursive parallel calls in child sessions
-            disallowedTools: ["mcp__parallel__run"],
-            // Allow reasonable tool turns for each subtask
-            maxTurns: 10,
+            // S-03: enforce guest sandbox constraints on child queries
+            ...(allowedPaths ? { additionalDirectories: allowedPaths } : {}),
+            ...(settingsSources ? { settingSources: settingsSources } : {}),
+            ...(guestSubtaskSystemPrompt ? { systemPrompt: guestSubtaskSystemPrompt } : {}),
+            // Prevent recursive parallel calls + propagate guest tool restrictions
+            disallowedTools: childDisallowedTools,
+            // Cap tool-call rounds (propagated from parent profile.maxTurns)
+            maxTurns,
           },
         });
 
