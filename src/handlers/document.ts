@@ -124,6 +124,7 @@ if hasattr(h, 'vlrs'):
   info["vlr_count"] = len(h.vlrs)
 print(json.dumps(info, indent=2))
 `;
+      // SECURITY: использовать только Bun.$`...` с фиксированными аргументами; НЕ заменять на execSync — shell injection
       const result = await Bun.$`python3 -c ${script} ${filePath}`.quiet();
       const info = JSON.parse(result.text());
       const bounds = info.mins && info.maxs
@@ -148,6 +149,7 @@ print(json.dumps(info, indent=2))
   // PDF extraction using pdftotext CLI (install: brew install poppler)
   if (mimeType === "application/pdf" || extension === ".pdf") {
     try {
+      // SECURITY: использовать только Bun.$`...` с фиксированными аргументами; НЕ заменять на execSync — shell injection
       const result = await Bun.$`pdftotext -layout ${filePath} -`.quiet();
       return result.text();
     } catch (error) {
