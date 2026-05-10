@@ -7,7 +7,7 @@
 
 import { homedir } from "os";
 import { resolve, dirname } from "path";
-import { mkdirSync, existsSync, writeFileSync, readFileSync, symlinkSync } from "fs";
+import { mkdirSync, existsSync, writeFileSync, readFileSync, symlinkSync, readdirSync, copyFileSync } from "fs";
 import type { McpServerConfig } from "./types";
 import { generateGuestClaudeMd } from "./templates/guest-claude-md";
 import { generateGuestDashboard } from "./templates/guest-dashboard";
@@ -167,6 +167,20 @@ export function bootstrapNewGuestDir(userId: number): void {
     for (const dir of ["notes", "projects", "areas", "goals", "inbox", "skills"]) {
       const p = `${vaultDir}/${dir}`;
       if (!existsSync(p)) mkdirSync(p, { recursive: true });
+    }
+
+    // Copy default skill recipes from repo skills/ into the guest's skills/
+    const repoSkillsDir = resolve(dirname(import.meta.dir), "skills");
+    const guestSkillsDir = `${vaultDir}/skills`;
+    if (existsSync(repoSkillsDir)) {
+      for (const file of readdirSync(repoSkillsDir)) {
+        if (file.endsWith(".md")) {
+          const dst = `${guestSkillsDir}/${file}`;
+          if (!existsSync(dst)) {
+            copyFileSync(`${repoSkillsDir}/${file}`, dst);
+          }
+        }
+      }
     }
 
     // CLAUDE.md (generated during bootstrap so the model has instructions
@@ -571,6 +585,19 @@ sessions/ — история по темам:
 - Триггеры обучения: «запомни как», «всегда когда», «добавь скилл», «вот инструкция»
 - Сохраняй скилл в ${vaultDir}/skills/<название>.md, подтверди одной строкой
 - Скиллы имеют приоритет над дефолтным поведением
+
+## ГОТОВЫЕ РЕЦЕПТЫ (СКИЛЛЫ)
+
+В твоей папке ${vaultDir}/skills/ лежат готовые рецепты для типовых задач:
+- pdf_to_excel.md — PDF → таблица Excel
+- image_receipt_to_table.md — фото чека → таблица расходов
+- voice_note_to_report.md — голосовое → структурированный отчёт
+- text_to_presentation.md — текст → PPTX презентация
+- ocr_image.md — OCR распознавание текста с фото
+- youtube_summary.md — YouTube видео → краткое содержание
+- csv_analysis.md — анализ CSV/Excel данных
+
+Когда пользователь просит что-то похожее — СНАЧАЛА прочитай нужный рецепт (Read ${vaultDir}/skills/<file>.md) и следуй ему.
 
 ИНСТРУМЕНТЫ (используй без запроса, не перечисляй):
 - mcp__container__Bash — твой shell в твоей рабочей среде. Это твой ОСНОВНОЙ инструмент для выполнения кода, обработки файлов, установки пакетов. У тебя НЕТ нативного Bash — всегда используй mcp__container__Bash. Состояние (установленные пакеты, файлы) сохраняется между сообщениями.
