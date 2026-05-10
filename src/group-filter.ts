@@ -33,11 +33,10 @@ export function isGroupChat(ctx: Context): boolean {
 }
 
 /**
- * Hard checks that bypass LLM classification.
- * Returns true if we should definitely respond, false if definitely skip,
- * null if unclear (needs LLM).
+ * Decide whether the bot should respond to a group message.
+ * Returns true to respond, false to skip.
  */
-function hardCheck(ctx: Context, botUsername: string): boolean | null {
+function shouldRespond(ctx: Context, botUsername: string): boolean {
   const msg = ctx.message;
   if (!msg) return false;
 
@@ -62,7 +61,7 @@ function hardCheck(ctx: Context, botUsername: string): boolean | null {
     return true;
   }
 
-  // No hard signal — respond by default
+  // Default: respond
   return true;
 }
 
@@ -120,12 +119,7 @@ export async function shouldRespondInGroup(ctx: Context): Promise<boolean> {
   const isBot = ctx.from?.is_bot || false;
   recordGroupMessage(chatId, { name: senderName, text, isBot });
 
-  // Hard checks first (fast, no API call)
-  const hard = hardCheck(ctx, botUsername);
-  if (hard !== null) {
-    console.log(`[group-filter] Hard check → ${hard ? "RESPOND" : "SKIP"}: "${text.slice(0, 50)}"`);
-    return hard;
-  }
-
-  return true;
+  const result = shouldRespond(ctx, botUsername);
+  console.log(`[group-filter] ${result ? "RESPOND" : "SKIP"}: "${text.slice(0, 50)}"`);
+  return result;
 }
