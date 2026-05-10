@@ -72,12 +72,12 @@ async function processOnce(): Promise<void> {
       }
 
       const userMsg =
-        `⚠️ Твоя автоматизация <b>${ev.daemon}</b> упала 3 раза подряд за 10 минут — больше не перезапускаю.\n\n` +
+        `⚠️ Твоя автоматизация <b>${escapeHtml(ev.daemon)}</b> упала 3 раза подряд за 10 минут — больше не перезапускаю.\n\n` +
         `Последняя ошибка: <code>${escapeHtml(ev.last_excerpt).slice(0, 400)}</code>\n\n` +
         `Проверь код или попроси меня починить. Если автоматизация и должна быть тяжёлой — возможно, нужен тариф побольше.`;
 
       const channelMsg =
-        `🛑 Crashloop user=${userId} daemon=${ev.daemon}\n` +
+        `🛑 Crashloop user=${userId} daemon=${escapeHtml(ev.daemon)}\n` +
         `Время: ${ev.timestamp}\n` +
         `Ошибка: <code>${escapeHtml(ev.last_excerpt).slice(0, 200)}</code>`;
 
