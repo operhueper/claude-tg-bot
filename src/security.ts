@@ -86,6 +86,9 @@ export function isPathAllowedFor(path: string, allowedPaths: string[]): boolean 
     }
 
     for (const tempPath of TEMP_PATHS) {
+      if (!tempPath.endsWith("/")) {
+        throw new Error(`TEMP_PATHS entry must end with /: ${tempPath}`);
+      }
       if (resolved.startsWith(tempPath)) {
         return true;
       }
