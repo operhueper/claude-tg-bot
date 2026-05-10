@@ -107,12 +107,15 @@ Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-o
 - **M2** [openrouter.ts:765](../src/engines/openrouter.ts#L765) — тихий пропуск без лога если usage не пришёл
 - **M3** [metering.ts:56-72](../src/metering.ts#L56) — `claude-haiku-4-5` (модель анализатора памяти) отсутствует в `PRICING_PER_1M` → `$0.00`
 
-## Открытые задачи
+## Открытые задачи (см. UNIFIED_ROADMAP.md)
 
-- [ ] **Этапы SPEC_PROMISE_DELIVERY 2-7** — образ v2 (предустановка ffmpeg/pandoc/libreoffice/tesseract), skill-pack, scheduler, фоновые задачи, шаблон собственного бота, web-публикация
-- [ ] **Метеринг — починить ask-user/stop/analyzer пропуски** (систематическая потеря токенов в самых горячих ветках)
-- [ ] Промпты H3 + H4 (owner-DeepSeek WebSearch обещание + хардкод workspace path) — отложены
-- [ ] Активировать subscription gate (REQUIRED_CHANNEL_ID=@ProBoiAI + REQUIRED_CHANNEL_URL)
-- [ ] AAAA DNS/IPv6 TLS
-- [ ] hf_llm_mcp — найти модель с живыми провайдерами
-- [ ] openrouter.ts: execSync → async (всё ещё блокирует event loop)
+Полный план в [UNIFIED_ROADMAP.md](../UNIFIED_ROADMAP.md). Краткая сводка:
+
+- **Этап 0** (🟢, ~5h): 17 HIGH security findings из SECURITY_AUDIT_2026_05_10. Главное — S-01 (send_file path-auth, утечка .env через MCP).
+- **Этап 1** (🟢, ~30мин): метеринг хвосты (M-01 haiku-4-5 pricing, M-02 model from event).
+- **Этап 2** (🟢, ~3h): 22 MEDIUM security findings.
+- **Этап 8** (🟢, ~1h): 14 LOW security findings + полировка.
+- **Этапы 3-7 SPEC_PROMISE_DELIVERY** (🟡, ~10h): skill-pack, scheduler, фоновые, шаблон бота, web-публикация. ЖЁЛТАЯ зона — пауза перед прод-деплоем.
+- **🔴 Красная зона**: subscription gate активация, AAAA DNS/IPv6, изменения цен, ребрендинг — НЕ автономно.
+
+Архивированы (закрыто): `archive/NEXT_SESSION_FIXES_2026-05-08.md`, `archive/NEXT_SESSION_CLEANUP_2026-05-08.md`, `archive/SECURITY_AUDIT_REPORT_2026-05-08.md`.
