@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	maxDaemons     = 3
+	maxDaemons     = 5 // 1 system (scheduler) + up to 4 user daemons
 	manifestPath   = "/opt/vault/%s/.daemons.yaml"
 	logsDir        = "/opt/vault/%s/logs"
 	eventsDir      = "/opt/vault/%s/.daemons-events"
