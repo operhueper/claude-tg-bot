@@ -115,7 +115,10 @@ export function createMediaGroupBuffer(config: MediaGroupConfig) {
     username: string,
     processCallback: ProcessGroupCallback
   ): Promise<boolean> {
-    if (!pendingGroups.has(mediaGroupId)) {
+    // Scope the buffer key by userId so albums from different users never collide
+    const key = `${userId}:${mediaGroupId}`;
+
+    if (!pendingGroups.has(key)) {
       // Rate limit on first item only
       const [allowed, retryAfter] = rateLimiter.check(userId);
       if (!allowed) {
@@ -132,19 +135,19 @@ export function createMediaGroupBuffer(config: MediaGroupConfig) {
         `${config.emoji} Receiving ${config.itemLabelPlural}...`
       );
 
-      pendingGroups.set(mediaGroupId, {
+      pendingGroups.set(key, {
         items: [itemPath],
         ctx,
         caption: ctx.message?.caption,
         statusMsg,
         timeout: setTimeout(
-          () => processGroup(mediaGroupId, processCallback),
+          () => processGroup(key, processCallback),
           MEDIA_GROUP_TIMEOUT
         ),
       });
     } else {
       // Add to existing group
-      const group = pendingGroups.get(mediaGroupId)!;
+      const group = pendingGroups.get(key)!;
       group.items.push(itemPath);
 
       // Update caption if this message has one
@@ -155,7 +158,7 @@ export function createMediaGroupBuffer(config: MediaGroupConfig) {
       // Reset timeout
       clearTimeout(group.timeout);
       group.timeout = setTimeout(
-        () => processGroup(mediaGroupId, processCallback),
+        () => processGroup(key, processCallback),
         MEDIA_GROUP_TIMEOUT
       );
     }
