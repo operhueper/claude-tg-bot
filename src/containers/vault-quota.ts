@@ -12,7 +12,7 @@
  * because container has read-only root + 128 MB tmpfs anyway.
  */
 
-import { execSync } from "child_process";
+import { execFileSync } from "node:child_process";
 import * as fs from "fs";
 
 export const VAULT_QUOTA_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
@@ -46,7 +46,7 @@ export function checkVaultQuota(userId: number): QuotaResult {
 
   let sizeBytes = 0;
   try {
-    const out = execSync(`du -sb ${vaultPath} 2>/dev/null || echo "0"`, {
+    const out = execFileSync("du", ["-sb", vaultPath], {
       encoding: "utf8",
       timeout: 5000,
     });
