@@ -57,6 +57,7 @@ fi
 for PORT in 465 587; do
   # NEW соединения, превысившие лимит — NFLOG + DROP
   if ! rule_exists "$CHAIN_SMTP" -p tcp --dport "$PORT" \
+      -m state --state NEW \
       -m hashlimit --hashlimit-mode srcip \
       --hashlimit-above 30/hour \
       --hashlimit-burst 5 \
@@ -72,6 +73,7 @@ for PORT in 465 587; do
     log "TCP/${PORT} rate-exceed → NFLOG"
   fi
   if ! rule_exists "$CHAIN_SMTP" -p tcp --dport "$PORT" \
+      -m state --state NEW \
       -m hashlimit --hashlimit-mode srcip \
       --hashlimit-above 30/hour \
       --hashlimit-burst 5 \
