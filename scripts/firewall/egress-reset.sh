@@ -28,13 +28,23 @@ fi
 # ── Обновить базовые значения счётчиков iptables (текущее = новый ноль) ───────
 
 # Читаем текущие абсолютные байты из iptables и записываем как новую базу
-iptables -nvxL CLAUDE_TRAFFIC_COUNT 2>/dev/null | tail -n +3 | while read -r pkts bytes rest src dst; do
-  [[ "$src" == "0.0.0.0/0" || -z "$src" ]] && continue
-  IP="${src%%/*}"  # убрать маску /32
-  [[ "$IP" == "0.0.0.0" ]] && continue
-  BASE_FILE="${STATE_DIR}/base-${IP//./_}.byte"
-  echo "$bytes" > "$BASE_FILE"
-done
+# Колонки iptables -nvxL: pkts bytes target prot opt in out source destination
+# source = колонка 8, bytes = колонка 2
+GUEST_SUBNET=$(docker network inspect claude-guest-net --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)
+if [ -n "$GUEST_SUBNET" ]; then
+  SUBNET_PREFIX=$(echo "$GUEST_SUBNET" | cut -d'.' -f1,2,3)
+  iptables -L FORWARD -n -v -x 2>/dev/null | awk -v prefix="$SUBNET_PREFIX" '
+    $8 ~ prefix && $8 != "0.0.0.0/0" {
+      src = $8
+      sub(/\/[0-9]+$/, "", src)
+      print src, $2
+    }
+  ' | while read -r ip bytes; do
+    [[ -z "$ip" || "$ip" == "0.0.0.0" ]] && continue
+    BASE_FILE="${STATE_DIR}/base-${ip//./_}.byte"
+    echo "$bytes" > "$BASE_FILE"
+  done
+fi
 
 # ── Удалить state-файлы дня (счётчики и флаги нотификаций) ──────────────────
 
