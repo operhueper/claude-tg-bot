@@ -13,7 +13,7 @@
  *   *                 → 404
  */
 
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { getUserProfile, ALLOWED_USERS } from "./config";
 import {
   getUserTotals,
@@ -91,7 +91,12 @@ function validateInitData(initData: string): ValidatedInitData | null {
     .update(dataCheckString)
     .digest("hex");
 
-  if (expectedHash !== hash) return null;
+  if (expectedHash.length !== hash.length) return null;
+  const equal = timingSafeEqual(
+    Buffer.from(expectedHash, "hex"),
+    Buffer.from(hash, "hex")
+  );
+  if (!equal) return null;
 
   // Check auth_date is not older than 24 hours
   const authDateStr = params.get("auth_date");
