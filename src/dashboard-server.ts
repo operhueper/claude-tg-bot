@@ -35,7 +35,18 @@ import { renderDashboard } from "./templates/user-dashboard";
 // ---------------------------------------------------------------------------
 
 const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || "3848", 10);
+const NOTIFY_BRIDGE_PORT = parseInt(process.env.NOTIFY_BRIDGE_PORT || "3849", 10);
+const GUEST_SUBNET_PREFIX = process.env.GUEST_SUBNET_PREFIX || "172.18.";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+
+// Allowed users cache for notify-bridge validation
+let _allowedUsers: Set<number> | null = null;
+function getAllowedUsers(): Set<number> {
+  if (!_allowedUsers) {
+    _allowedUsers = new Set(ALLOWED_USERS);
+  }
+  return _allowedUsers;
+}
 
 // ---------------------------------------------------------------------------
 // Telegram initData validation
@@ -421,4 +432,104 @@ export function startDashboardServer(): void {
   });
 
   console.log(`Dashboard server listening on port ${DASHBOARD_PORT}`);
+
+  startNotifyBridge();
+}
+
+// ---------------------------------------------------------------------------
+// Notify bridge — internal HTTP endpoint for guest containers (port 3849)
+//
+// Guest scheduler POSTs { userId, message } here.
+// Bridge validates source IP is in the guest subnet, userId is an allowed
+// user, then forwards the message to Telegram via the bot token.
+// iptables allows claude-guest-net → host:3849; public access is blocked.
+// ---------------------------------------------------------------------------
+
+interface NotifyPayload {
+  userId: number;
+  message: string;
+}
+
+// Per-userId rate limit: max 20 notifies per minute
+const notifyCount = new Map<number, { count: number; resetAt: number }>();
+
+function checkNotifyRateLimit(userId: number): boolean {
+  const now = Date.now();
+  const entry = notifyCount.get(userId);
+  if (!entry || now >= entry.resetAt) {
+    notifyCount.set(userId, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= 20) return false;
+  entry.count++;
+  return true;
+}
+
+async function sendTelegramMessage(userId: number, text: string): Promise<void> {
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: userId, text }),
+  });
+  if (!resp.ok) {
+    const err = await resp.text().catch(() => "");
+    console.error(`[notify-bridge] Telegram error for ${userId}: ${err}`);
+  }
+}
+
+function startNotifyBridge(): void {
+  Bun.serve({
+    port: NOTIFY_BRIDGE_PORT,
+    async fetch(req) {
+      const url = new URL(req.url);
+
+      if (req.method !== "POST" || url.pathname !== "/notify") {
+        return new Response("Not Found", { status: 404 });
+      }
+
+      // Source IP validation — only accept from guest subnet
+      const sourceIp = req.headers.get("x-forwarded-for") ||
+        (req as any).remoteAddress ||
+        "";
+      if (!sourceIp.startsWith(GUEST_SUBNET_PREFIX)) {
+        console.warn(`[notify-bridge] rejected source IP: ${sourceIp}`);
+        return new Response("Forbidden", { status: 403 });
+      }
+
+      let body: NotifyPayload;
+      try {
+        body = await req.json() as NotifyPayload;
+      } catch {
+        return new Response("Bad Request", { status: 400 });
+      }
+
+      const { userId, message } = body;
+      if (typeof userId !== "number" || typeof message !== "string") {
+        return new Response("Bad Request", { status: 400 });
+      }
+
+      // Validate userId is a known allowed user
+      if (!getAllowedUsers().has(userId)) {
+        console.warn(`[notify-bridge] unknown userId: ${userId}`);
+        return new Response("Forbidden", { status: 403 });
+      }
+
+      if (!checkNotifyRateLimit(userId)) {
+        return new Response("Too Many Requests", { status: 429 });
+      }
+
+      const truncated = message.length > 4000 ? message.slice(0, 4000) + "…" : message;
+      await sendTelegramMessage(userId, truncated).catch((e) => {
+        console.error(`[notify-bridge] send error: ${e}`);
+      });
+
+      return new Response('{"ok":true}', {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+  });
+
+  console.log(`Notify bridge listening on port ${NOTIFY_BRIDGE_PORT}`);
 }

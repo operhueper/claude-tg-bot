@@ -72,6 +72,9 @@ RUN mkdir -p /tmp/dropbox
 COPY scripts/daemon-runner/daemon-runner /usr/local/bin/daemon-runner
 RUN chmod +x /usr/local/bin/daemon-runner
 
+COPY scripts/scheduler/scheduler /usr/local/bin/bot-scheduler
+RUN chmod +x /usr/local/bin/bot-scheduler
+
 # Non-root sandbox user for guest containers. uid/gid 1000 must match the
 # values manager.ts uses when chown'ing the bind-mounted vault/dropbox on
 # the host — otherwise the sandbox user can't write to its own workdir.

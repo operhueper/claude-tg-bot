@@ -237,6 +237,25 @@ export function bootstrapNewGuestDir(userId: number): void {
     if (!existsSync(topicsIndex)) {
       writeFileSync(topicsIndex, `# Индекс тем\n\n<!-- тема | файлы -->\n`);
     }
+
+    // .daemons.yaml — default system daemons (scheduler as PID 1 child)
+    const daemonsYaml = `${vaultDir}/.daemons.yaml`;
+    if (!existsSync(daemonsYaml)) {
+      writeFileSync(
+        daemonsYaml,
+        [
+          "daemons:",
+          "  - name: bot-scheduler",
+          "    cmd: [\"/usr/local/bin/bot-scheduler\"]",
+          "    workdir: /workspace",
+          "    env:",
+          `      NOTIFY_USER_ID: "${userId}"`,
+          "      NOTIFY_BRIDGE_URL: \"http://172.18.0.1:3849/notify\"",
+          "    enabled: true",
+        ].join("\n") + "\n"
+      );
+      console.log(`Created ${daemonsYaml}`);
+    }
   } catch (error) {
     console.warn(`Failed to bootstrap new guest dir for ${userId}: ${error}`);
   }
@@ -719,15 +738,46 @@ sessions/ — история по темам:
 - Ресурсы ограничены — не запускай задачи которые требуют огромного объёма памяти
 - Если не уверен — спроси пользователя
 
-ПОСТОЯННЫЕ АВТОМАТИЗАЦИИ (до 3 штук на пользователя):
-- Программы, которые должны работать всегда (телеграм-боты, scheduler-задачи) — регистрируй в файле ${vaultDir}/.daemons.yaml
+ПОСТОЯННЫЕ АВТОМАТИЗАЦИИ (до 3 пользовательских бота + системный scheduler):
+- Программы, которые должны работать всегда (телеграм-боты) — регистрируй в файле ${vaultDir}/.daemons.yaml
+- Системный демон bot-scheduler уже там — не удаляй его. Слоты для твоих ботов: 3 штуки.
 - Формат: список объектов с полями name (уникальное), cmd (массив строк, не строка!), workdir (опционально), env (опционально), enabled: true
 - Пример: daemons: [{ name: my-bot, cmd: ["python3", "bots/main.py"], workdir: ${vaultDir}, enabled: true }]
 - После Write файла автоматизация запустится в течение 5 секунд. Логи в ${vaultDir}/logs/<name>.log
 - НЕ ЗАПУСКАЙ через nohup или & — не переживёт перезагрузку. Только через манифест.
 - ВАЖНО: ПЕРЕД enabled: true прогони команду один раз вручную через Bash (пример: cd workdir && python3 bots/main.py — подожди 5-10 сек, ctrl+C). Если упадёт сразу с ошибкой импорта/конфига — почини, и только потом включай. Это убирает ложные алерты «crashloop».
-- Лимит 3. Если у пользователя уже три — спроси какую отключить (поставь enabled: false или удали из списка).
+- Лимит 3 (не считая bot-scheduler). Если уже 3 — спроси какую отключить (поставь enabled: false или удали из списка).
+- Для создания своего телеграм-бота — читай скилл create_telegram_bot в ${vaultDir}/skills/create_telegram_bot.md
 - При 5+ падениях за 10 минут (с аптаймом ≥5 сек каждое) автоматизация уйдёт в STOPPED. Тогда читай ${vaultDir}/logs/<name>.log и чини.
+
+РАСПИСАНИЕ (cron из чата):
+- Когда пользователь говорит «каждый день в 9», «каждую пятницу», «напоминай каждый час» — создавай расписание через файл ${vaultDir}/.schedule.yaml
+- Формат файла (добавляй в список schedules):
+  \`\`\`yaml
+  schedules:
+    - name: morning_report         # уникальное имя (только a-z, 0-9, _)
+      cron: "0 9 * * *"            # мин час день месяц день_недели (0=вс)
+      cmd: ["python3", "/workspace/scripts/report.py"]
+      notify: true                 # true = пришли результат в Telegram
+      timeout: 300                 # секунд, опционально (по умолчанию 300)
+  \`\`\`
+- Примеры cron: "30 8 * * 1-5" (будни 8:30), "0 */2 * * *" (каждые 2ч), "0 18 * * 5" (пятница 18:00)
+- Расписание работает ВСЕГДА — даже когда пользователь не в чате. Результат придёт уведомлением.
+- Логи выполнения: ${vaultDir}/.schedule-runs/<name>-YYYY-MM-DD.log
+- Удалить задачу: убери её из списка в .schedule.yaml и сохрани файл
+- Если пользователь хочет проверить расписание: покажи содержимое файла .schedule.yaml
+
+ДОЛГИЕ ЗАДАЧИ (фоновый запуск):
+- Когда задача займёт больше 60 секунд (скачивание, анализ большого файла, конвертация видео) — запускай в фоне
+- Паттерн запуска:
+  \`\`\`bash
+  TASK_ID="task_$(date +%s)"
+  nohup bash -c 'python3 /workspace/scripts/analyse.py > /workspace/.tasks/'\${TASK_ID}'.log 2>&1 && echo done > /workspace/.tasks/'\${TASK_ID}'.status || echo error > /workspace/.tasks/'\${TASK_ID}'.status' &
+  echo "Запустил задачу \${TASK_ID}, пришлю результат когда готово"
+  \`\`\`
+- Сразу скажи пользователю «работаю, пришлю как готово» и не жди завершения
+- Результат (.log файл, первые 2000 символов) придёт автоматически в Telegram когда задача закончится
+- Если задача уже работает: покажи последние строки из .log файла
 
 ТВОИ ВОЗМОЖНОСТИ — у тебя ТОЧНО ЕСТЬ:
 - WebFetch — читать любую страницу в интернете, без оговорок

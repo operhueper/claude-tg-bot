@@ -59,6 +59,8 @@ ensure_drop_rule() {
 ensure_drop_rule 22   "claude-guest-block-ssh"
 ensure_drop_rule 3847 "claude-guest-block-health"
 ensure_drop_rule 3848 "claude-guest-block-dashboard"
+# Port 3849 (notify-bridge) is intentionally NOT blocked — guest containers
+# POST scheduler/task results here; bridge validates source subnet + userId.
 
 # ── 3. Блокировать Hetzner metadata endpoint из гостевых контейнеров ─────────
 
