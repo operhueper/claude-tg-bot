@@ -7,6 +7,32 @@ import type { StatusCallback } from "../types";
 import { getSession, getGroupSession } from "../session-registry";
 import { ALLOWED_USERS, GROUP_CHAT_ID } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
+
+// Separate rate limiter for group chats so personal quotas are not consumed by
+// group messages. Token bucket: 30 requests per 60 seconds per chat.
+const GROUP_RATE_LIMIT_REQUESTS = 30;
+const GROUP_RATE_LIMIT_WINDOW_MS = 60_000;
+const _groupBuckets = new Map<number, { tokens: number; lastUpdate: number }>();
+
+function checkGroupRateLimit(chatId: number): [allowed: boolean, retryAfter?: number] {
+  const maxTokens = GROUP_RATE_LIMIT_REQUESTS;
+  const refillRate = GROUP_RATE_LIMIT_REQUESTS / (GROUP_RATE_LIMIT_WINDOW_MS / 1000);
+  const now = Date.now();
+  let bucket = _groupBuckets.get(chatId);
+  if (!bucket) {
+    bucket = { tokens: maxTokens, lastUpdate: now };
+    _groupBuckets.set(chatId, bucket);
+  }
+  const elapsed = (now - bucket.lastUpdate) / 1000;
+  bucket.tokens = Math.min(maxTokens, bucket.tokens + elapsed * refillRate);
+  bucket.lastUpdate = now;
+  if (bucket.tokens >= 1) {
+    bucket.tokens -= 1;
+    return [true];
+  }
+  const retryAfter = (1 - bucket.tokens) / refillRate;
+  return [false, retryAfter];
+}
 import { requestAccess } from "../containers/invites";
 import {
   auditLog,
@@ -247,8 +273,11 @@ export async function handleText(ctx: Context): Promise<void> {
     return;
   }
 
-  // 3. Rate limit check
-  const [allowed, retryAfter] = rateLimiter.check(userId);
+  // 3. Rate limit check — group chats use a separate limiter so personal
+  //    quotas are not consumed by group messages.
+  const [allowed, retryAfter] = inGroup
+    ? checkGroupRateLimit(chatId)
+    : rateLimiter.check(userId);
   if (!allowed) {
     await auditLogRateLimit(userId, username, retryAfter!);
     const waitSec = Math.ceil(retryAfter!);
