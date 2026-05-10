@@ -31,6 +31,9 @@ const AUDIO_EXTENSIONS = [
   ".wma",
 ];
 
+// Whitelist of safe extensions for downloaded audio filenames
+const ALLOWED_AUDIO_EXTENSIONS = new Set(["mp3", "m4a", "ogg", "wav", "aac", "flac", "opus", "wma"]);
+
 /**
  * Check if a file is an audio file by extension or mime type.
  */
@@ -182,7 +185,8 @@ export async function handleAudio(ctx: Context): Promise<void> {
   try {
     const file = await ctx.getFile();
     const timestamp = Date.now();
-    const ext = audio.file_name?.split(".").pop() || "mp3";
+    const rawExt = (audio.file_name?.split(".").pop() || "mp3").toLowerCase();
+    const ext = ALLOWED_AUDIO_EXTENSIONS.has(rawExt) ? rawExt : "bin";
     audioPath = `${TEMP_DIR}/audio_${timestamp}.${ext}`;
 
     const response = await fetch(
