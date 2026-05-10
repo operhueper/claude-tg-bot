@@ -25,6 +25,7 @@
  *   Docker's default bridge is used — functional but less isolated.
  */
 
+import fs from "node:fs";
 import type { UserProfile } from "../config";
 import {
   SANDBOX_IMAGE,
@@ -158,17 +159,20 @@ export function buildRunArgs(profile: UserProfile): string[] {
     // (`apt install lxcfs && systemctl enable --now lxcfs`).
     // Mounted :ro — these are virtual files synthesised by lxcfs; write access
     // is meaningless and the :rw flag is misleading / unnecessarily permissive.
-    const lxcfsFiles = [
-      "cpuinfo",
-      "diskstats",
-      "meminfo",
-      "stat",
-      "swaps",
-      "uptime",
-      "loadavg",
-    ];
-    for (const f of lxcfsFiles) {
-      args.push("-v", `/var/lib/lxcfs/proc/${f}:/proc/${f}:ro`);
+    const lxcfsBase = "/var/lib/lxcfs/proc";
+    if (fs.existsSync(`${lxcfsBase}/meminfo`)) {
+      const lxcfsFiles = [
+        "cpuinfo",
+        "diskstats",
+        "meminfo",
+        "stat",
+        "swaps",
+        "uptime",
+        "loadavg",
+      ];
+      for (const f of lxcfsFiles) {
+        args.push("-v", `${lxcfsBase}/${f}:/proc/${f}:ro`);
+      }
     }
   }
 
