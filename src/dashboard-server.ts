@@ -14,7 +14,7 @@
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { getUserProfile, ALLOWED_USERS } from "./config";
+import { getUserProfile, ALLOWED_USERS, OWNER_USER_ID as OWNER_ID } from "./config";
 import {
   getUserTotals,
   getAllUsersTotals,
@@ -36,7 +36,6 @@ import { renderDashboard } from "./templates/user-dashboard";
 
 const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || "3848", 10);
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
-const OWNER_ID = 292228713;
 
 // ---------------------------------------------------------------------------
 // Telegram initData validation
