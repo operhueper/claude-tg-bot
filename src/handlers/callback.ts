@@ -88,6 +88,14 @@ export async function handleCallback(ctx: Context): Promise<void> {
   const requestId = parts[1]!;
   const optionIndex = parseInt(parts[2]!, 10);
 
+  // Validate requestId to prevent path traversal via crafted callback data
+  const REQUEST_ID_RE = /^[a-zA-Z0-9_-]{8,64}$/;
+  if (!REQUEST_ID_RE.test(requestId)) {
+    console.warn(`[callback] invalid requestId format: ${requestId}`);
+    await ctx.answerCallbackQuery("Ошибка");
+    return;
+  }
+
   // 3. Load request file — per-user scoped path only (no legacy fallback to
   //    avoid cross-user file access).
   const requestFile = `/tmp/ask-user-${userId}-${requestId}.json`;
