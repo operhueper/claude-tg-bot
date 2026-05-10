@@ -112,8 +112,13 @@ export class GraphStore {
       source_sessions: [],
     };
     g.nodes[id] = node;
-    // Update label index
+    // Update label index — cap at 10 000 entries to prevent unbounded growth.
     const key = normalizeLabel(sanitizedPartial.label);
+    if (Object.keys(g.label_index).length >= 10000) {
+      // Drop the first (oldest) key when the cap is reached.
+      const firstKey = Object.keys(g.label_index)[0];
+      if (firstKey !== undefined) delete g.label_index[firstKey];
+    }
     if (!g.label_index[key]) g.label_index[key] = [];
     g.label_index[key]!.push(id);
     return node;
