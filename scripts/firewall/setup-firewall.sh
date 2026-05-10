@@ -3,7 +3,12 @@
 # Запускать: sudo bash setup-firewall.sh
 set -euo pipefail
 
-CONTAINER_SUBNET="172.17.0.0/16"
+GUEST_SUBNET=$(docker network inspect claude-guest-net --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)
+if [ -z "$GUEST_SUBNET" ]; then
+    echo "ERROR: claude-guest-net не найдена. Сначала запусти scripts/firewall/setup-guest-network.sh"
+    exit 1
+fi
+CONTAINER_SUBNET="$GUEST_SUBNET"
 CHAIN_SMTP="CLAUDE_SMTP_BLOCK"
 CHAIN_TRAFFIC="CLAUDE_TRAFFIC_COUNT"
 

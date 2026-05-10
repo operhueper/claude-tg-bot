@@ -3,7 +3,12 @@
 # Запускается каждую минуту через systemd timer.
 set -euo pipefail
 
-CONTAINER_SUBNET_PREFIX="172.17."
+GUEST_SUBNET=$(docker network inspect claude-guest-net --format '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)
+if [ -z "$GUEST_SUBNET" ]; then
+    echo "ERROR: claude-guest-net не найдена. Сначала запусти scripts/firewall/setup-guest-network.sh"
+    exit 1
+fi
+CONTAINER_SUBNET_PREFIX=$(echo "$GUEST_SUBNET" | cut -d'.' -f1,2,3).
 CHAIN_TRAFFIC="CLAUDE_TRAFFIC_COUNT"
 STATE_DIR="/var/lib/claude-firewall"
 LOG_FILE="/var/log/claude-egress.log"
