@@ -31,6 +31,9 @@ export function getSession(userId: number): ClaudeSession {
 // Group chat session
 // ---------------------------------------------------------------------------
 
+// groupSession — единая сессия для всех групповых чатов.
+// Намеренно singleton: группа имеет общую историю, а не per-user.
+// Rate limiting для групп — через groupRateLimiter в text.ts.
 let groupSession: ClaudeSession | null = null;
 
 export function getGroupSession(): ClaudeSession {
