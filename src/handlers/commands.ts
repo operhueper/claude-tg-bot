@@ -498,6 +498,7 @@ export async function handleRetry(ctx: Context): Promise<void> {
     message: {
       ...ctx.message,
       text: message,
+      chat: ctx.message?.chat ?? ctx.chat,
     },
   } as Context;
 
