@@ -259,13 +259,13 @@ async function handleApiMe(req: Request): Promise<Response> {
 }
 
 async function handleApiAdminAll(req: Request): Promise<Response> {
-  let body: { initData?: unknown };
+  let body: { initData?: unknown; cursor?: unknown; limit?: unknown };
   try {
     const parsed = await req.json();
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
       return jsonErr("bad_request", 400);
     }
-    body = parsed as { initData?: unknown };
+    body = parsed as { initData?: unknown; cursor?: unknown; limit?: unknown };
   } catch {
     return jsonErr("bad_request", 400);
   }
@@ -296,50 +296,66 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
     containerByUserId.set(String(c.userId), c);
   }
 
-  const users = allTotals.map((t) => {
-    let label = `user-${t.userId}`;
-    let model = "";
-    try {
-      const uid = parseInt(t.userId, 10);
-      if (!isNaN(uid) && ALLOWED_USERS.includes(uid)) {
-        const p = getUserProfile(uid);
-        label = p.label || label;
-        model = p.model || "";
-      }
-    } catch {}
+  const allUsers = allTotals
+    .slice()
+    .sort((a, b) => Number(a.userId) - Number(b.userId))
+    .map((t) => {
+      let label = `user-${t.userId}`;
+      let model = "";
+      try {
+        const uid = parseInt(t.userId, 10);
+        if (!isNaN(uid) && ALLOWED_USERS.includes(uid)) {
+          const p = getUserProfile(uid);
+          label = p.label || label;
+          model = p.model || "";
+        }
+      } catch {}
 
-    const today = getUserTotals(t.userId, todayStart);
-    const c = containerByUserId.get(t.userId);
-    return {
-      userId: t.userId,
-      label,
-      model,
-      total: {
-        inputTokens: t.inputTokens,
-        outputTokens: t.outputTokens,
-        cacheReadTokens: t.cacheReadTokens,
-        cacheCreationTokens: t.cacheCreationTokens,
-        costUsd: t.costUsd,
-      },
-      today: {
-        inputTokens: today.inputTokens,
-        outputTokens: today.outputTokens,
-        cacheReadTokens: today.cacheReadTokens,
-        cacheCreationTokens: today.cacheCreationTokens,
-      },
-      container: c
-        ? {
-            exists: c.containerExists,
-            running: c.containerRunning,
-            ram: c.ram,
-            cpu: c.cpu,
-            disk: c.disk,
-          }
-        : null,
-    };
-  });
+      const today = getUserTotals(t.userId, todayStart);
+      const c = containerByUserId.get(t.userId);
+      return {
+        userId: t.userId,
+        label,
+        model,
+        total: {
+          inputTokens: t.inputTokens,
+          outputTokens: t.outputTokens,
+          cacheReadTokens: t.cacheReadTokens,
+          cacheCreationTokens: t.cacheCreationTokens,
+          costUsd: t.costUsd,
+        },
+        today: {
+          inputTokens: today.inputTokens,
+          outputTokens: today.outputTokens,
+          cacheReadTokens: today.cacheReadTokens,
+          cacheCreationTokens: today.cacheCreationTokens,
+        },
+        container: c
+          ? {
+              exists: c.containerExists,
+              running: c.containerRunning,
+              ram: c.ram,
+              cpu: c.cpu,
+              disk: c.disk,
+            }
+          : null,
+      };
+    });
 
-  return jsonOk({ ok: true, users, host, aggregate });
+  // Cursor-based pagination
+  const limit = Math.min(
+    typeof body.limit === "number" && body.limit > 0 ? Math.floor(body.limit) : 50,
+    200
+  );
+  const cursor = typeof body.cursor === "string" ? body.cursor : undefined;
+  const startIdx = cursor
+    ? allUsers.findIndex((u) => u.userId === cursor) + 1
+    : 0;
+  const page = allUsers.slice(startIdx, startIdx + limit);
+  const lastItem = page.length === limit ? page[page.length - 1] : undefined;
+  const nextCursor = lastItem?.userId;
+
+  return jsonOk({ ok: true, users: page, nextCursor, host, aggregate });
 }
 
 // ---------------------------------------------------------------------------
