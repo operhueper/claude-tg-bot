@@ -1,5 +1,6 @@
 [Unit]
 Description=Claude Bot Egress Monitor (per-container traffic accounting)
+Requires=claude-firewall.service
 After=claude-firewall.service
 
 [Service]
