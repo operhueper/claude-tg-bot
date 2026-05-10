@@ -317,51 +317,58 @@ export class ClaudeSession {
       }
     }
 
-    // ============== New guest users: route via DeepSeek (or OpenRouter for vision) ==============
+    // ============== Universal vision routing: all users with mediaHint go via OpenRouter Gemini ==============
+    if (mediaHint && process.env.OPENROUTER_API_KEY) {
+      console.log(
+        `[${this.profile.label}] Vision request — routing to OpenRouter Gemini`
+      );
+      const openrouterKey = isNewGuest(this.profile.userId)
+        ? getNewGuestOpenRouterKey(this.profile.userId)
+        : process.env.OPENROUTER_API_KEY;
+      const msgs = this.buildConversationHistory(messageToSend, mediaHint);
+      const response = await queryOpenRouter(
+        msgs,
+        this.profile.visionModel || "google/gemini-2.5-flash",
+        openrouterKey,
+        systemPromptWithMemory,
+        statusCallback,
+        null,
+        this.profile,
+        chatId
+      );
+      await statusCallback("segment_end", response, 0);
+      await statusCallback("done", "");
+      this.lastActivity = new Date();
+      return response || "Нет ответа от модели.";
+    }
+    if (mediaHint && !process.env.OPENROUTER_API_KEY) {
+      console.warn(
+        `[${this.profile.label}] Vision request but OPENROUTER_API_KEY is not set`
+      );
+      const errMsg =
+        "⚠️ OpenRouter ключ не настроен — обработка изображений недоступна.";
+      await statusCallback("segment_end", errMsg, 0);
+      await statusCallback("done", "");
+      return errMsg;
+    }
+    // ============== End universal vision routing ==============
+
+    // ============== New guest users: route via DeepSeek (or OpenRouter for text fallback) ==============
     if (isNewGuest(this.profile.userId)) {
       const deepseekKey = this.profile.deepseekApiKey;
 
-      if (deepseekKey && !mediaHint) {
+      if (deepseekKey) {
         // Text messages: use DeepSeek via Anthropic-compatible API with native Claude CLI tools
         console.log(
           `[${this.profile.label}] Using DeepSeek via Claude CLI (native tools)`
         );
         // Falls through to the standard query() path below with DeepSeek env injected
-      } else if (!deepseekKey) {
-        // No DeepSeek key — fall back to OpenRouter
+      } else {
+        // No DeepSeek key — fall back to OpenRouter for text
         const openrouterKey = getNewGuestOpenRouterKey(this.profile.userId);
         if (!openrouterKey) {
           const errMsg =
             "⚠️ Сервис временно недоступен. Обратись к администратору бота.";
-          await statusCallback("segment_end", errMsg, 0);
-          await statusCallback("done", "");
-          return errMsg;
-        }
-        // Use OpenRouter for vision fallback
-        const msgs = this.buildConversationHistory(messageToSend, mediaHint);
-        const response = await queryOpenRouter(
-          msgs,
-          this.profile.visionModel || "google/gemini-2.5-flash",
-          openrouterKey,
-          systemPromptWithMemory,
-          statusCallback,
-          null,
-          this.profile,
-          chatId
-        );
-        await statusCallback("segment_end", response, 0);
-        await statusCallback("done", "");
-        this.lastActivity = new Date();
-        return response || "Нет ответа от модели.";
-      } else if (mediaHint) {
-        // Photo/media: DeepSeek doesn't support vision → use OpenRouter Gemini
-        console.log(
-          `[${this.profile.label}] Vision request — routing to OpenRouter Gemini`
-        );
-        const openrouterKey = getNewGuestOpenRouterKey(this.profile.userId);
-        if (!openrouterKey) {
-          const errMsg =
-            "⚠️ OpenRouter ключ не найден для обработки изображений.";
           await statusCallback("segment_end", errMsg, 0);
           await statusCallback("done", "");
           return errMsg;

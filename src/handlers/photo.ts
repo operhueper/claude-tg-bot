@@ -70,12 +70,12 @@ async function processPhotos(
   if (photoPaths.length === 1) {
     prompt = caption
       ? `[Photo: ${photoPaths[0]}]\n\n${caption}`
-      : `Please analyze this image: ${photoPaths[0]}`;
+      : `[Photo: ${photoPaths[0]}]`;
   } else {
     const pathsList = photoPaths.map((p, i) => `${i + 1}. ${p}`).join("\n");
     prompt = caption
       ? `[Photos:\n${pathsList}]\n\n${caption}`
-      : `Please analyze these ${photoPaths.length} images:\n${pathsList}`;
+      : `[Photos:\n${pathsList}]`;
   }
 
   // Set conversation title (if new session)
