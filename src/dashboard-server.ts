@@ -240,7 +240,6 @@ async function handleApiMe(req: Request): Promise<Response> {
       label: profile.label || "",
       role,
       model: profile.model,
-      vaultDir: profile.workingDir,
       publicUrl: `https://proboi.site/u/${userId}/`,
     },
     today: {
