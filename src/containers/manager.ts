@@ -25,6 +25,7 @@ import { join } from "path";
 import { promisify } from "util";
 
 import type { UserProfile } from "../config";
+import { getNewGuestVaultDir } from "../config";
 import {
   BOT_DATA_DIR,
   containerName,
@@ -241,7 +242,7 @@ class ContainerManager {
     });
 
     const timeout = options.timeout ?? DEFAULT_EXEC_TIMEOUT_MS;
-    const cwd = options.cwd ?? "/workspace";
+    const cwd = options.cwd ?? getNewGuestVaultDir(userId);
 
     const dockerArgs = [
       "exec",
