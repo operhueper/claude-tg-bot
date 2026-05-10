@@ -957,8 +957,6 @@ export function getUserProfile(userId: number): UserProfile {
           ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
           ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
           ANTHROPIC_MODEL: "deepseek-chat",
-          // нужен Composio для google-workspace MCP
-          ...(process.env.COMPOSIO_API_KEY ? { COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY } : {}),
         }
       : undefined;
     const model = node?.model ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
