@@ -135,6 +135,17 @@ export async function handleText(ctx: Context): Promise<void> {
     return;
   }
 
+  // 1. Authorization check
+  if (!isAuthorized(userId, ALLOWED_USERS)) {
+    // In group chats, silently ignore unauthorized users (no spam)
+    if (isGroupChat(ctx)) {
+      return;
+    }
+
+    await requestAccess(ctx, message);
+    return;
+  }
+
   // Prepend replied-to message context if user is replying to something
   const replyMsg = ctx.message?.reply_to_message;
   if (replyMsg) {
@@ -149,17 +160,6 @@ export async function handleText(ctx: Context): Promise<void> {
       const truncated = replyText.length > 500 ? replyText.slice(0, 497) + "..." : replyText;
       message = `[В ответ на сообщение от ${replyFrom}: «${truncated}»]\n\n${message}`;
     }
-  }
-
-  // 1. Authorization check
-  if (!isAuthorized(userId, ALLOWED_USERS)) {
-    // In group chats, silently ignore unauthorized users (no spam)
-    if (isGroupChat(ctx)) {
-      return;
-    }
-
-    await requestAccess(ctx, message);
-    return;
   }
 
   // 1b. Group chat filter — decide if Claude should respond
