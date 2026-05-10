@@ -88,13 +88,9 @@ export async function handleCallback(ctx: Context): Promise<void> {
   const requestId = parts[1]!;
   const optionIndex = parseInt(parts[2]!, 10);
 
-  // 3. Load request file — try per-user path first (new format), fall back to
-  //    legacy path so buttons created before this fix still work.
-  const requestFileNew = `/tmp/ask-user-${userId}-${requestId}.json`;
-  const requestFileLegacy = `/tmp/ask-user-${requestId}.json`;
-  const requestFile = (await Bun.file(requestFileNew).exists())
-    ? requestFileNew
-    : requestFileLegacy;
+  // 3. Load request file — per-user scoped path only (no legacy fallback to
+  //    avoid cross-user file access).
+  const requestFile = `/tmp/ask-user-${userId}-${requestId}.json`;
   let requestData: {
     question: string;
     options: string[];
