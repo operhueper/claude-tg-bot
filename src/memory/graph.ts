@@ -75,14 +75,23 @@ export class GraphStore {
   }
 
   upsertNode(g: MemoryGraph, partial: Partial<MemoryNode> & { type: NodeType; label: string }): MemoryNode {
+    // Enforce field-length limits to limit prompt-injection surface area
+    const safeId = partial.id ? partial.id.slice(0, 100) : undefined;
+    const safeLabel = partial.label.slice(0, 200);
+    const safeData: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(partial.data ?? {})) {
+      safeData[k.slice(0, 50)] = typeof v === "string" ? v.slice(0, 100) : v;
+    }
+    const sanitizedPartial = { ...partial, ...(safeId !== undefined ? { id: safeId } : {}), label: safeLabel, data: safeData };
+
     const now = new Date().toISOString();
-    const existing = this.findNodeByLabel(g, partial.type, partial.label);
+    const existing = this.findNodeByLabel(g, sanitizedPartial.type, sanitizedPartial.label);
     if (existing) {
       // Merge data
-      Object.assign(existing.data, partial.data ?? {});
-      if (partial.tags) existing.tags = [...new Set([...existing.tags, ...partial.tags])];
-      if (partial.importance !== undefined && partial.importance > existing.importance) {
-        existing.importance = partial.importance;
+      Object.assign(existing.data, sanitizedPartial.data);
+      if (sanitizedPartial.tags) existing.tags = [...new Set([...existing.tags, ...sanitizedPartial.tags])];
+      if (sanitizedPartial.importance !== undefined && sanitizedPartial.importance > existing.importance) {
+        existing.importance = sanitizedPartial.importance;
       }
       existing.updated_at = now;
       return existing;
@@ -91,11 +100,11 @@ export class GraphStore {
     const id = ulid();
     const node: MemoryNode = {
       id,
-      type: partial.type,
-      label: partial.label,
-      data: partial.data ?? {},
-      tags: partial.tags ?? [],
-      importance: partial.importance ?? 0.5,
+      type: sanitizedPartial.type,
+      label: sanitizedPartial.label,
+      data: sanitizedPartial.data,
+      tags: sanitizedPartial.tags ?? [],
+      importance: sanitizedPartial.importance ?? 0.5,
       created_at: now,
       updated_at: now,
       last_mentioned_at: now,
@@ -104,7 +113,7 @@ export class GraphStore {
     };
     g.nodes[id] = node;
     // Update label index
-    const key = normalizeLabel(partial.label);
+    const key = normalizeLabel(sanitizedPartial.label);
     if (!g.label_index[key]) g.label_index[key] = [];
     g.label_index[key]!.push(id);
     return node;

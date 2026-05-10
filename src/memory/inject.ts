@@ -2,6 +2,19 @@ import type { MemoryGraph, GoalsFile, GoalType } from "./types";
 import { GraphStore } from "./graph";
 import { rankNodesByQuery } from "./relevance";
 
+/** Strip prompt-injection patterns before splicing node content into a system prompt. */
+function sanitizeForPrompt(s: unknown): string {
+  if (typeof s !== "string") return String(s ?? "").slice(0, 100);
+  return s
+    .slice(0, 500) // hard cap
+    .replace(/^#{1,6}\s/gm, "") // strip markdown headings
+    .replace(/^(SYSTEM:|INST:|<\|)/gm, "") // strip directive prefixes
+    .replace(/\[INST\]/g, "")
+    .replace(/\n{3,}/g, "\n\n") // collapse blank lines
+    .replace(/`{3,}/g, "") // strip code fences
+    .trim();
+}
+
 export interface MemoryContext {
   appendText: string;
   topNodeIds: string[];
@@ -35,8 +48,8 @@ export function buildMemoryContext(
     const typeOrder = ["daily", "weekly", "monthly", "yearly", "lifetime"];
     const sorted = activeGoals.sort((a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type));
     for (const g of sorted.slice(0, 5)) {
-      const deadline = g.deadline ? ` (до ${g.deadline})` : "";
-      parts.push(`- [${g.type}] ${g.title}${deadline}`);
+      const deadline = g.deadline ? ` (до ${sanitizeForPrompt(g.deadline)})` : "";
+      parts.push(`- [${g.type}] ${sanitizeForPrompt(g.title)}${deadline}`);
     }
     parts.push("");
   }
@@ -44,7 +57,7 @@ export function buildMemoryContext(
   if (recentAchievements.length > 0) {
     parts.push("### Недавние достижения");
     for (const a of recentAchievements) {
-      parts.push(`- ${a.title} (${a.date})`);
+      parts.push(`- ${sanitizeForPrompt(a.title)} (${sanitizeForPrompt(a.date)})`);
     }
     parts.push("");
   }
@@ -61,10 +74,10 @@ export function buildMemoryContext(
       const emoji = typeLabels[node.type] ?? "•";
       const dataStr = Object.entries(node.data)
         .slice(0, 3)
-        .map(([k, v]) => `${k}: ${v}`)
+        .map(([k, v]) => `${k}: ${sanitizeForPrompt(v)}`)
         .join(", ");
       const extra = dataStr ? ` — ${dataStr}` : "";
-      parts.push(`- ${emoji} ${node.label}${extra}`);
+      parts.push(`- ${emoji} ${sanitizeForPrompt(node.label)}${extra}`);
     }
   }
 
