@@ -20,7 +20,7 @@ if tc qdisc show dev "$IFACE" 2>/dev/null | grep -q "htb"; then
   tc class show dev "$IFACE" 2>/dev/null | awk '{print $3}' | grep -v "^$" | while read -r classid; do
     [[ "$classid" == "1:9999" ]] && continue
     [[ "$classid" == "1:0" ]] && continue
-    tc class del dev "$IFACE" classid "$classid" 2>/dev/null || true
+    tc class del dev "$IFACE" parent 1: classid "$classid" 2>/dev/null || true
   done
   log "tc throttle-классы сброшены"
 fi
