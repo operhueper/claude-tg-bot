@@ -5,9 +5,8 @@
  * (so they can manage the bot itself from inside the box).
  * Guests get a hardened container with cgroup limits and no docker.sock.
  *
- * The container itself just runs `sleep infinity` — the bot drives it via
- * `docker exec`. So no PORT/EXPOSE here, no entrypoint override. The image
- * (`claude-user-sandbox:latest`) is expected to default-cmd into sleep.
+ * The container runs daemon-runner as PID 1 (see Dockerfile.user). The bot
+ * drives execution via `docker exec`. No PORT/EXPOSE here, no entrypoint override.
  *
  * Network isolation for guests:
  *   Set CLAUDE_GUEST_NETWORK env var to a Docker network name to attach
