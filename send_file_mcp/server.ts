@@ -17,7 +17,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { readdirSync, statSync, existsSync } from "fs";
+import fs, { readdirSync, statSync, existsSync } from "fs";
 import { dirname } from "path";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB Telegram limit
@@ -129,41 +129,42 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     };
   }
 
-  // Validate file exists and check size
+  // Validate file exists, is a regular file, and check size
+  let fileStat: fs.Stats;
   try {
-    const file = Bun.file(filePath);
-    const size = file.size;
-
-    if (size === 0) {
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: buildNotFoundMessage(filePath),
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    if (size > MAX_FILE_SIZE) {
-      const sizeMB = (size / (1024 * 1024)).toFixed(1);
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: `Error: File too large (${sizeMB}MB). Telegram limit is 50MB.`,
-          },
-        ],
-        isError: true,
-      };
-    }
+    fileStat = fs.statSync(filePath);
   } catch {
     return {
       content: [
         {
           type: "text" as const,
-          text: `Error: Cannot access file: ${filePath}`,
+          text: buildNotFoundMessage(filePath),
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  if (!fileStat.isFile()) {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Error: ${filePath} не является обычным файлом`,
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const size = fileStat.size;
+  if (size > MAX_FILE_SIZE) {
+    const sizeMB = (size / (1024 * 1024)).toFixed(1);
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: `Error: File too large (${sizeMB}MB). Telegram limit is 50MB.`,
         },
       ],
       isError: true,
