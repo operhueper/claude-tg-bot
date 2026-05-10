@@ -118,14 +118,23 @@ Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-o
 - Этап 1: M-01/M-02 сняты — Anthropic модели не используются в боте вообще
 - Этап 3 SPEC: skill-pack (7 рецептов в `skills/`, bootstrap, промпт, migrate-skills.ts)
 - Этап 7 SPEC: web-публикация (промпт /public/ + URL)
+- Этапы 4-6 SPEC: scheduler + фоновые задачи + шаблон бота (3 коммита, ждёт деплоя)
 
-**⏳ ЖДЁТ «ок» для деплоя на прод (89.167.125.175):**
-- rsync + bun install + systemctl restart
-- Добавить `include /etc/nginx/snippets/rate-limiting.conf;` в nginx.conf http{}
-- Запустить `VAULT_BASE=/opt/vault bun scripts/migrate-skills.ts` для существующих гостей
+**⏳ ЖДЁТ «ок» для деплоя Этапов 4-6 на прод (89.167.125.175):**
+
+Деплой требует пересборки Docker-образа (добавлен scheduler binary):
+```
+rsync + bun install + systemctl restart
+docker build -t claude-user-sandbox:latest -f Dockerfile.user .   # пересборка образа
+VAULT_BASE=/opt/vault bun scripts/migrate-scheduler.ts             # добавить scheduler в .daemons.yaml гостей
+```
+
+Что войдёт (3 коммита от 2026-05-10):
+- fd42c35: scheduler binary (5.2MB linux/amd64), notify-bridge port 3849 в dashboard-server.ts, maxDaemons=5
+- aaa6b24: bootstrap .daemons.yaml, промпты РАСПИСАНИЕ + ДОЛГИЕ ЗАДАЧИ
+- 165d005: migrate-scheduler.ts, skills/background_tasks.md, skills/create_telegram_bot.md
 
 **🔴 Открыто (требует решений):**
-- Этапы 4-6 SPEC (scheduler, фоновые задачи, шаблон бота) — архитектурный review нужен
 - Subscription gate активация (текст отказа утверждён: «вы не подписаны на @ProBoiAI — подпишитесь прежде чем мы продолжим»)
 - AAAA DNS/IPv6 TLS для proboi.site
 - Тарифы и ребрендинг
