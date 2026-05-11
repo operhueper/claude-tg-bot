@@ -1018,7 +1018,7 @@ ${NAV_HTML}
 
   <div class="vs">
     <div class="vs__head vs__head--left">обычный чат-бот</div>
-    <div class="vs__head vs__head--right">О, мойКлод</div>
+    <div class="vs__head vs__head--right">Proboi</div>
 
     <div class="vs__row">
       <div class="vs__cell vs__cell--left">Забывает разговор, как только закрыл вкладку</div>
@@ -1118,7 +1118,7 @@ export function renderHowToSetupGuide(): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Как пользоваться ассистентом — О, мойКлод</title>
+<title>Как пользоваться ассистентом — Proboi</title>
 <meta name="description" content="Простые подсказки по всем фишкам бота: голос, файлы, память, почта, личная страничка, дашборд." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -1381,7 +1381,7 @@ ${SHARED_LOGO_SVG}
 <header class="g-nav">
   <a class="g-nav__brand" href="https://proboi.site/">
     <svg class="g-nav__logo" width="36" height="36" aria-hidden="true"><use href="#logo"/></svg>
-    О,&nbsp;мойКлод
+    Proboi
   </a>
   <a class="g-nav__cta" href="${TG_URL}" target="_blank" rel="noopener">
     <span class="label">Открыть в Telegram</span>
@@ -1740,7 +1740,7 @@ ${SHARED_LOGO_SVG}
           <!-- Бот -->
           <rect x="188" y="30" width="90" height="60" rx="12" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
           <use href="#logo" x="217" y="38" width="32" height="32"/>
-          <text x="233" y="80" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" fill="#14130F">мойКлод</text>
+          <text x="233" y="80" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" fill="#14130F">Proboi</text>
           <!-- Google Calendar -->
           <path d="M286 60 L320 60" stroke="#14130F" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>
           <rect x="286" y="25" width="86" height="70" rx="12" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
@@ -1937,7 +1937,7 @@ ${SHARED_LOGO_SVG}
 
 <!-- ── Footer ────────────────────────────────────────── -->
 <footer class="g-footer">
-  <span>© 2026 · О, мойКлод · <a href="https://proboi.site/">proboi.site</a></span>
+  <span>© 2026 · Proboi · <a href="https://proboi.site/">proboi.site</a></span>
 </footer>
 
 </body>
