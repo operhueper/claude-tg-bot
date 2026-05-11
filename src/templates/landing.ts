@@ -1,5 +1,5 @@
 /**
- * Landing page for proboi.site / "О, мойКлод" bot.
+ * Landing page for proboi.site / Proboi bot.
  *
  * Implementation of the Anthropic Design handoff bundle (kK4PqIqoB-rLyZ8URrFAFA).
  * Static CSS/JS assets live under src/templates/assets/ and are served by
@@ -53,7 +53,7 @@ const NAV_HTML = `
     <span class="nav__mark logo-mark" aria-hidden="true">
       <svg class="logo-mark__face" width="30" height="30"><use href="#logo"/></svg>
     </span>
-    <span class="nav__name">О, мой<em>Клод</em></span>
+    <span class="nav__name"><em>Proboi</em></span>
   </a>
   <nav class="nav__links">
     <a href="/#features">Возможности</a>
@@ -73,7 +73,7 @@ const FOOTER_HTML = `
       <span class="nav__mark logo-mark" aria-hidden="true">
         <svg class="logo-mark__face" width="22" height="22"><use href="#logo"/></svg>
       </span>
-      О, мойКлод&nbsp;· proboi.site
+      Proboi&nbsp;· proboi.site
     </div>
     <div class="footer__links">
       <a href="${TG_URL}" target="_blank" rel="noopener">@proboiAI_bot</a>
@@ -92,9 +92,9 @@ export function renderLanding(): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>О, мойКлод — песочница для твоего ИИ-ассистента</title>
+<title>Proboi — ИИ-ассистент в Telegram</title>
 <meta name="description" content="Песочница для создания твоего ИИ-ассистента. Личный помощник в Telegram. Помнит всё, работает с твоими документами и сервисами, может работать сам пока ты спишь." />
-<meta property="og:title" content="О, мойКлод — твой ИИ-ассистент в Telegram" />
+<meta property="og:title" content="Proboi — твой ИИ-ассистент в Telegram" />
 <meta property="og:description" content="Песочница для создания личного ИИ-помощника. Текст, голос, фото, документы. У каждого свой кусочек сервера. Доступ по приглашению." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://proboi.site" />
@@ -119,8 +119,7 @@ ${NAV_HTML}
     <div class="hero__copy">
       <div class="badge badge--lime">этот сайт собрал сам бот&nbsp;— пришлось повозиться, но теперь умеет</div>
       <h1 class="display">
-        О,<br/>
-        мой<span class="ink-stroke">Клод</span><span class="hero__punct">.</span>
+        <span class="ink-stroke">Proboi</span><span class="hero__punct">.</span>
       </h1>
       <p class="hero__desc">
         Песочница для создания твоего ИИ-ассистента.
@@ -148,7 +147,7 @@ ${NAV_HTML}
             <svg width="32" height="32"><use href="#logo"/></svg>
           </div>
           <div>
-            <div class="chat__name">О, мойКлод</div>
+            <div class="chat__name">Proboi</div>
             <div class="chat__status"><span class="dot dot--green"></span> печатает…</div>
           </div>
         </div>
