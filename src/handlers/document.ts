@@ -10,6 +10,7 @@ import { readdirSync, realpathSync, rmSync } from "fs";
 import path from "path";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR, inboxDirFor, getUserProfile } from "../config";
+import { acquireUserLock, isUserBusy } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
 import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
 import { upgradeKeyboard } from "../keyboards";
@@ -574,6 +575,15 @@ export async function handleDocument(ctx: Context): Promise<void> {
     }
   }
 
+  // Per-user lock — prevent two parallel requests from the same user
+  if (isUserBusy(userId)) {
+    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
+    return;
+  }
+  const releaseUserLock = await acquireUserLock(userId);
+
+  try {
+
   // 2. Check file size
   // Telegram Bot API hard limit: getFile() only works for files ≤ 20MB
   const TG_API_LIMIT = 20 * 1024 * 1024;
@@ -737,4 +747,8 @@ export async function handleDocument(ctx: Context): Promise<void> {
     username,
     processDocumentPaths
   );
+
+  } finally {
+    releaseUserLock();
+  }
 }

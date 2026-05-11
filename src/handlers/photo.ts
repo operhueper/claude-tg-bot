@@ -7,6 +7,7 @@
 import type { Context } from "grammy";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, inboxDirFor, getUserProfile } from "../config";
+import { acquireUserLock, isUserBusy } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
 import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
 import { upgradeKeyboard } from "../keyboards";
@@ -165,76 +166,87 @@ export async function handlePhoto(ctx: Context): Promise<void> {
     }
   }
 
-  // 2. For single photos, show status and rate limit early
-  let statusMsg: Awaited<ReturnType<typeof ctx.reply>> | null = null;
-  if (!mediaGroupId) {
-    console.log(`Received photo from @${username}`);
-    // Rate limit
-    const [allowed, retryAfter] = rateLimiter.check(userId);
-    if (!allowed) {
-      await auditLogRateLimit(userId, username, retryAfter!);
-      await ctx.reply(
-        `⏳ Rate limited. Please wait ${retryAfter!.toFixed(1)} seconds.`
-      );
+  // Per-user lock — prevent two parallel requests from the same user
+  if (isUserBusy(userId)) {
+    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
+    return;
+  }
+  const releaseUserLock = await acquireUserLock(userId);
+
+  try {
+    // 2. For single photos, show status and rate limit early
+    let statusMsg: Awaited<ReturnType<typeof ctx.reply>> | null = null;
+    if (!mediaGroupId) {
+      console.log(`Received photo from @${username}`);
+      // Rate limit
+      const [allowed, retryAfter] = rateLimiter.check(userId);
+      if (!allowed) {
+        await auditLogRateLimit(userId, username, retryAfter!);
+        await ctx.reply(
+          `⏳ Rate limited. Please wait ${retryAfter!.toFixed(1)} seconds.`
+        );
+        return;
+      }
+
+      // Show status immediately
+      statusMsg = await ctx.reply("📷 Processing image...");
+    }
+
+    // 3. Download photo
+    let photoPath: string;
+    try {
+      photoPath = await downloadPhoto(ctx, userId);
+    } catch (error) {
+      console.error("Failed to download photo:", error);
+      if (statusMsg) {
+        try {
+          await ctx.api.editMessageText(
+            statusMsg.chat.id,
+            statusMsg.message_id,
+            "❌ Failed to download photo."
+          );
+        } catch (editError) {
+          console.debug("Failed to edit status message:", editError);
+          await ctx.reply("❌ Failed to download photo.");
+        }
+      } else {
+        await ctx.reply("❌ Failed to download photo.");
+      }
       return;
     }
 
-    // Show status immediately
-    statusMsg = await ctx.reply("📷 Processing image...");
-  }
+    // 4. Single photo - process immediately
+    if (!mediaGroupId && statusMsg) {
+      await processPhotos(
+        ctx,
+        [photoPath],
+        ctx.message?.caption,
+        userId,
+        username,
+        chatId
+      );
 
-  // 3. Download photo
-  let photoPath: string;
-  try {
-    photoPath = await downloadPhoto(ctx, userId);
-  } catch (error) {
-    console.error("Failed to download photo:", error);
-    if (statusMsg) {
+      // Clean up status message
       try {
-        await ctx.api.editMessageText(
-          statusMsg.chat.id,
-          statusMsg.message_id,
-          "❌ Failed to download photo."
-        );
-      } catch (editError) {
-        console.debug("Failed to edit status message:", editError);
-        await ctx.reply("❌ Failed to download photo.");
+        await ctx.api.deleteMessage(statusMsg.chat.id, statusMsg.message_id);
+      } catch (error) {
+        console.debug("Failed to delete status message:", error);
       }
-    } else {
-      await ctx.reply("❌ Failed to download photo.");
+      return;
     }
-    return;
-  }
 
-  // 4. Single photo - process immediately
-  if (!mediaGroupId && statusMsg) {
-    await processPhotos(
+    // 5. Media group - buffer with timeout
+    if (!mediaGroupId) return; // TypeScript guard
+
+    await photoBuffer.addToGroup(
+      mediaGroupId,
+      photoPath,
       ctx,
-      [photoPath],
-      ctx.message?.caption,
       userId,
       username,
-      chatId
+      processPhotos
     );
-
-    // Clean up status message
-    try {
-      await ctx.api.deleteMessage(statusMsg.chat.id, statusMsg.message_id);
-    } catch (error) {
-      console.debug("Failed to delete status message:", error);
-    }
-    return;
+  } finally {
+    releaseUserLock();
   }
-
-  // 5. Media group - buffer with timeout
-  if (!mediaGroupId) return; // TypeScript guard
-
-  await photoBuffer.addToGroup(
-    mediaGroupId,
-    photoPath,
-    ctx,
-    userId,
-    username,
-    processPhotos
-  );
 }

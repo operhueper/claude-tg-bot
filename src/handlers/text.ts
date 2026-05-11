@@ -9,6 +9,7 @@ import { ALLOWED_USERS, GROUP_CHAT_ID, getUserProfile } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
 import { upgradeKeyboard } from "../keyboards";
+import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
 
 // Separate rate limiter for group chats so personal quotas are not consumed by
 // group messages. Token bucket: 30 requests per 60 seconds per chat.
@@ -271,6 +272,29 @@ export async function handleText(ctx: Context): Promise<void> {
       return; // Don't send to Claude
     }
   }
+  // Per-user lock — prevent two parallel requests from the same user.
+  // Group chats share the group session so no per-user lock needed there.
+  let releaseUserLock: (() => void) | null = null;
+  let releaseContainerSlot: (() => void) | null = null;
+
+  if (!inGroup) {
+    if (isUserBusy(userId)) {
+      await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
+      return;
+    }
+    releaseUserLock = await acquireUserLock(userId);
+
+    // Container slot for users with containers enabled
+    const _containerProfile = getUserProfile(userId);
+    if (_containerProfile.containerEnabled) {
+      const { queued } = getQueueStatus();
+      if (queued > 0) {
+        await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
+      }
+      releaseContainerSlot = await acquireContainerSlot();
+    }
+  }
+
   const session = inGroup ? getGroupSession() : getSession(userId);
 
   // 2. Check for interrupt prefix
@@ -450,5 +474,7 @@ export async function handleText(ctx: Context): Promise<void> {
     await state.cleanup();
     stopProcessing();
     typing.stop();
+    releaseContainerSlot?.();
+    releaseUserLock?.();
   }
 }

@@ -6,6 +6,7 @@ import type { Context } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE, getUserProfile } from "../config";
+import { acquireUserLock, isUserBusy } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
 import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
 import { upgradeKeyboard } from "../keyboards";
@@ -70,6 +71,13 @@ export async function handleVoice(ctx: Context): Promise<void> {
       incrementCount(userId);
     }
   }
+
+  // Per-user lock — prevent two parallel requests from the same user
+  if (isUserBusy(userId)) {
+    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
+    return;
+  }
+  const releaseUserLock = await acquireUserLock(userId);
 
   const session = getSession(userId);
 
@@ -157,6 +165,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
   } finally {
     stopProcessing();
     typing.stop();
+    releaseUserLock();
 
     // Clean up voice file
     if (voicePath) {
