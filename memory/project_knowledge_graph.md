@@ -2,26 +2,58 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
-## Состояние: 2026-05-11 — новый ROADMAP, YuKassa-фаза запланирована
+## Состояние: 2026-05-11 — YuKassa-фаза ВЫПОЛНЕНА, задеплоено на TEST (jinru)
 
-Граф пересчитан по seed-файлам 01–15. Размер: **162 узла, 146 рёбер, 31 сообщество**.  
-**Внимание:** graphify-input/ и graphify-out/ будут удалены в задаче 1 нового ROADMAP.
+11 коммитов сегодня (волны 1-4 + security fixes). Бот `@ORCH7_bot` активен на jinru.
 
-### Следующая фаза (ROADMAP.md, 11 задач, 4 волны)
+### Что сделано за эту сессию (2026-05-11)
 
-**Ключевые изменения:**
-- **YuKassa** заменяет Telegram Stars как единственную платёжную систему
-  - Тест-ключ: `test_ZsMGCLq7wsJnMh4RXuCFVeJQhGX8sdqVoZoOix3cH4Q`
-  - Триал: привязка карты (1 ₽) → 5 дней Профи → автосписание 499 ₽/мес
-  - Новые файлы: `src/engines/yukassa.ts`, вебхук в `dashboard-server.ts`
-- **Free-тир**: первый документ бесплатно, потом блок + CTA
-- **Юридические документы**: оферта + политика конф. для ИП Энбом К.С.
-- **Guide-страница**: полное наполнение `/how-to-setup` на proboi.site
+**Волна 1 (параллельно):**
+- `chore: remove stale docs` — удалены UNIFIED_ROADMAP, SPEC_PROMISE_DELIVERY, SECURITY_AUDIT, graphify-input/out/, archive/
+- `feat: YuKassa types + UserNode fields` — `YuKassaPayment`, `YuKassaWebhookEvent` в types.ts; новые поля `payment_method_id`, `trial_used`, `trial_activated_at`, `day4_push_sent`, `grace_period_until` в UserNode (user-registry.ts)
+- `feat: guide page /how-to-setup` — 22k chars, 12 секций «до/после», badge-pro, sticky CTA
+- `feat: legal pages` — `src/templates/oferta.ts` (renderOferta) + `src/templates/privacy.ts` (renderPrivacy), плейсхолдеры ОГРНИП/ИНН
 
-**Не выполнено, блокирует монетизацию:**
-- ИП не зарегистрировано (нет ОГРНИП/ИНН ИП)
-- YUKASSA_SHOP_ID не добавлен в .env
-- openrouter.ts: execSync блокирует event loop (риск под нагрузкой)
+**Волна 2:**
+- `feat: YuKassa payment flow` — `src/payments.ts` полностью переписан: `sendYuKassaBindingLink`, `handleYuKassaWebhook`, `activateSubscription`, `downgradeToFree`, `chargeExpiredTrials` (в tasks.ts), `/cancel` команда
+- `feat: webhook + subscribe routes` — `POST /webhook/yukassa`, `GET /subscribe?status=`, `GET /oferta`, `GET /privacy` в dashboard-server.ts
+
+**Волна 3:**
+- `feat: daily limit gate + free doc gate` — `isDailyLimitReached`/`getDailyUsage`/`incrementDailyUsage` + `hasFreeDocUsed`/`markFreeDocUsed`; text.ts + voice.ts + document.ts с upsell CTA
+- `feat: guide links + /cancel + dashboard` — кнопка guide в /start, /info, /status, dashboard; callback handlers для cancel_subscription; /cancel в baseCommands + config
+
+**Волна 4:**
+- `test: unit tests` — 30 тестов (payments.test.ts + daily-limit.test.ts), 100% pass
+- SCALING_NOTES.md + TESTING_CHECKLIST.md (не закоммичены — анализ)
+
+**Security fixes (post-review):**
+- `fix: security hardening` — 6 CVE закрыты:
+  - CRIT-2: cancel callback теперь очищает payment_method_id
+  - CRIT-1: webhook верифицирует платёж через GET /payments/{id} перед активацией
+  - HIGH-1: `ipInCidr` строгая 4-octet валидация
+  - HIGH-2: YuKassa error logs санитизированы (без тела ответа)
+  - HIGH-3: webhook проверяет userId в реестре перед активацией
+  - LOW-1: `randomUUID()` вместо `Math.random()` для idempotency keys
+
+### Не выполнено / следующая сессия
+
+**Обязательно перед PROD:**
+- Добавить `YUKASSA_SHOP_ID` в `.env` на обоих серверах
+- Заполнить ОГРНИП/ИНН в oferta.ts + privacy.ts после получения реквизитов банка
+- Добавить `YUKASSA_IP_CHECK=false` в .env на jinru (тест — IP check отключить для тестирования)
+- Провести ручное тестирование по TESTING_CHECKLIST.md (сценарии 1-13)
+
+**Технический долг (из SCALING_NOTES.md):**
+- `vault-quota.ts:62` — `execFileSync("du")` → async (блокирует event loop на cold start)
+- Upgrade jinru с 1 vCPU/1.9GB до минимум 2 vCPU/4GB перед 50+ пользователями
+- DeepSeek 429-retry при общем ключе и 20+ concurrent users
+- Persist daily limit counter в SQLite (сейчас теряется при рестарте)
+
+**Бэклог (из ROADMAP.md):**
+- `/council` как Telegram-команда для Профи
+- `/skills` + bootstrap при создании vault
+- Backup vault rsync cron
+- AAAA DNS/IPv6 TLS для proboi.site
 
 Seed-файлы удалены после задачи 1. Следующий graphify — после выполнения волны 4.
 
