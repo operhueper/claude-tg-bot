@@ -27,10 +27,13 @@ import {
   getGuestsAggregate,
 } from "./containers/metrics";
 import { getTodayCount, resetIfNewDay, nextResetAt } from "./daily-limit";
-import { getUserSubscriptionExpiry } from "./payments";
+import { getUserSubscriptionExpiry, handleYuKassaWebhook } from "./payments.js";
 
 import { renderLanding, renderHowToSetup } from "./templates/landing";
 import { renderDashboard } from "./templates/user-dashboard";
+import { renderOferta } from "./templates/oferta";
+import { renderPrivacy } from "./templates/privacy";
+import type { YuKassaWebhookEvent } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -48,6 +51,44 @@ function getAllowedUsers(): Set<number> {
     _allowedUsers = new Set(ALLOWED_USERS);
   }
   return _allowedUsers;
+}
+
+// ---------------------------------------------------------------------------
+// Bot reference (set by index.ts after bot is created)
+// ---------------------------------------------------------------------------
+
+import type { Bot } from "grammy";
+
+let _bot: Bot | null = null;
+
+export function registerDashboardBot(b: Bot): void {
+  _bot = b;
+}
+
+// ---------------------------------------------------------------------------
+// YuKassa IP allowlist
+// ---------------------------------------------------------------------------
+
+const YUKASSA_IPS = [
+  "185.71.76.0/27",
+  "185.71.77.0/27",
+  "77.75.153.0/25",
+  "77.75.156.11/32",
+  "77.75.156.35/32",
+];
+
+function ipInCidr(ip: string, cidr: string): boolean {
+  const slashIdx = cidr.indexOf("/");
+  const range = cidr.slice(0, slashIdx);
+  const bits = Number(cidr.slice(slashIdx + 1));
+  const mask = ~((1 << (32 - bits)) - 1);
+  const ipNum = ip.split(".").reduce((acc, oct) => (acc << 8) + Number(oct), 0);
+  const rangeNum = range.split(".").reduce((acc, oct) => (acc << 8) + Number(oct), 0);
+  return (ipNum & mask) === (rangeNum & mask);
+}
+
+function isYuKassaIp(ip: string): boolean {
+  return YUKASSA_IPS.some((cidr) => ipInCidr(ip, cidr));
 }
 
 // ---------------------------------------------------------------------------
@@ -386,6 +427,130 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// YuKassa webhook handler
+// ---------------------------------------------------------------------------
+
+async function handleYuKassaWebhookRoute(req: Request): Promise<Response> {
+  // IP check (disabled by default; enable with YUKASSA_IP_CHECK=true in env)
+  if (process.env.YUKASSA_IP_CHECK === "true") {
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "";
+    if (clientIp && !isYuKassaIp(clientIp)) {
+      console.warn(`[yukassa-webhook] rejected IP: ${clientIp}`);
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
+  let event: YuKassaWebhookEvent;
+  try {
+    event = await req.json() as YuKassaWebhookEvent;
+  } catch (err) {
+    console.error("[yukassa-webhook] failed to parse body:", err);
+    return new Response("OK", { status: 200 });
+  }
+
+  try {
+    await handleYuKassaWebhook(event, _bot);
+  } catch (err) {
+    console.error("[yukassa-webhook] handler error:", err);
+  }
+
+  return new Response("OK", { status: 200 });
+}
+
+// ---------------------------------------------------------------------------
+// Subscribe redirect page
+// ---------------------------------------------------------------------------
+
+function handleSubscribePage(req: Request): Response {
+  const url = new URL(req.url);
+  const status = url.searchParams.get("status");
+  const TG_URL = "https://t.me/proboiAI_bot";
+
+  let heading: string;
+  let body: string;
+
+  if (status === "success") {
+    heading = "Карта привязана!";
+    body = "Возвращайтесь в бот — там уже всё активировано.";
+  } else {
+    heading = "Оплата отменена.";
+    body = "Вы всегда можете вернуться.";
+  }
+
+  const html = `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>${heading} — Proboi</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --c-bg: #0E0D0B;
+    --c-surface: #1A1916;
+    --c-border: #2A2825;
+    --c-text: #F0EDE6;
+    --c-text-muted: #8A8680;
+    --c-accent: #FF7A48;
+    --font-display: 'Unbounded', sans-serif;
+    --font-body: 'Onest', sans-serif;
+  }
+  body {
+    background: var(--c-bg);
+    color: var(--c-text);
+    font-family: var(--font-body), sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 16px;
+    padding: 40px 32px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+  }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+  p { color: var(--c-text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 28px; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--c-accent);
+    color: #14130F;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: opacity .15s;
+  }
+  .btn:hover { opacity: .85; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>${heading}</h1>
+  <p>${body}</p>
+  <a class="btn" href="${TG_URL}">Открыть бот</a>
+</div>
+</body>
+</html>`;
+
+  return new Response(html, {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Server
 // ---------------------------------------------------------------------------
 
@@ -434,6 +599,26 @@ export function startDashboardServer(): void {
 
         if (method === "POST" && pathname === "/api/admin/all") {
           return await handleApiAdminAll(req);
+        }
+
+        if (method === "POST" && pathname === "/webhook/yukassa") {
+          return await handleYuKassaWebhookRoute(req);
+        }
+
+        if (method === "GET" && pathname === "/subscribe") {
+          return handleSubscribePage(req);
+        }
+
+        if (method === "GET" && pathname === "/oferta") {
+          return new Response(renderOferta(), {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        }
+
+        if (method === "GET" && pathname === "/privacy") {
+          return new Response(renderPrivacy(), {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
         }
 
         return new Response("Not Found", { status: 404 });

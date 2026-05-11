@@ -50,11 +50,11 @@ export async function handleCallback(ctx: Context): Promise<void> {
     return;
   }
 
-  // 2b. Pay upgrade button — re-send invoice for renewal
+  // 2b. Pay upgrade button — send YuKassa binding link
   if (callbackData === "pay_upgrade") {
-    const { sendSubscriptionInvoice } = await import("../payments");
+    const { sendYuKassaBindingLink } = await import("../payments.js");
     await ctx.answerCallbackQuery();
-    await sendSubscriptionInvoice(ctx);
+    await sendYuKassaBindingLink(ctx, userId);
     return;
   }
 

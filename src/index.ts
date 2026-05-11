@@ -35,6 +35,7 @@ import {
   handleRetry,
   handleDashboard,
   handlePay,
+  handleCancel,
   handleInfo,
   handleText,
   handleVoice,
@@ -44,17 +45,17 @@ import {
   handleVideo,
   handleCallback,
 } from "./handlers";
-import { handlePreCheckout, handleSuccessfulPayment } from "./payments";
 import { getRecentlyActiveUsers } from "./session-registry";
 import { setBotUsername } from "./group-filter";
 import { containerManager } from "./containers/manager";
-import { startDashboardServer } from "./dashboard-server";
+import { startDashboardServer, registerDashboardBot } from "./dashboard-server";
 import { registerAlertBot, notifyOwnerDM } from "./owner-alerts";
 import { startCrashloopWatcher } from "./crashloop-watcher";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
 registerAlertBot(bot);
+registerDashboardBot(bot);
 
 // Log when the bot is added to / removed from any chat — helps the owner
 // discover the channel id of the «проблемы пробоя» alerts channel: just add
@@ -174,12 +175,8 @@ bot.command("reloadbot", handleReloadBot);
 bot.command("retry", handleRetry);
 bot.command("dashboard", handleDashboard);
 bot.command("pay", handlePay);
+bot.command("cancel", handleCancel);
 bot.command("info", handleInfo);
-
-// ============== Payment Handlers ==============
-
-bot.on("pre_checkout_query", handlePreCheckout);
-bot.on("message:successful_payment", handleSuccessfulPayment);
 
 // ============== Message Handlers ==============
 
@@ -420,6 +417,11 @@ startDashboardServer();
 // ============== Crashloop watcher ==============
 
 startCrashloopWatcher();
+
+// ============== Subscription billing ==============
+
+import { chargeExpiredTrials } from "./tasks.js";
+setInterval(() => chargeExpiredTrials(bot).catch(console.error), 6 * 60 * 60 * 1000);
 
 // Start with concurrent runner (commands work immediately)
 const runner = run(bot);
