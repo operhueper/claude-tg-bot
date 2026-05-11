@@ -390,9 +390,22 @@ class ContainerManager {
     }
 
     if (state === "stopped") {
-      await this.dockerArgs(["start", containerName(userId)]);
-      this.log(userId, "started (was stopped)");
-      return;
+      try {
+        await this.dockerArgs(["start", containerName(userId)]);
+        this.log(userId, "started (was stopped)");
+        return;
+      } catch (err) {
+        // If the stopped container has broken lxcfs mounts it won't start.
+        // Remove and fall through to recreate without lxcfs.
+        const msg = (err as Error).message || "";
+        if (msg.includes("not a directory") || msg.includes("lxcfs")) {
+          this.log(userId, "stopped container has broken lxcfs mounts — removing to recreate");
+          try { await this.dockerArgs(["rm", "-f", containerName(userId)]); } catch {}
+          // fall through to create-from-scratch path below
+        } else {
+          throw err;
+        }
+      }
     }
 
     // state === "absent" — create from scratch.
@@ -441,8 +454,21 @@ class ContainerManager {
 
     // 2. docker run with the full spec.
     const args = buildRunArgs(profile);
-    this.log(userId, `creating container (${args.join(" ")})`);
-    await this.dockerArgs(args);
+    this.log(userId, `creating container`);
+    try {
+      await this.dockerArgs(args);
+    } catch (err) {
+      // lxcfs bind-mounts over /proc fail on some kernel/runc combinations
+      // when --read-only is used (error: "not a directory"). Retry without them.
+      const msg = (err as Error).message || "";
+      if (msg.includes("not a directory") || msg.includes("lxcfs")) {
+        this.log(userId, "lxcfs mount failed — retrying without lxcfs");
+        try { await this.dockerArgs(["rm", "-f", containerName(userId)]); } catch {}
+        await this.dockerArgs(buildRunArgs(profile, { skipLxcfs: true }));
+      } else {
+        throw err;
+      }
+    }
     this.log(userId, "created & running");
   }
 

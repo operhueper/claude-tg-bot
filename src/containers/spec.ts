@@ -42,7 +42,7 @@ const DEFAULT_GUEST_MEMORY_MB = 512;
 const GUEST_PIDS_OVERRIDES: Record<number, number> = {};
 const DEFAULT_GUEST_PIDS = 512;
 
-export function buildRunArgs(profile: UserProfile): string[] {
+export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean }): string[] {
   const userId = profile.userId;
   const isOwner = profile.isOwner;
 
@@ -177,28 +177,30 @@ export function buildRunArgs(profile: UserProfile): string[] {
     // (`apt install lxcfs && systemctl enable --now lxcfs`).
     // Mounted :ro — these are virtual files synthesised by lxcfs; write access
     // is meaningless and the :rw flag is misleading / unnecessarily permissive.
-    const lxcfsBase = "/var/lib/lxcfs/proc";
-    let lxcfsWorking = false;
-    try {
-      // existsSync is not enough — file may exist but fuse daemon may be down.
-      // readFileSync throws if the fuse mount is broken.
-      fs.readFileSync(`${lxcfsBase}/meminfo`, { encoding: "utf8" });
-      lxcfsWorking = true;
-    } catch {
-      lxcfsWorking = false;
-    }
-    if (lxcfsWorking) {
-      const lxcfsFiles = [
-        "cpuinfo",
-        "diskstats",
-        "meminfo",
-        "stat",
-        "swaps",
-        "uptime",
-        "loadavg",
-      ];
-      for (const f of lxcfsFiles) {
-        args.push("-v", `${lxcfsBase}/${f}:/proc/${f}:ro`);
+    if (!opts?.skipLxcfs) {
+      const lxcfsBase = "/var/lib/lxcfs/proc";
+      let lxcfsWorking = false;
+      try {
+        // existsSync is not enough — file may exist but fuse daemon may be down.
+        // readFileSync throws if the fuse mount is broken.
+        fs.readFileSync(`${lxcfsBase}/meminfo`, { encoding: "utf8" });
+        lxcfsWorking = true;
+      } catch {
+        lxcfsWorking = false;
+      }
+      if (lxcfsWorking) {
+        const lxcfsFiles = [
+          "cpuinfo",
+          "diskstats",
+          "meminfo",
+          "stat",
+          "swaps",
+          "uptime",
+          "loadavg",
+        ];
+        for (const f of lxcfsFiles) {
+          args.push("-v", `${lxcfsBase}/${f}:/proc/${f}:ro`);
+        }
       }
     }
   }

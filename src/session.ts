@@ -640,10 +640,6 @@ export class ClaudeSession {
                   console.warn(
                     `[${this.profile.label}] BLOCKED: ${reason}`
                   );
-                  await statusCallback(
-                    "tool",
-                    `BLOCKED: ${escapeHtml(reason)}`
-                  );
                   throw new Error(`Unsafe command blocked: ${reason}`);
                 }
               }
@@ -665,10 +661,6 @@ export class ClaudeSession {
                   ) {
                     console.warn(
                       `[${this.profile.label}] BLOCKED: File access outside allowed paths: ${filePath}`
-                    );
-                    await statusCallback(
-                      "tool",
-                      `Access denied: ${escapeHtml(filePath)}`
                     );
                     throw new Error(`File access blocked: ${filePath}`);
                   }

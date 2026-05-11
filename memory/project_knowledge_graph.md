@@ -2,7 +2,7 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
-## Состояние: 2026-05-10 — Этапы 4-6 задеплоены на прод (коммит `165d005`)
+## Состояние: 2026-05-11 — lxcfs retry fix + UX-чистка (коммит pending)
 
 Граф пересчитан по seed-файлам 01–15. Размер: **162 узла, 146 рёбер, 31 сообщество** (было 117/98/28). Обновлён вручную 2026-05-10 после деплоя на прод.
 
@@ -75,14 +75,33 @@ Seed-файлы: `graphify-input/01–15`. Визуализация: `graphify-o
 - mcp__connect-google и mcp__parallel добавлены в авто-мердж allow-листа (manager.ts)
 - `python-is-python3` добавлен в образ (2026-05-10): команда `python` теперь работает наравне с `python3`; промпт гостя обновлён
 
+### Изменения 2026-05-11
+
+**spec.ts:** `buildRunArgs(opts?: { skipLxcfs? })` — новый параметр для отключения lxcfs-монтов.
+
+**manager.ts (getOrStartUnlocked):**
+- При `docker run` с ошибкой "not a directory"/"lxcfs" → rm -f контейнер → retry `buildRunArgs(skipLxcfs: true)`.
+- При `docker start` (stopped state) с той же ошибкой → rm -f → fall through к create.
+- Причина: ядро `6.8.0-90` (jinru) не разрешает bind-mount lxcfs-файлов поверх `/proc` в `--read-only` контейнере. На проде (`6.8.0-71`) проблемы нет, но фикс там страхует при обновлении ядра.
+
+**session.ts:** убраны `statusCallback("tool", "Access denied: …")` и `statusCallback("tool", "BLOCKED: …")` — теперь только `console.warn`, пользователь не видит технических сообщений.
+
+**config.ts (buildNewGuestSafetyPrompt):** при недоступности `mcp__container__Bash` Claude пишет «Рабочая среда сейчас недоступна, попробуй через минуту» вместо технических объяснений.
+
+**Гейт подписки (subscription.ts):**
+- На проде активен: `REQUIRED_CHANNEL_ID=@ProBoiAI`, `REQUIRED_CHANNEL_URL=https://t.me/ProBoiAI`.
+- Позитивный кеш 5 мин (подписан), негативный 1 мин (не подписан).
+- Кнопка «Я подписался» → инвалидирует кеш мгновенно.
+- На jinru не активирован (переменная не задана).
+
 ### Server state
 
-Прод: **proboi-bot** (89.167.125.175, @proboiAI_bot). jinru.pro заморожен как бэкап ≥7 дней. Домен proboi.site → 89.167.125.175.
+Прод: **proboi-bot** (89.167.125.175, @proboiAI_bot). jinru — тест-сервер (`@ORCH7_bot`). Домен proboi.site → 89.167.125.175.
 
 ## Открытые задачи
 
 - [ ] Задеплоить uncommitted изменения (fast-path, orchestration hint, parallel mcp, модельные ограничения в промптах) на proboi-bot
-- [ ] Активировать subscription gate (REQUIRED_CHANNEL_ID=@ProBoiAI + REQUIRED_CHANNEL_URL)
+- [ ] ~~Активировать subscription gate~~ ✅ уже активен на проде
 - [ ] Протестировать mcp__parallel на живых пользователях
 - [ ] AAAA DNS/IPv6 TLS
 - [ ] hf_llm_mcp — найти модель с живыми провайдерами
