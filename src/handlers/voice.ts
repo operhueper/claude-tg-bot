@@ -3,13 +3,13 @@
  */
 
 import type { Context } from "grammy";
+import { InlineKeyboard } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE, getUserProfile } from "../config";
+import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE, getUserProfile, OWNER_USER_ID } from "../config";
 import { acquireUserLock, isUserBusy } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
-import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
-import { upgradeKeyboard } from "../keyboards";
+import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import {
   auditLog,
   auditLogRateLimit,
@@ -59,16 +59,23 @@ export async function handleVoice(ctx: Context): Promise<void> {
   // 4. Daily message limit for free-tier users
   {
     const profile = getUserProfile(userId);
-    if (profile.tierConfig.dailyMessageLimit !== null) {
-      resetIfNewDay(userId);
-      if (isLimitReached(userId, profile.tierConfig.dailyMessageLimit)) {
+    if (profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId)) {
+        const { limit } = getDailyUsage(userId);
         await ctx.reply(
-          `Лимит на сегодня исчерпан (${profile.tierConfig.dailyMessageLimit} сообщений).\n\nОформи подписку и пиши без ограничений 👇`,
-          { reply_markup: upgradeKeyboard() }
+          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n\n` +
+          `На тарифе Профи — без ограничений. Плюс документы, код, Google и многое другое.\n\n` +
+          `Привяжите карту — первые 5 дней бесплатно.`,
+          {
+            reply_markup: new InlineKeyboard()
+              .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
+              .row()
+              .url('Что даёт Профи →', 'https://proboi.site/how-to-setup'),
+          }
         );
         return;
       }
-      incrementCount(userId);
+      incrementDailyUsage(userId);
     }
   }
 

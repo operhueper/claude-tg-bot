@@ -6,14 +6,14 @@
  */
 
 import type { Context } from "grammy";
+import { InlineKeyboard } from "grammy";
 import { readdirSync, realpathSync, rmSync } from "fs";
 import path from "path";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR, inboxDirFor, getUserProfile } from "../config";
+import { ALLOWED_USERS, TEMP_DIR, inboxDirFor, getUserProfile, OWNER_USER_ID } from "../config";
 import { acquireUserLock, isUserBusy } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
-import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
-import { upgradeKeyboard } from "../keyboards";
+import { isDailyLimitReached, getDailyUsage, incrementDailyUsage, hasFreeDocUsed, markFreeDocUsed } from "../daily-limit";
 import { auditLog, auditLogRateLimit, replyFriendly, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { createMediaGroupBuffer, handleProcessingError } from "./media-group";
@@ -487,6 +487,21 @@ async function processDocuments(
       `[${documents.length} docs] ${caption || ""}`,
       response
     );
+
+    // Upsell after first free doc — fire-and-forget
+    const _docProfile = getUserProfile(userId);
+    if (_docProfile.tier !== 'paid' && userId !== OWNER_USER_ID) {
+      ctx.reply(
+        '📎 Документ обработан!\n\nНа бесплатном тарифе — 1 документ в сессию. ' +
+        'На Профи — без ограничений + код, Google Workspace, изображения и многое другое.',
+        {
+          reply_markup: new InlineKeyboard()
+            .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
+            .row()
+            .url('Посмотреть все возможности →', 'https://proboi.site/how-to-setup'),
+        }
+      ).catch(() => {});
+    }
   } catch (error) {
     await handleProcessingError(ctx, error, state.toolMessages);
   } finally {
@@ -550,28 +565,44 @@ export async function handleDocument(ctx: Context): Promise<void> {
   // 1b. Daily message limit for free-tier users
   {
     const _profile = getUserProfile(userId);
-    if (_profile.tierConfig.dailyMessageLimit !== null) {
-      resetIfNewDay(userId);
-      if (isLimitReached(userId, _profile.tierConfig.dailyMessageLimit)) {
+    if (_profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId)) {
+        const { limit } = getDailyUsage(userId);
         await ctx.reply(
-          `Лимит на сегодня исчерпан (${_profile.tierConfig.dailyMessageLimit} сообщений).\n\nОформи подписку и пиши без ограничений 👇`,
-          { reply_markup: upgradeKeyboard() }
+          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n\n` +
+          `На тарифе Профи — без ограничений. Плюс документы, код, Google и многое другое.\n\n` +
+          `Привяжите карту — первые 5 дней бесплатно.`,
+          {
+            reply_markup: new InlineKeyboard()
+              .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
+              .row()
+              .url('Что даёт Профи →', 'https://proboi.site/how-to-setup'),
+          }
         );
         return;
       }
-      incrementCount(userId);
+      incrementDailyUsage(userId);
     }
   }
 
-  // 1c. File handling is only available for paid-tier users
+  // 1c. Free doc gate — free-tier users get one document per session
   {
     const _profile = getUserProfile(userId);
-    if (!_profile.tierConfig.fileEnabled) {
-      await ctx.reply(
-        `Работа с файлами доступна только на тарифе Профи.\n\nОформи подписку 👇`,
-        { reply_markup: upgradeKeyboard() }
-      );
-      return;
+    if (_profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
+      if (hasFreeDocUsed(userId)) {
+        await ctx.reply(
+          'Работа с документами — функция тарифа Профи.\n\nПривяжи карту и получи 5 дней бесплатно 👇',
+          {
+            reply_markup: new InlineKeyboard()
+              .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
+              .row()
+              .url('Что даёт Профи →', 'https://proboi.site/how-to-setup#docs'),
+          }
+        );
+        return;
+      }
+      // First doc — allow but mark it so subsequent docs are gated
+      markFreeDocUsed(userId);
     }
   }
 

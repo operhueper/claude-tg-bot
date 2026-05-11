@@ -4,12 +4,19 @@
  * Counter is lost on bot restart — acceptable for MVP.
  */
 
+// Default free tier daily message limit (overridable via env)
+const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT ?? '10');
+
 interface DayCount {
   count: number;
   date: string; // YYYY-MM-DD in MSK
 }
 
 const dailyCounts = new Map<number, DayCount>();
+
+// Per-user flag: has this user already processed a document in this bot session?
+// Resets on bot restart (in-memory only, acceptable for MVP).
+const freeDocUsed = new Map<number, boolean>();
 
 function todayMsk(): string {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
@@ -56,4 +63,44 @@ export function nextResetAt(): string {
   // Adjust back to UTC: MSK is UTC+3, so subtract 3h
   const utcReset = new Date(tomorrow.getTime() - 3 * 60 * 60 * 1000);
   return utcReset.toISOString();
+}
+
+// ---------------------------------------------------------------------------
+// Convenience API used by text/voice handlers (Task 7)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns daily usage stats for a free-tier user.
+ * Uses FREE_DAILY_LIMIT as the limit.
+ */
+export function getDailyUsage(userId: number): { used: number; limit: number; remaining: number } {
+  resetIfNewDay(userId);
+  const used = getTodayCount(userId);
+  const limit = FREE_DAILY_LIMIT;
+  return { used, limit, remaining: Math.max(0, limit - used) };
+}
+
+/** Increment the daily counter for a user. */
+export function incrementDailyUsage(userId: number): void {
+  incrementCount(userId);
+}
+
+/** Returns true when the user has exhausted FREE_DAILY_LIMIT messages today. */
+export function isDailyLimitReached(userId: number): boolean {
+  resetIfNewDay(userId);
+  return getTodayCount(userId) >= FREE_DAILY_LIMIT;
+}
+
+// ---------------------------------------------------------------------------
+// Free doc gate (Task 7b)
+// ---------------------------------------------------------------------------
+
+/** Returns true if the user has already used their free document slot this session. */
+export function hasFreeDocUsed(userId: number): boolean {
+  return freeDocUsed.get(userId) === true;
+}
+
+/** Mark that this user has consumed their one free document slot. */
+export function markFreeDocUsed(userId: number): void {
+  freeDocUsed.set(userId, true);
 }

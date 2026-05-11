@@ -3,12 +3,12 @@
  */
 
 import type { Context } from "grammy";
+import { InlineKeyboard } from "grammy";
 import type { StatusCallback } from "../types";
 import { getSession, getGroupSession } from "../session-registry";
-import { ALLOWED_USERS, GROUP_CHAT_ID, getUserProfile } from "../config";
+import { ALLOWED_USERS, GROUP_CHAT_ID, getUserProfile, OWNER_USER_ID } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
-import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
-import { upgradeKeyboard } from "../keyboards";
+import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
 
 // Separate rate limiter for group chats so personal quotas are not consumed by
@@ -179,16 +179,31 @@ export async function handleText(ctx: Context): Promise<void> {
   // Daily message limit for free-tier users (skip group chats)
   if (!inGroup) {
     const _profile = getUserProfile(userId);
-    if (_profile.tierConfig.dailyMessageLimit !== null) {
-      resetIfNewDay(userId);
-      if (isLimitReached(userId, _profile.tierConfig.dailyMessageLimit)) {
+    if (_profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId)) {
+        const { limit } = getDailyUsage(userId);
         await ctx.reply(
-          `Лимит на сегодня исчерпан (${_profile.tierConfig.dailyMessageLimit} сообщений).\n\nОформи подписку и пиши без ограничений 👇`,
-          { reply_markup: upgradeKeyboard() }
+          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n\n` +
+          `На тарифе Профи — без ограничений. Плюс документы, код, Google и многое другое.\n\n` +
+          `Привяжите карту — первые 5 дней бесплатно.`,
+          {
+            reply_markup: new InlineKeyboard()
+              .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
+              .row()
+              .url('Что даёт Профи →', 'https://proboi.site/how-to-setup'),
+          }
         );
         return;
       }
-      incrementCount(userId);
+      incrementDailyUsage(userId);
+
+      // 80% warning: fire-and-forget when exactly 20% remain
+      const usage = getDailyUsage(userId);
+      if (usage.remaining === Math.ceil(usage.limit * 0.2) && usage.remaining > 0) {
+        ctx.reply(
+          `💡 Осталось ${usage.remaining} из ${usage.limit} бесплатных сообщений сегодня.\nХотите без лимитов? → /pay`
+        ).catch(() => {});
+      }
     }
   }
 
