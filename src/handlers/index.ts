@@ -12,6 +12,7 @@ export {
   handleReloadBot,
   handleRetry,
   handleDashboard,
+  handlePay,
 } from "./commands";
 export { handleText } from "./text";
 export { handleVoice } from "./voice";

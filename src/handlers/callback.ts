@@ -49,6 +49,14 @@ export async function handleCallback(ctx: Context): Promise<void> {
     return;
   }
 
+  // 2b. Pay upgrade button — re-send invoice for renewal
+  if (callbackData === "pay_upgrade") {
+    const { sendSubscriptionInvoice } = await import("../payments");
+    await ctx.answerCallbackQuery();
+    await sendSubscriptionInvoice(ctx);
+    return;
+  }
+
   const session = getSession(userId);
 
   // 2. Handle resume callbacks: resume:{session_id}

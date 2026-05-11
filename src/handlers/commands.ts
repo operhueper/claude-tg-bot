@@ -8,6 +8,7 @@
  */
 
 import type { Context } from "grammy";
+import { InlineKeyboard } from "grammy";
 import { execSync, execFileSync } from "child_process";
 import { existsSync, unlinkSync } from "fs";
 import { getSession } from "../session-registry";
@@ -22,6 +23,7 @@ import {
 import { isAuthorized } from "../security";
 import { replyFriendly } from "../utils";
 import { requestAccess } from "../containers/invites";
+import { sendSubscriptionInvoice, getUserSubscriptionExpiry } from "../payments";
 
 /** Reject command if the profile doesn't permit it. */
 function commandAllowed(userId: number, command: string): boolean {
@@ -497,4 +499,40 @@ export async function handleRetry(ctx: Context): Promise<void> {
   } as Context;
 
   await handleText(fakeCtx);
+}
+
+/**
+ * /pay — show subscription invoice or active subscription status.
+ */
+export async function handlePay(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!userId || !isAuthorized(userId, ALLOWED_USERS)) return;
+
+  const profile = getUserProfile(userId);
+
+  if (profile.tier === "paid") {
+    const expires = getUserSubscriptionExpiry(userId);
+    const expiresStr = expires
+      ? expires.toLocaleDateString("ru-RU", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "неизвестно";
+
+    await ctx.reply(
+      `✅ *Подписка Профи активна*\nДействует до: ${expiresStr}\n\nМожешь продлить заранее — новые 30 дней добавятся сверху.`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: new InlineKeyboard().text(
+          "⭐ Продлить — 250 Stars",
+          "pay_upgrade"
+        ),
+      }
+    );
+    return;
+  }
+
+  // Free user — send invoice
+  await sendSubscriptionInvoice(ctx);
 }

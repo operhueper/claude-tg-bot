@@ -34,6 +34,7 @@ import {
   handleReloadBot,
   handleRetry,
   handleDashboard,
+  handlePay,
   handleText,
   handleVoice,
   handlePhoto,
@@ -42,6 +43,7 @@ import {
   handleVideo,
   handleCallback,
 } from "./handlers";
+import { handlePreCheckout, handleSuccessfulPayment } from "./payments";
 import { getRecentlyActiveUsers } from "./session-registry";
 import { setBotUsername } from "./group-filter";
 import { containerManager } from "./containers/manager";
@@ -170,6 +172,12 @@ bot.command("restart", handleRestart);
 bot.command("reloadbot", handleReloadBot);
 bot.command("retry", handleRetry);
 bot.command("dashboard", handleDashboard);
+bot.command("pay", handlePay);
+
+// ============== Payment Handlers ==============
+
+bot.on("pre_checkout_query", handlePreCheckout);
+bot.on("message:successful_payment", handleSuccessfulPayment);
 
 // ============== Message Handlers ==============
 
@@ -225,6 +233,7 @@ console.log(`Container manager initialized for ${containerProfiles.length} user(
 // (safe for everyone). /reloadbot performs a full systemd restart and is owner-only.
 const baseCommands = [
   { command: "dashboard", description: "🧠 Second Brain — задачи и календарь" },
+  { command: "pay", description: "⭐ Оформить или продлить подписку" },
   { command: "new", description: "Start fresh session" },
   { command: "stop", description: "Stop current query" },
   { command: "status", description: "Show detailed status" },

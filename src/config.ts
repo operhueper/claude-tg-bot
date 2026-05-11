@@ -956,6 +956,7 @@ function buildGuestBaseEnv(): Record<string, string> {
 const OWNER_COMMANDS = new Set([
   "start",
   "dashboard",
+  "pay",
   "new",
   "stop",
   "status",
@@ -969,6 +970,7 @@ const OWNER_COMMANDS = new Set([
 const GUEST_COMMANDS = new Set([
   "start",
   "dashboard",
+  "pay",
   "new",
   "stop",
   "status",
