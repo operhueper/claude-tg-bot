@@ -24,6 +24,7 @@ import { isAuthorized } from "../security";
 import { replyFriendly } from "../utils";
 import { requestAccess } from "../containers/invites";
 import { sendSubscriptionInvoice, getUserSubscriptionExpiry } from "../payments";
+import { getTodayCount, resetIfNewDay } from "../daily-limit";
 
 /** Reject command if the profile doesn't permit it. */
 function commandAllowed(userId: number, command: string): boolean {
@@ -222,7 +223,43 @@ export async function handleStatus(ctx: Context): Promise<void> {
     lines.push(`\n📁 Рабочая папка: ✅`);
   }
 
-  await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+  // Tier & subscription info
+  {
+    resetIfNewDay(userId);
+    const dailyUsed = getTodayCount(userId);
+    const dailyLimit = profile.tierConfig.dailyMessageLimit;
+
+    lines.push(""); // пустая строка
+    if (profile.tier === "paid") {
+      const expires = getUserSubscriptionExpiry(userId);
+      const expiresStr = expires
+        ? expires.toLocaleDateString("ru-RU", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : "—";
+      lines.push(`💎 <b>Тариф:</b> Профи`);
+      lines.push(`📅 Подписка до: ${expiresStr}`);
+      lines.push(`💬 Сообщений: без ограничений`);
+    } else {
+      lines.push(`⬜ <b>Тариф:</b> Бесплатный`);
+      lines.push(`💬 Сообщений сегодня: ${dailyUsed} / ${dailyLimit ?? 10}`);
+    }
+  }
+
+  const keyboard = new InlineKeyboard()
+    .webApp("📊 Дашборд", "https://proboi.site/dashboard")
+    .row();
+
+  if (profile.tier === "free") {
+    keyboard.text("⭐ Подписка", "pay_upgrade");
+  }
+
+  await ctx.reply(lines.join("\n"), {
+    parse_mode: "HTML",
+    reply_markup: keyboard,
+  });
 }
 
 /**
