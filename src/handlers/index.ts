@@ -13,6 +13,7 @@ export {
   handleRetry,
   handleDashboard,
   handlePay,
+  handleCancel,
   handleInfo,
 } from "./commands";
 export { handleText } from "./text";

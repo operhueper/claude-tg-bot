@@ -23,7 +23,7 @@ import {
 import { isAuthorized } from "../security";
 import { replyFriendly } from "../utils";
 import { requestAccess } from "../containers/invites";
-import { sendSubscriptionInvoice, getUserSubscriptionExpiry } from "../payments";
+import { getUserSubscriptionExpiry, isTrialUsed, sendYuKassaBindingLink } from "../payments.js";
 import { getTodayCount, resetIfNewDay } from "../daily-limit";
 
 /** Reject command if the profile doesn't permit it. */
@@ -586,7 +586,7 @@ export async function handleInfo(ctx: Context): Promise<void> {
 }
 
 /**
- * /pay — show subscription invoice or active subscription status.
+ * /pay — show YuKassa binding link or active subscription status.
  */
 export async function handlePay(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
@@ -595,28 +595,53 @@ export async function handlePay(ctx: Context): Promise<void> {
   const profile = getUserProfile(userId);
 
   if (profile.tier === "paid") {
-    const expires = getUserSubscriptionExpiry(userId);
-    const expiresStr = expires
-      ? expires.toLocaleDateString("ru-RU", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })
-      : "неизвестно";
-
+    const expiry = getUserSubscriptionExpiry(userId);
+    const expiryStr = expiry ? expiry.toLocaleDateString('ru-RU') : 'неизвестно';
+    const kb = new InlineKeyboard().text('Отменить подписку', 'cancel_subscription');
     await ctx.reply(
-      `✅ *Подписка Профи активна*\nДействует до: ${expiresStr}\n\nМожешь продлить заранее — новые 30 дней добавятся сверху.`,
-      {
-        parse_mode: "Markdown",
-        reply_markup: new InlineKeyboard().text(
-          "⭐ Продлить — 250 Stars",
-          "pay_upgrade"
-        ),
-      }
+      `✅ У вас активна подписка Профи.\nДействует до: ${expiryStr}\nСледующее списание: 499 ₽`,
+      { reply_markup: kb }
     );
     return;
   }
 
-  // Free user — send invoice
-  await sendSubscriptionInvoice(ctx);
+  if (isTrialUsed(userId)) {
+    const kb = new InlineKeyboard()
+      .url('Оформить Профи — 499 ₽/мес', 'https://t.me/proboiAI_bot?start=pay')
+      .row()
+      .url('Что даёт Профи →', 'https://proboi.site/how-to-setup');
+    await ctx.reply('Ваш бесплатный пробный период уже был использован.\n\nОформите Профи — 499 ₽/мес:', { reply_markup: kb });
+    return;
+  }
+
+  try {
+    await sendYuKassaBindingLink(ctx, userId);
+  } catch (e) {
+    await replyFriendly(ctx, e, 'pay');
+  }
+}
+
+/**
+ * /cancel — cancel active subscription.
+ */
+export async function handleCancel(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!userId || !isAuthorized(userId, ALLOWED_USERS)) return;
+
+  const profile = getUserProfile(userId);
+
+  if (profile.tier !== 'paid') {
+    await ctx.reply('У вас нет активной подписки.');
+    return;
+  }
+
+  const expiry = getUserSubscriptionExpiry(userId);
+  const expiryStr = expiry ? expiry.toLocaleDateString('ru-RU') : 'конец периода';
+  const kb = new InlineKeyboard()
+    .text('Да, отменить', 'confirm_cancel_subscription')
+    .text('Нет, оставить', 'keep_subscription');
+  await ctx.reply(
+    `Вы уверены, что хотите отменить подписку?\n\nДоступ сохранится до ${expiryStr}.`,
+    { reply_markup: kb }
+  );
 }

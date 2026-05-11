@@ -51,6 +51,7 @@ import { containerManager } from "./containers/manager";
 import { startDashboardServer, registerDashboardBot } from "./dashboard-server";
 import { registerAlertBot, notifyOwnerDM } from "./owner-alerts";
 import { startCrashloopWatcher } from "./crashloop-watcher";
+import { chargeExpiredTrials } from "./tasks";
 
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
@@ -420,7 +421,6 @@ startCrashloopWatcher();
 
 // ============== Subscription billing ==============
 
-import { chargeExpiredTrials } from "./tasks.js";
 setInterval(() => chargeExpiredTrials(bot).catch(console.error), 6 * 60 * 60 * 1000);
 
 // Start with concurrent runner (commands work immediately)

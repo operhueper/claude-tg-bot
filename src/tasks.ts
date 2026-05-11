@@ -137,3 +137,98 @@ export function deletePendingTask(id: string): void {
     unlinkSync(`/tmp/task-${id}.json`);
   } catch {}
 }
+
+// ---------------------------------------------------------------------------
+// Subscription billing
+// ---------------------------------------------------------------------------
+
+import { InlineKeyboard } from "grammy";
+import { UserRegistry } from "./user-registry.js";
+import {
+  activateSubscription,
+  downgradeToFree,
+  SUBSCRIPTION_PRICE,
+  SUBSCRIPTION_DAYS,
+} from "./payments.js";
+import { chargeRecurring } from "./engines/yukassa.js";
+
+/**
+ * Charge users whose trial/subscription has expired.
+ * Run every 6 hours via setInterval in index.ts.
+ */
+export async function chargeExpiredTrials(bot: any): Promise<void> {
+  const users = UserRegistry.getAllUsers();
+  const now = new Date();
+
+  for (const user of users) {
+    if (user.tier !== 'paid' || !user.subscription_expires) continue;
+    const expiry = new Date(user.subscription_expires);
+    if (expiry > now) continue; // not expired yet
+
+    // Check grace period
+    if (user.grace_period_until) {
+      const graceEnd = new Date(user.grace_period_until);
+      if (graceEnd > now) continue; // still in grace period
+      // Grace period expired — downgrade
+      downgradeToFree(user.userId);
+      await bot.api.sendMessage(user.userId,
+        '😔 К сожалению, нам не удалось провести оплату. Доступ к Профи приостановлен.\n\n' +
+        'Чтобы восстановить подписку — /pay'
+      ).catch(() => {});
+      continue;
+    }
+
+    // Try to charge
+    const methodId = user.payment_method_id;
+    if (!methodId) {
+      downgradeToFree(user.userId);
+      continue;
+    }
+
+    try {
+      const payment = await chargeRecurring({
+        userId: user.userId,
+        paymentMethodId: methodId,
+        amount: SUBSCRIPTION_PRICE,
+        description: 'Proboi Профи — ежемесячная подписка',
+      });
+
+      if (payment.status === 'succeeded') {
+        await activateSubscription(user.userId, SUBSCRIPTION_DAYS);
+        const updated = UserRegistry.getUser(user.userId);
+        if (updated) UserRegistry.saveUser({ ...updated, grace_period_until: undefined });
+      } else {
+        // First failure — set grace period
+        const graceEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+        UserRegistry.saveUser({ ...user, grace_period_until: graceEnd.toISOString() });
+        await bot.api.sendMessage(user.userId,
+          '⚠️ Не удалось провести оплату за подписку Профи.\n\n' +
+          'У вас есть 48 часов для повторной попытки. Если оплата не пройдёт — доступ будет приостановлен.\n\n' +
+          '/pay — обновить карту'
+        ).catch(() => {});
+      }
+    } catch {
+      const graceEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+      UserRegistry.saveUser({ ...user, grace_period_until: graceEnd.toISOString() });
+    }
+  }
+
+  // Day-4 trial expiry push
+  for (const user of users) {
+    if (user.tier !== 'paid' || !user.trial_used || !user.trial_activated_at || user.day4_push_sent) continue;
+    const activatedAt = new Date(user.trial_activated_at);
+    const day4 = new Date(activatedAt.getTime() + 96 * 60 * 60 * 1000); // 96h = day 4
+    if (now < day4) continue;
+
+    await bot.api.sendMessage(user.userId,
+      'Ваш бесплатный Профи истекает завтра.\n\n' +
+      'Вы уже успели попробовать документы, голос и Google Docs.\n' +
+      'Завтра карта спишет 499 ₽ — и доступ продолжится.\n\n' +
+      'Хотите отменить — напишите /cancel',
+      { reply_markup: new InlineKeyboard().url('Что ещё можно сделать за сегодня →', 'https://proboi.site/how-to-setup') }
+    ).catch(() => {});
+
+    const updated = UserRegistry.getUser(user.userId);
+    if (updated) UserRegistry.saveUser({ ...updated, day4_push_sent: true });
+  }
+}
