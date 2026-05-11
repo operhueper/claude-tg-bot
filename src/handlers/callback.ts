@@ -104,14 +104,17 @@ export async function handleCallback(ctx: Context): Promise<void> {
   // 2e. Cancel subscription callbacks
   if (callbackData === "confirm_cancel_subscription") {
     const { getUserSubscriptionExpiry } = await import("../payments.js");
+    const { UserRegistry } = await import("../user-registry.js");
 
     const expiry = getUserSubscriptionExpiry(userId);
     const expiryStr = expiry ? expiry.toLocaleDateString("ru-RU") : "конец периода";
 
+    // Clear payment_method_id to stop recurring charges (access until expiry preserved)
+    const user = UserRegistry.getUser(userId);
+    if (user) UserRegistry.saveUser({ ...user, payment_method_id: undefined });
+
     await ctx.answerCallbackQuery();
-    await ctx.reply(
-      `✅ Подписка отменена. Доступ к Профи сохранится до ${expiryStr}.`
-    );
+    await ctx.reply(`✅ Подписка отменена. Доступ к Профи сохранится до ${expiryStr}.`);
     return;
   }
 

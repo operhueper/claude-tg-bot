@@ -11,8 +11,8 @@ import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { UserRegistry } from "./user-registry.js";
 import { alertNewSubscriber } from "./alerts.js";
-import { createBindingPayment, chargeRecurring } from "./engines/yukassa.js";
-import type { YuKassaWebhookEvent } from "./types.js";
+import { createBindingPayment, chargeRecurring, getPayment } from "./engines/yukassa.js";
+import type { YuKassaWebhookEvent, YuKassaPayment } from "./types.js";
 
 export const SUBSCRIPTION_PRICE = '499.00';
 export const SUBSCRIPTION_DAYS = 30;
@@ -105,6 +105,25 @@ export async function handleYuKassaWebhook(event: YuKassaWebhookEvent, bot: any)
   if (!userIdStr) return;
   const userId = Number(userIdStr);
   if (isNaN(userId)) return;
+
+  // Cross-verify against YuKassa API before acting on webhook
+  let verified: YuKassaPayment;
+  try {
+    verified = await getPayment(payment.id);
+  } catch (err) {
+    console.error('[webhook] failed to verify payment:', err);
+    return;
+  }
+  if (verified.status !== 'succeeded' && verified.status !== 'waiting_for_capture') return;
+  // Use verified metadata to prevent spoofing
+  const verifiedUserIdStr = verified.metadata?.userId;
+  if (!verifiedUserIdStr || Number(verifiedUserIdStr) !== userId) return;
+
+  // Only process for registered users
+  if (!UserRegistry.getUser(userId)) {
+    console.warn(`[webhook] userId ${userId} not in registry, ignoring`);
+    return;
+  }
 
   if (event.type === 'payment.succeeded') {
     const methodId = payment.payment_method?.saved ? payment.payment_method.id : undefined;

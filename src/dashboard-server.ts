@@ -78,12 +78,14 @@ const YUKASSA_IPS = [
 ];
 
 function ipInCidr(ip: string, cidr: string): boolean {
+  const octets = ip.split(".");
+  if (octets.length !== 4 || octets.some(o => !/^\d{1,3}$/.test(o) || Number(o) > 255)) return false;
   const slashIdx = cidr.indexOf("/");
   const range = cidr.slice(0, slashIdx);
   const bits = Number(cidr.slice(slashIdx + 1));
-  const mask = ~((1 << (32 - bits)) - 1);
-  const ipNum = ip.split(".").reduce((acc, oct) => (acc << 8) + Number(oct), 0);
-  const rangeNum = range.split(".").reduce((acc, oct) => (acc << 8) + Number(oct), 0);
+  const mask = (~((1 << (32 - bits)) - 1)) >>> 0;
+  const ipNum = octets.reduce((acc, oct) => (acc * 256 + Number(oct)) >>> 0, 0);
+  const rangeNum = range.split(".").reduce((acc, oct) => (acc * 256 + Number(oct)) >>> 0, 0);
   return (ipNum & mask) === (rangeNum & mask);
 }
 
@@ -431,8 +433,8 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
 // ---------------------------------------------------------------------------
 
 async function handleYuKassaWebhookRoute(req: Request): Promise<Response> {
-  // IP check (disabled by default; enable with YUKASSA_IP_CHECK=true in env)
-  if (process.env.YUKASSA_IP_CHECK === "true") {
+  // IP check (enabled by default; disable with YUKASSA_IP_CHECK=false in env)
+  if (process.env.YUKASSA_IP_CHECK !== "false") {
     const clientIp =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       req.headers.get("x-real-ip") ||
