@@ -5,6 +5,7 @@
  */
 
 import type { Context } from "grammy";
+import { InlineKeyboard } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, NEW_GUEST_USERS, bootstrapNewGuestDir, OWNER_USER_ID } from "../config";
@@ -54,6 +55,49 @@ export async function handleCallback(ctx: Context): Promise<void> {
     const { sendSubscriptionInvoice } = await import("../payments");
     await ctx.answerCallbackQuery();
     await sendSubscriptionInvoice(ctx);
+    return;
+  }
+
+  // 2c. /info tiers comparison
+  if (callbackData === "info_tiers") {
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `*Тарифы Proboi*\n\n` +
+        `*Бесплатный*\n` +
+        `• 10 сообщений в день\n` +
+        `• Текст, голос, фото\n` +
+        `• Бесплатно навсегда\n\n` +
+        `*Профи — 499₽/мес (250 Stars)*\n` +
+        `• Без ограничений\n` +
+        `• Свой контейнер для кода\n` +
+        `• Файлы и документы\n` +
+        `• Google Workspace\n` +
+        `• Генерация изображений`,
+      {
+        parse_mode: "Markdown",
+        reply_markup: new InlineKeyboard().text(
+          "⭐ Оформить Профи",
+          "pay_upgrade"
+        ),
+      }
+    );
+    return;
+  }
+
+  // 2d. /info howto
+  if (callbackData === "info_howto") {
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `*Как начать*\n\n` +
+        `Просто напиши мне что нужно — никакие команды не нужны.\n\n` +
+        `*Примеры:*\n` +
+        `• «Объясни что такое инфляция простыми словами»\n` +
+        `• «Напиши письмо клиенту об отсрочке»\n` +
+        `• «Что на этом фото?» — и прикрепи картинку\n` +
+        `• Надиктуй задачу — отправь голосовое\n\n` +
+        `Для работы с файлами — просто перешли документ.`,
+      { parse_mode: "Markdown" }
+    );
     return;
   }
 

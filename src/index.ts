@@ -35,6 +35,7 @@ import {
   handleRetry,
   handleDashboard,
   handlePay,
+  handleInfo,
   handleText,
   handleVoice,
   handlePhoto,
@@ -173,6 +174,7 @@ bot.command("reloadbot", handleReloadBot);
 bot.command("retry", handleRetry);
 bot.command("dashboard", handleDashboard);
 bot.command("pay", handlePay);
+bot.command("info", handleInfo);
 
 // ============== Payment Handlers ==============
 
@@ -234,6 +236,7 @@ console.log(`Container manager initialized for ${containerProfiles.length} user(
 const baseCommands = [
   { command: "dashboard", description: "🧠 Second Brain — задачи и календарь" },
   { command: "pay", description: "⭐ Оформить или продлить подписку" },
+  { command: "info", description: "Что умею и как помочь" },
   { command: "new", description: "Start fresh session" },
   { command: "stop", description: "Stop current query" },
   { command: "status", description: "Show detailed status" },

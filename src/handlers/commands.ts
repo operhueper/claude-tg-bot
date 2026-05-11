@@ -502,6 +502,50 @@ export async function handleRetry(ctx: Context): Promise<void> {
 }
 
 /**
+ * /info — interactive help with features and tiers comparison.
+ */
+export async function handleInfo(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!userId || !isAuthorized(userId, ALLOWED_USERS)) return;
+
+  const profile = getUserProfile(userId);
+  const isPaid = profile.tier === "paid";
+
+  const text =
+    `*Proboi — что умею*\n\n` +
+    `*Всегда доступно:*\n` +
+    `• Отвечаю на вопросы — объясняю, анализирую, советую\n` +
+    `• Пишу тексты: письма, посты, резюме, скрипты\n` +
+    `• Анализирую фото: что на картинке, текст с фото\n` +
+    `• Транскрибирую голосовые сообщения\n` +
+    `• Ищу информацию в интернете\n\n` +
+    `*На тарифе Профи:*\n` +
+    `• Запускаю код: Python, JavaScript, bash\n` +
+    `• Работаю с файлами: PDF, Word, Excel, архивы\n` +
+    `• Подключаю Google: Docs, Drive, Gmail, Календарь\n` +
+    `• Генерирую изображения по описанию\n` +
+    `• Помню контекст между сессиями\n\n` +
+    `*Твой тариф:* ${isPaid ? "✅ Профи" : "⬜ Бесплатный (10 сообщений/день)"}`;
+
+  const keyboard = new InlineKeyboard()
+    .text("📋 Сравнить тарифы", "info_tiers")
+    .row()
+    .text("🚀 Как начать", "info_howto")
+    .row();
+
+  if (!isPaid) {
+    keyboard.text("⭐ Перейти на Профи", "pay_upgrade").row();
+  }
+
+  keyboard.url("📖 Гайд", "https://proboi.site/how-to-setup");
+
+  await ctx.reply(text, {
+    parse_mode: "Markdown",
+    reply_markup: keyboard,
+  });
+}
+
+/**
  * /pay — show subscription invoice or active subscription status.
  */
 export async function handlePay(ctx: Context): Promise<void> {
