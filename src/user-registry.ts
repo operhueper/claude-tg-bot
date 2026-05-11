@@ -36,6 +36,16 @@ export interface UserNode {
   tier?: 'free' | 'paid';
   /** ISO date string when paid subscription expires. */
   subscription_expires?: string;
+  /** YuKassa saved payment method ID for recurring charges. */
+  payment_method_id?: string;
+  /** True if the user has already used their one-time trial. */
+  trial_used?: boolean;
+  /** ISO timestamp when the 5-day trial was activated. */
+  trial_activated_at?: string;
+  /** True if the day-4 trial expiry push was sent. */
+  day4_push_sent?: boolean;
+  /** ISO timestamp until which the user is in grace period after failed charge. */
+  grace_period_until?: string;
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");

@@ -111,3 +111,24 @@ export const TIER_CONFIGS: Record<UserTier, TierConfig> = {
     googleEnabled: true,
   },
 };
+
+export interface YuKassaPayment {
+  id: string;
+  status: 'pending' | 'waiting_for_capture' | 'succeeded' | 'canceled';
+  payment_method?: {
+    id: string;
+    saved: boolean;
+    type: string;
+    card?: { first6: string; last4: string; expiry_month: string; expiry_year: string };
+  };
+  confirmation?: { type: 'redirect'; confirmation_url: string };
+  amount: { value: string; currency: string };
+  created_at: string;
+  metadata?: Record<string, string>;
+}
+
+export interface YuKassaWebhookEvent {
+  type: 'payment.succeeded' | 'payment.canceled' | 'refund.succeeded';
+  event: string;
+  object: YuKassaPayment;
+}
