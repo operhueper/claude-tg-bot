@@ -9,6 +9,7 @@ import { homedir } from "os";
 import { resolve, dirname } from "path";
 import { mkdirSync, existsSync, writeFileSync, readFileSync, symlinkSync, readdirSync, copyFileSync } from "fs";
 import type { McpServerConfig } from "./types";
+import { type UserTier, type TierConfig, TIER_CONFIGS } from "./types";
 import { generateGuestClaudeMd } from "./templates/guest-claude-md";
 import { generateGuestDashboard } from "./templates/guest-dashboard";
 import { renderHowToSetupGuide } from "./templates/landing";
@@ -915,6 +916,10 @@ export interface UserProfile {
    * Owner leaves this undefined (unlimited).
    */
   maxTurns?: number;
+  /** Subscription tier: 'free' | 'paid'. Owner always 'paid'. */
+  tier: UserTier;
+  /** Tier config with limits and feature flags. */
+  tierConfig: TierConfig;
 }
 
 const RATE_LIMIT_REQUESTS_DEFAULT = parseInt(
@@ -998,6 +1003,8 @@ export function getGroupProfile(): UserProfile {
     allowedCommands: GROUP_COMMANDS,
     label: "Клод (группа)",
     timezone: "Asia/Shanghai",
+    tier: 'paid' as UserTier,
+    tierConfig: TIER_CONFIGS['paid'],
   };
 }
 
@@ -1049,6 +1056,9 @@ export function getUserProfile(userId: number): UserProfile {
     const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
     const allowedPaths = [vaultDir, "/tmp/telegram-bot"];
 
+    const rawTier: UserTier = (node?.tier === 'paid') ? 'paid' : 'free';
+    const tierConfig = TIER_CONFIGS[rawTier];
+
     return {
       userId,
       isOwner: false,
@@ -1073,13 +1083,15 @@ export function getUserProfile(userId: number): UserProfile {
       timezone: node?.timezone ?? "Europe/Moscow",
       deepseekApiKey,
       deepseekEnv,
-      containerEnabled: node?.containerEnabled ?? true,
+      containerEnabled: tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false,
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
       // to prevent "does not support this tool_choice" errors.
       disallowedTools: ["WebSearch"],
       // Cap tool-call rounds for DeepSeek guests to prevent slow search loops.
       // 20 turns covers complex coding tasks.
       maxTurns: 20,
+      tier: rawTier,
+      tierConfig,
     };
   }
 
@@ -1157,6 +1169,8 @@ export function getUserProfile(userId: number): UserProfile {
     deepseekEnv: ownerDeepseekEnv,
     disallowedTools: ownerDisallowedTools,
     maxTurns: ownerMaxTurns,
+    tier: 'paid' as UserTier,
+    tierConfig: TIER_CONFIGS['paid'],
   };
 }
 

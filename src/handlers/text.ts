@@ -5,8 +5,10 @@
 import type { Context } from "grammy";
 import type { StatusCallback } from "../types";
 import { getSession, getGroupSession } from "../session-registry";
-import { ALLOWED_USERS, GROUP_CHAT_ID } from "../config";
+import { ALLOWED_USERS, GROUP_CHAT_ID, getUserProfile } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
+import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
+import { upgradeKeyboard } from "../keyboards";
 
 // Separate rate limiter for group chats so personal quotas are not consumed by
 // group messages. Token bucket: 30 requests per 60 seconds per chat.
@@ -171,6 +173,22 @@ export async function handleText(ctx: Context): Promise<void> {
   }
 
   const inGroup = isGroupChat(ctx);
+
+  // Daily message limit for free-tier users (skip group chats)
+  if (!inGroup) {
+    const _profile = getUserProfile(userId);
+    if (_profile.tierConfig.dailyMessageLimit !== null) {
+      resetIfNewDay(userId);
+      if (isLimitReached(userId, _profile.tierConfig.dailyMessageLimit)) {
+        await ctx.reply(
+          `Лимит на сегодня исчерпан (${_profile.tierConfig.dailyMessageLimit} сообщений).\n\nОформи подписку и пиши без ограничений 👇`,
+          { reply_markup: upgradeKeyboard() }
+        );
+        return;
+      }
+      incrementCount(userId);
+    }
+  }
 
   // Task detection in group chat (only in the family group chat)
   if (inGroup && chatId === GROUP_CHAT_ID) {

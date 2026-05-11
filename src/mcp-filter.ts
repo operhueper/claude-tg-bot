@@ -38,6 +38,7 @@ export function mcpServersForProfile(profile: UserProfile): McpServersMap {
     // connect-google only makes sense when Composio is configured —
     // otherwise the OAuth flow can't complete. Drop it silently if not.
     if (key === "connect-google" && !composioApiKey) continue;
+    if (key === "connect-google" && !profile.tierConfig?.googleEnabled) continue;
     result[key] = value as McpServerConfig;
   }
 
@@ -49,7 +50,7 @@ export function mcpServersForProfile(profile: UserProfile): McpServersMap {
     result["container"] = buildContainerBashMcp(profile);
   }
 
-  if (googleWorkspaceMcp) {
+  if (googleWorkspaceMcp && profile.tierConfig?.googleEnabled) {
     result["google-workspace"] = googleWorkspaceMcp;
   }
 

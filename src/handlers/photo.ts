@@ -6,8 +6,10 @@
 
 import type { Context } from "grammy";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, inboxDirFor } from "../config";
+import { ALLOWED_USERS, inboxDirFor, getUserProfile } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
+import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
+import { upgradeKeyboard } from "../keyboards";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { createMediaGroupBuffer, handleProcessingError } from "./media-group";
@@ -145,6 +147,22 @@ export async function handlePhoto(ctx: Context): Promise<void> {
   if (!isAuthorized(userId, ALLOWED_USERS)) {
     await ctx.reply("Unauthorized. Contact the bot owner for access.");
     return;
+  }
+
+  // 1b. Daily message limit for free-tier users
+  {
+    const _profile = getUserProfile(userId);
+    if (_profile.tierConfig.dailyMessageLimit !== null) {
+      resetIfNewDay(userId);
+      if (isLimitReached(userId, _profile.tierConfig.dailyMessageLimit)) {
+        await ctx.reply(
+          `Лимит на сегодня исчерпан (${_profile.tierConfig.dailyMessageLimit} сообщений).\n\nОформи подписку и пиши без ограничений 👇`,
+          { reply_markup: upgradeKeyboard() }
+        );
+        return;
+      }
+      incrementCount(userId);
+    }
   }
 
   // 2. For single photos, show status and rate limit early

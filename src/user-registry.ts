@@ -32,6 +32,10 @@ export interface UserNode {
    * provisioned. Read at startup and on each profile lookup.
    */
   containerEnabled?: boolean;
+  /** Subscription tier. Default: 'free' for guests, always 'paid' for owner. */
+  tier?: 'free' | 'paid';
+  /** ISO date string when paid subscription expires. */
+  subscription_expires?: string;
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");

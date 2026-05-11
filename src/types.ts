@@ -80,3 +80,34 @@ export interface PendingMediaGroup {
 
 // Bot context with optional message
 export type BotContext = Context;
+
+// Tier system
+export type UserTier = 'free' | 'paid';
+
+export interface TierConfig {
+  tier: UserTier;
+  dailyMessageLimit: number | null;  // null = без лимита
+  containerEnabled: boolean;
+  voiceEnabled: boolean;
+  fileEnabled: boolean;
+  googleEnabled: boolean;
+}
+
+export const TIER_CONFIGS: Record<UserTier, TierConfig> = {
+  free: {
+    tier: 'free',
+    dailyMessageLimit: 10,
+    containerEnabled: false,
+    voiceEnabled: true,
+    fileEnabled: false,
+    googleEnabled: false,
+  },
+  paid: {
+    tier: 'paid',
+    dailyMessageLimit: null,
+    containerEnabled: true,
+    voiceEnabled: true,
+    fileEnabled: true,
+    googleEnabled: true,
+  },
+};

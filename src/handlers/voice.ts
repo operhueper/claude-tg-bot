@@ -5,8 +5,10 @@
 import type { Context } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE } from "../config";
+import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE, getUserProfile } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
+import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
+import { upgradeKeyboard } from "../keyboards";
 import {
   auditLog,
   auditLogRateLimit,
@@ -51,6 +53,22 @@ export async function handleVoice(ctx: Context): Promise<void> {
       `⏳ Rate limited. Please wait ${retryAfter!.toFixed(1)} seconds.`
     );
     return;
+  }
+
+  // 4. Daily message limit for free-tier users
+  {
+    const profile = getUserProfile(userId);
+    if (profile.tierConfig.dailyMessageLimit !== null) {
+      resetIfNewDay(userId);
+      if (isLimitReached(userId, profile.tierConfig.dailyMessageLimit)) {
+        await ctx.reply(
+          `Лимит на сегодня исчерпан (${profile.tierConfig.dailyMessageLimit} сообщений).\n\nОформи подписку и пиши без ограничений 👇`,
+          { reply_markup: upgradeKeyboard() }
+        );
+        return;
+      }
+      incrementCount(userId);
+    }
   }
 
   const session = getSession(userId);
