@@ -51,12 +51,15 @@ export async function handleStart(ctx: Context): Promise<void> {
   // First-time onboarding for new guests
   if (isNewGuest(userId) && !isNewGuestOnboarded(userId)) {
     await ctx.reply(
-      `👋 <b>Привет! Я Proboi — твой ИИ-ассистент прямо в Telegram.</b>\n\n` +
-        `Отвечаю на вопросы, анализирую документы, работаю с фото и голосом.\n\n` +
-        `<b>Бесплатно:</b> 10 сообщений в день\n` +
-        `<b>Подписка:</b> без лимитов + личный контейнер для кода\n\n` +
-        `Просто напиши что нужно — начнём 🚀`,
-      { parse_mode: "HTML" }
+      `👋 <b>Привет! Я Proboi — ИИ-ассистент прямо в Telegram.</b>\n\n` +
+        `Никаких кнопок и меню — просто напиши мне обычным текстом, как другу. Например:\n\n` +
+        `• <i>«Объясни простыми словами что такое инфляция»</i>\n` +
+        `• <i>«Напиши письмо клиенту об отсрочке платежа»</i>\n` +
+        `• <i>«Что на этом фото?»</i> — и прикрепи картинку\n` +
+        `• Отправь голосовое — я переведу и отвечу\n\n` +
+        `📖 <a href="https://proboi.site/how-to-setup">Полный гайд — все возможности и примеры</a>\n\n` +
+        `Напиши что-нибудь — и начнём 👆`,
+      { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
     );
     markNewGuestOnboarded(userId);
     return;
@@ -79,24 +82,24 @@ export async function handleStart(ctx: Context): Promise<void> {
   }
 
   const greeting = profile.isGuest
-    ? `🤖 <b>Proboi — твой ИИ-ассистент</b>\n\nТекст, голос, фото, документы — просто пиши.`
+    ? `🤖 <b>Proboi — твой ИИ-ассистент</b>\n\nПросто напиши что нужно — текстом, голосом или фото.`
     : `🤖 <b>Proboi</b>`;
 
   const workingDirLine = profile.isGuest
     ? ""
     : `Working directory: <code>${profile.workingDir}</code>\n`;
 
+  const guestHint = profile.isGuest
+    ? `\n📖 <a href="https://proboi.site/how-to-setup">Гайд — все возможности и примеры</a>\n`
+    : "";
+
   await ctx.reply(
     `${greeting}\n\n` +
-      `Status: ${status}\n` +
-      workingDirLine +
-      `\n<b>Commands:</b>\n` +
+      (profile.isGuest ? "" : `Status: ${status}\n` + workingDirLine + "\n") +
+      `<b>Команды:</b>\n` +
       commandLines.join("\n") +
-      `\n\n<b>Tips:</b>\n` +
-      `• Prefix with <code>!</code> to interrupt current query\n` +
-      `• Use "think" keyword for extended reasoning\n` +
-      `• Send photos, voice, or documents`,
-    { parse_mode: "HTML" }
+      guestHint,
+    { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
   );
 }
 
