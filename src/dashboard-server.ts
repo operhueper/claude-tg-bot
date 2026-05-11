@@ -26,6 +26,8 @@ import {
   getHostMetrics,
   getGuestsAggregate,
 } from "./containers/metrics";
+import { getTodayCount, resetIfNewDay, nextResetAt } from "./daily-limit";
+import { getUserSubscriptionExpiry } from "./payments";
 
 import { renderLanding, renderHowToSetup } from "./templates/landing";
 import { renderDashboard } from "./templates/user-dashboard";
@@ -243,6 +245,15 @@ async function handleApiMe(req: Request): Promise<Response> {
   const role: "owner" | "guest" =
     profile.isOwner ? "owner" : "guest";
 
+  // Daily message data for free-tier
+  resetIfNewDay(userId);
+  const dailyUsed = getTodayCount(userId);
+  const dailyLimit = profile.tierConfig.dailyMessageLimit;
+  const dailyResetAt = nextResetAt();
+
+  // Subscription expiry
+  const subExpiry = getUserSubscriptionExpiry(userId);
+
   return jsonOk({
     ok: true,
     user: {
@@ -266,6 +277,11 @@ async function handleApiMe(req: Request): Promise<Response> {
       disk: container.disk,
     },
     isAdmin: userId === OWNER_ID,
+    tier: profile.tier,
+    dailyUsed,
+    dailyLimit,
+    dailyResetAt,
+    subscriptionExpires: subExpiry ? subExpiry.toISOString() : null,
   });
 }
 

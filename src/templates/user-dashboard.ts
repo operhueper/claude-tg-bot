@@ -269,6 +269,60 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
     margin: 6px 0;
   }
   @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  .tier-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .tier-free { background: rgba(142,142,147,.2); color: var(--hint, #888); }
+  .tier-paid { background: rgba(52,199,89,.15); color: #34c759; }
+  .btn-upgrade {
+    margin-top: 14px;
+    background: linear-gradient(135deg, #FFB347, #FF6347);
+    color: #fff;
+    border: none;
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-secondary-tier {
+    background: rgba(120,120,128,.2);
+    color: inherit;
+    border: none;
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 15px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .limit-reset {
+    font-size: 11px;
+    color: var(--hint, #888);
+    margin-top: 6px;
+    margin-bottom: 10px;
+  }
+  .tier-progress-track {
+    width: 100%;
+    height: 6px;
+    background: rgba(120,120,128,.2);
+    border-radius: 3px;
+    margin: 8px 0;
+    overflow: hidden;
+  }
+  .tier-progress-fill {
+    height: 100%;
+    background: #FF6347;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
 </style>
 </head>
 <body>
@@ -326,7 +380,35 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
       <div class="header-model" id="user-model"></div>
     </div>
 
-    <!-- 2. Карточка токенов -->
+    <!-- 2. Карточка тарифа -->
+    <div class="card" id="tier-card">
+      <div class="card-title">Тариф</div>
+      <div class="tier-badge tier-free" id="tier-badge">Бесплатный</div>
+      <div id="tier-free-section">
+        <div style="display:flex;justify-content:space-between;font-size:14px">
+          <span style="color:var(--hint,#888)">Сообщений сегодня</span>
+          <span id="msg-count">— / 10</span>
+        </div>
+        <div class="tier-progress-track">
+          <div class="tier-progress-fill" id="msg-progress" style="width:0%"></div>
+        </div>
+        <div class="limit-reset" id="limit-reset">Обновится в 00:00 МСК</div>
+        <button class="btn-upgrade" onclick="openPayment()">⭐ Перейти на Профи — 250 Stars</button>
+      </div>
+      <div id="tier-paid-section" style="display:none">
+        <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:8px">
+          <span style="color:var(--hint,#888)">Подписка до</span>
+          <span id="sub-expires">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:14px">
+          <span style="color:var(--hint,#888)">Сообщений</span>
+          <span>Без ограничений</span>
+        </div>
+        <button class="btn-secondary-tier" id="renew-btn" onclick="openPayment()">⭐ Продлить подписку</button>
+      </div>
+    </div>
+
+    <!-- 3. Карточка токенов -->
     <div class="card" id="card-tokens">
       <div class="card-title">Сегодня</div>
       <div class="token-headline">
@@ -336,20 +418,20 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
       <div class="card-footnote">счётчик обнуляется в 00:00 по Москве; лимиты появятся позже</div>
     </div>
 
-    <!-- 3. Карточка ресурсов -->
+    <!-- 4. Карточка ресурсов -->
     <div class="card" id="card-resources">
       <div class="card-title">Сколько занято в твоём контейнере</div>
       <div id="res-content"></div>
     </div>
 
-    <!-- 4. Кнопки -->
+    <!-- 5. Кнопки -->
     <div class="btn-list">
       <a id="btn-public" class="btn btn-secondary" href="#" target="_blank">Открыть публичную страничку</a>
 
       <button class="btn btn-secondary" onclick="reloadData()">Обновить</button>
     </div>
 
-    <!-- 5. Админская секция -->
+    <!-- 6. Админская секция -->
     <div id="admin-section" style="display:none">
       <div class="admin-title">Нагрузка на сервер</div>
       <div class="card">
@@ -407,7 +489,12 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
       cpu: { percent: 15 },
       disk: { usedMb: 47 }
     },
-    isAdmin: true
+    isAdmin: true,
+    tier: 'free',
+    dailyUsed: 3,
+    dailyLimit: 10,
+    dailyResetAt: new Date(Date.now() + 6 * 3600 * 1000).toISOString(),
+    subscriptionExpires: null
   };
 
   const MOCK_ADMIN = {
@@ -479,6 +566,41 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
     document.getElementById('user-label').textContent = u.label || '';
     document.getElementById('user-role').textContent = roleLabel(u.role);
     document.getElementById('user-model').textContent = u.label ? '' : '';
+
+    // Tier card
+    if (data.tier === 'paid') {
+      document.getElementById('tier-badge').textContent = '✅ Профи';
+      document.getElementById('tier-badge').className = 'tier-badge tier-paid';
+      document.getElementById('tier-free-section').style.display = 'none';
+      document.getElementById('tier-paid-section').style.display = '';
+      if (data.subscriptionExpires) {
+        var exp = new Date(data.subscriptionExpires);
+        document.getElementById('sub-expires').textContent =
+          exp.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+        var daysLeft = Math.ceil((exp - new Date()) / 86400000);
+        if (daysLeft <= 5) {
+          document.getElementById('renew-btn').textContent = '⚠️ Истекает через ' + daysLeft + ' дн — продлить';
+        }
+      }
+    } else {
+      var used = data.dailyUsed || 0;
+      var limit = data.dailyLimit || 10;
+      var pct = Math.min(100, Math.round((used / limit) * 100));
+      document.getElementById('msg-count').textContent = used + ' / ' + limit;
+      var fillEl = document.getElementById('msg-progress');
+      fillEl.style.width = pct + '%';
+      if (pct >= 80) fillEl.style.background = '#ff453a';
+
+      if (data.dailyResetAt) {
+        var resetAt = new Date(data.dailyResetAt);
+        var minsLeft = Math.round((resetAt - new Date()) / 60000);
+        var hoursLeft = Math.floor(minsLeft / 60);
+        var label = hoursLeft > 0
+          ? 'через ' + hoursLeft + ' ч ' + (minsLeft % 60) + ' мин'
+          : 'через ' + minsLeft + ' мин';
+        document.getElementById('limit-reset').textContent = 'Обновится ' + label;
+      }
+    }
 
     // Token card — sum of input + output today
     var todayTotal = (t.inputTokens || 0) + (t.outputTokens || 0);
@@ -661,6 +783,14 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
       .catch(function() {
         showScreen('screen-error');
       });
+  }
+
+  function openPayment() {
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.openTelegramLink('https://t.me/proboiAI_bot?start=pay');
+    } else {
+      window.open('https://t.me/proboiAI_bot?start=pay', '_blank');
+    }
   }
 
   function reloadData() {
