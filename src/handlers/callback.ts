@@ -101,6 +101,50 @@ export async function handleCallback(ctx: Context): Promise<void> {
     return;
   }
 
+  // 2e. Cancel subscription callbacks
+  if (callbackData === "confirm_cancel_subscription") {
+    const { getUserSubscriptionExpiry } = await import("../payments.js");
+
+    const expiry = getUserSubscriptionExpiry(userId);
+    const expiryStr = expiry ? expiry.toLocaleDateString("ru-RU") : "конец периода";
+
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `✅ Подписка отменена. Доступ к Профи сохранится до ${expiryStr}.`
+    );
+    return;
+  }
+
+  if (callbackData === "keep_subscription") {
+    await ctx.answerCallbackQuery("Подписка сохранена!");
+    return;
+  }
+
+  if (callbackData === "cancel_subscription") {
+    const { getUserProfile } = await import("../config");
+    const { getUserSubscriptionExpiry } = await import("../payments.js");
+
+    const profile = getUserProfile(userId);
+    if (profile.tier !== "paid") {
+      await ctx.reply("У вас нет активной подписки.");
+      await ctx.answerCallbackQuery();
+      return;
+    }
+
+    const expiry = getUserSubscriptionExpiry(userId);
+    const expiryStr = expiry ? expiry.toLocaleDateString("ru-RU") : "конец периода";
+    const kb = new InlineKeyboard()
+      .text("Да, отменить", "confirm_cancel_subscription")
+      .text("Нет, оставить", "keep_subscription");
+
+    await ctx.answerCallbackQuery();
+    await ctx.reply(
+      `Вы уверены, что хотите отменить подписку?\n\nДоступ сохранится до ${expiryStr}.`,
+      { reply_markup: kb }
+    );
+    return;
+  }
+
   const session = getSession(userId);
 
   // 2. Handle resume callbacks: resume:{session_id}

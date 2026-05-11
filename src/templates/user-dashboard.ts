@@ -428,6 +428,8 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
     <div class="btn-list">
       <a id="btn-public" class="btn btn-secondary" href="#" target="_blank">Открыть публичную страничку</a>
 
+      <a href="https://proboi.site/how-to-setup" class="btn btn-secondary" target="_blank">📖 Открыть гайд</a>
+
       <button class="btn btn-secondary" onclick="reloadData()">Обновить</button>
     </div>
 

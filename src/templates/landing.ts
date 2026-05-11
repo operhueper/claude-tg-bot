@@ -1658,6 +1658,8 @@ ${SHARED_LOGO_SVG}
 <footer class="g-footer">
   <span>© 2026 · Proboi · <a href="https://proboi.site/">proboi.site</a></span>
   <a href="${TG_URL}" target="_blank" rel="noopener">@proboiAI_bot</a>
+  <a href="/oferta" style="color: var(--muted);">Публичная оферта</a>
+  <a href="/privacy" style="color: var(--muted);">Политика конфиденциальности</a>
 </footer>
 
 <!-- ── Sticky CTA ─────────────────────────────────────── -->

@@ -234,6 +234,7 @@ console.log(`Container manager initialized for ${containerProfiles.length} user(
 const baseCommands = [
   { command: "dashboard", description: "🧠 Second Brain — задачи и календарь" },
   { command: "pay", description: "⭐ Оформить или продлить подписку" },
+  { command: "cancel", description: "Отменить подписку" },
   { command: "info", description: "Что умею и как помочь" },
   { command: "new", description: "Start fresh session" },
   { command: "stop", description: "Stop current query" },

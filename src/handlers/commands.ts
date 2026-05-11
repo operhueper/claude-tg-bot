@@ -252,6 +252,8 @@ export async function handleStatus(ctx: Context): Promise<void> {
   }
 
   const keyboard = new InlineKeyboard()
+    .url("📖 Как использовать на полную →", "https://proboi.site/how-to-setup")
+    .row()
     .webApp("📊 Дашборд", "https://proboi.site/dashboard")
     .row();
 
@@ -568,6 +570,8 @@ export async function handleInfo(ctx: Context): Promise<void> {
     `*Твой тариф:* ${isPaid ? "✅ Профи" : "⬜ Бесплатный (10 сообщений/день)"}`;
 
   const keyboard = new InlineKeyboard()
+    .url("📖 Полный гайд", "https://proboi.site/how-to-setup")
+    .row()
     .text("📋 Сравнить тарифы", "info_tiers")
     .row()
     .text("🚀 Как начать", "info_howto")
@@ -576,8 +580,6 @@ export async function handleInfo(ctx: Context): Promise<void> {
   if (!isPaid) {
     keyboard.text("⭐ Перейти на Профи", "pay_upgrade").row();
   }
-
-  keyboard.url("📖 Гайд", "https://proboi.site/how-to-setup");
 
   await ctx.reply(text, {
     parse_mode: "Markdown",

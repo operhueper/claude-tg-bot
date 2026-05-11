@@ -971,6 +971,7 @@ const GUEST_COMMANDS = new Set([
   "start",
   "dashboard",
   "pay",
+  "cancel",
   "new",
   "stop",
   "status",
