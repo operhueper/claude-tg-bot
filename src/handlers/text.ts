@@ -47,6 +47,7 @@ import {
 import { StreamingState, createStatusCallback } from "./streaming";
 import { isGroupChat, shouldRespondInGroup } from "../group-filter";
 import { maybeAutoNew } from "./topic-helper";
+import { maybeWarmInfrastructure } from "../infrastructure-warmer";
 
 /**
  * Detect messages that contain multiple independent subtasks and prepend an
@@ -477,4 +478,7 @@ export async function handleText(ctx: Context): Promise<void> {
     releaseContainerSlot?.();
     releaseUserLock?.();
   }
+
+  // Fire-and-forget infrastructure warming for free-tier users approaching limit
+  maybeWarmInfrastructure(userId).catch(() => {});
 }
