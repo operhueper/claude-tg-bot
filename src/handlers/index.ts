@@ -17,6 +17,7 @@ export {
   handleInfo,
   handleMemory,
   handleForget,
+  GUEST_MENU_COMMANDS,
 } from "./commands";
 export { handleText } from "./text";
 export { handleVoice } from "./voice";

@@ -16,6 +16,7 @@ import { getPendingInvite, removePendingInvite } from "../containers/invites";
 import { addUser } from "../user-registry";
 import { invalidateSubscription, isSubscribed, isSubscriptionGateEnabled } from "../subscription";
 import { handleGoalCallback } from "./goals";
+import { GUEST_MENU_COMMANDS } from "./commands";
 
 /**
  * Handle callback queries from inline keyboards.
@@ -390,11 +391,27 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
     } catch {}
     await ctx.answerCallbackQuery({ text: alreadyExisted ? "Уже одобрен ранее" : "Пользователь одобрен!" });
 
+    // Set guest command menu explicitly so the "/" menu appears immediately
+    // without waiting for a bot restart.
+    ctx.api.setMyCommands(GUEST_MENU_COMMANDS, {
+      scope: { type: "chat", chat_id: targetUserId },
+    }).catch((err: unknown) =>
+      console.warn(`[invite] setMyCommands failed for ${targetUserId}:`, err)
+    );
+
     if (!alreadyExisted) {
       try {
+        const welcomeKb = new InlineKeyboard()
+          .url("📖 Как использовать", "https://proboi.site/how-to-setup")
+          .row()
+          .text("⭐ Оформить Профи — 499 ₽/мес", "pay_upgrade")
+          .row();
         await ctx.api.sendMessage(
           targetUserId,
-          "✅ Доступ открыт! Напиши мне любое сообщение, чтобы начать."
+          "✅ <b>Доступ открыт!</b>\n\nПросто напиши что нужно — текстом, голосом или фото.\n\n" +
+            "Сейчас у тебя <b>Бесплатный тариф</b> (10 сообщений в день).\n" +
+            "На <b>Профи</b> (499 ₽/мес) — безлимит, код, файлы, Google и многое другое.",
+          { parse_mode: "HTML", reply_markup: welcomeKb }
         );
       } catch (err) {
         console.error("[invites] Failed to notify approved user:", err);

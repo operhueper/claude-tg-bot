@@ -40,7 +40,10 @@ const SHARED_LOGO_SVG = `
   </defs>
 </svg>`;
 
+const FAVICON_SVG = `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><radialGradient id='fv' cx='32%25' cy='30%25' r='82%25'><stop offset='0%25' stop-color='%23FFC979'/><stop offset='45%25' stop-color='%23FF7A48'/><stop offset='100%25' stop-color='%23E0345E'/></radialGradient></defs><circle cx='16' cy='16' r='16' fill='url(%23fv)'/><circle cx='11.2' cy='13' r='3.6' fill='%23FFF7E8'/><circle cx='21' cy='13' r='3.6' fill='%23FFF7E8'/><circle cx='11.6' cy='13.4' r='1.4' fill='%2314130F'/><circle cx='21.4' cy='13.4' r='1.4' fill='%2314130F'/><circle cx='11.0' cy='12.5' r='0.55' fill='%23FFF7E8'/><circle cx='20.8' cy='12.5' r='0.55' fill='%23FFF7E8'/><ellipse cx='16' cy='22.2' rx='2.5' ry='3.4' fill='%2314130F'/><circle cx='6.5' cy='20' r='1.6' fill='%23FF8FA8' opacity='.55'/><circle cx='25.5' cy='20' r='1.6' fill='%23FF8FA8' opacity='.55'/></svg>`;
+
 const HEAD_LINKS = `
+<link rel="icon" type="image/svg+xml" href="${FAVICON_SVG}" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;500;600;700;800&family=Onest:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />

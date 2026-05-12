@@ -32,6 +32,20 @@ import { buildMemoryContext } from "../memory/inject";
 import { graphFile, goalsFilePath, transcriptsDir } from "../memory/paths";
 import { escapeHtml } from "../formatting";
 
+/** Telegram command menu shown to guests (and as global default for new users). */
+export const GUEST_MENU_COMMANDS = [
+  { command: "info", description: "Что умею и как помочь" },
+  { command: "pay", description: "⭐ Оформить или продлить подписку" },
+  { command: "status", description: "Мой тариф и статус" },
+  { command: "dashboard", description: "🧠 Second Brain — задачи и память" },
+  { command: "new", description: "Начать новый чат" },
+  { command: "stop", description: "Остановить выполнение" },
+  { command: "retry", description: "Повторить последнее сообщение" },
+  { command: "memory", description: "Что бот помнит обо мне" },
+  { command: "forget", description: "Удалить мою память" },
+  { command: "cancel", description: "Отменить подписку" },
+];
+
 /** Reject command if the profile doesn't permit it. */
 function commandAllowed(userId: number, command: string): boolean {
   return getUserProfile(userId).allowedCommands.has(command);
@@ -87,24 +101,34 @@ export async function handleStart(ctx: Context): Promise<void> {
     commandLines.push("/reloadbot - Перезапустить сервис бота");
   }
 
-  const greeting = profile.isGuest
-    ? `🤖 <b>Proboi — твой ИИ-ассистент</b>\n\nПросто напиши что нужно — текстом, голосом или фото.`
-    : `🤖 <b>Proboi</b>`;
+  if (profile.isGuest) {
+    const isPaid = profile.tier === "paid";
+    const guestKeyboard = new InlineKeyboard()
+      .url("📖 Как использовать", "https://proboi.site/how-to-setup")
+      .row()
+      .webApp("📊 Дашборд", "https://proboi.site/dashboard")
+      .row();
+    if (!isPaid) {
+      guestKeyboard.text("⭐ Оформить Профи — 499 ₽/мес", "pay_upgrade").row();
+    }
+    await ctx.reply(
+      `🤖 <b>Proboi — твой ИИ-ассистент</b>\n\n` +
+        `Просто напиши что нужно — текстом, голосом или фото.\n\n` +
+        `Тариф: ${isPaid ? "✅ <b>Профи</b>" : "⬜ Бесплатный"}\n` +
+        `Команды: /info — возможности, /pay — подписка, /status — статус`,
+      { parse_mode: "HTML", reply_markup: guestKeyboard }
+    );
+    return;
+  }
 
-  const workingDirLine = profile.isGuest
-    ? ""
-    : `Working directory: <code>${profile.workingDir}</code>\n`;
-
-  const guestHint = profile.isGuest
-    ? `\n📖 <a href="https://proboi.site/how-to-setup">Гайд — все возможности и примеры</a>\n`
-    : "";
+  const workingDirLine = `Working directory: <code>${profile.workingDir}</code>\n`;
 
   await ctx.reply(
-    `${greeting}\n\n` +
-      (profile.isGuest ? "" : `Status: ${status}\n` + workingDirLine + "\n") +
+    `🤖 <b>Proboi</b>\n\n` +
+      `Status: ${status}\n` +
+      workingDirLine + "\n" +
       `<b>Команды:</b>\n` +
-      commandLines.join("\n") +
-      guestHint,
+      commandLines.join("\n"),
     { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
   );
 }
@@ -175,6 +199,48 @@ export async function handleStatus(ctx: Context): Promise<void> {
 
   const profile = getUserProfile(userId);
   const session = getSession(userId);
+
+  // Guests get a simple tier+usage status — no session internals.
+  if (profile.isGuest) {
+    resetIfNewDay(userId);
+    const dailyUsed = getTodayCount(userId);
+    const dailyLimit = profile.tierConfig.dailyMessageLimit;
+
+    const lines: string[] = ["📊 <b>Статус</b>\n"];
+
+    if (profile.tier === "paid") {
+      const expires = getUserSubscriptionExpiry(userId);
+      const expiresStr = expires
+        ? expires.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+        : "—";
+      lines.push(`💎 <b>Тариф:</b> Профи`);
+      lines.push(`📅 Подписка до: ${expiresStr}`);
+      lines.push(`💬 Сообщений: без ограничений`);
+    } else {
+      lines.push(`⬜ <b>Тариф:</b> Бесплатный`);
+      lines.push(`💬 Сообщений сегодня: ${dailyUsed} / ${dailyLimit ?? 10}`);
+    }
+
+    if (session.isRunning) {
+      lines.push(`\n🔄 Сейчас обрабатываю запрос...`);
+    } else if (session.isActive) {
+      lines.push(`\n✅ Сессия активна`);
+    }
+
+    const keyboard = new InlineKeyboard()
+      .url("📖 Возможности", "https://proboi.site/how-to-setup")
+      .row()
+      .webApp("📊 Дашборд", "https://proboi.site/dashboard")
+      .row();
+    if (profile.tier === "free") {
+      keyboard.text("⭐ Оформить Профи — 499 ₽/мес", "pay_upgrade").row();
+    }
+
+    await ctx.reply(lines.join("\n"), { parse_mode: "HTML", reply_markup: keyboard });
+    return;
+  }
+
+  // Owner: full technical status
   const lines: string[] = ["📊 <b>Bot Status</b>\n"];
 
   if (session.isActive) {
@@ -199,9 +265,7 @@ export async function handleStatus(ctx: Context): Promise<void> {
   }
 
   if (session.lastActivity) {
-    const ago = Math.floor(
-      (Date.now() - session.lastActivity.getTime()) / 1000
-    );
+    const ago = Math.floor((Date.now() - session.lastActivity.getTime()) / 1000);
     lines.push(`\n⏱️ Last activity: ${ago}s ago`);
   }
 
@@ -213,9 +277,7 @@ export async function handleStatus(ctx: Context): Promise<void> {
       `   Output: ${usage.output_tokens?.toLocaleString() || "?"} tokens`
     );
     if (usage.cache_read_input_tokens) {
-      lines.push(
-        `   Cache read: ${usage.cache_read_input_tokens.toLocaleString()}`
-      );
+      lines.push(`   Cache read: ${usage.cache_read_input_tokens.toLocaleString()}`);
     }
   }
 
@@ -226,27 +288,17 @@ export async function handleStatus(ctx: Context): Promise<void> {
     lines.push(`\n⚠️ Last error (${ago}s ago):`, `   ${session.lastError}`);
   }
 
-  if (!profile.isGuest) {
-    lines.push(`\n📁 Working dir: <code>${profile.workingDir}</code>`);
-  } else {
-    lines.push(`\n📁 Рабочая папка: ✅`);
-  }
+  lines.push(`\n📁 Working dir: <code>${profile.workingDir}</code>`);
 
-  // Tier & subscription info
   {
     resetIfNewDay(userId);
     const dailyUsed = getTodayCount(userId);
     const dailyLimit = profile.tierConfig.dailyMessageLimit;
-
-    lines.push(""); // пустая строка
+    lines.push("");
     if (profile.tier === "paid") {
       const expires = getUserSubscriptionExpiry(userId);
       const expiresStr = expires
-        ? expires.toLocaleDateString("ru-RU", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          })
+        ? expires.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
         : "—";
       lines.push(`💎 <b>Тариф:</b> Профи`);
       lines.push(`📅 Подписка до: ${expiresStr}`);
@@ -267,10 +319,7 @@ export async function handleStatus(ctx: Context): Promise<void> {
     keyboard.text("⭐ Подписка", "pay_upgrade");
   }
 
-  await ctx.reply(lines.join("\n"), {
-    parse_mode: "HTML",
-    reply_markup: keyboard,
-  });
+  await ctx.reply(lines.join("\n"), { parse_mode: "HTML", reply_markup: keyboard });
 }
 
 /**

@@ -46,6 +46,7 @@ import {
   handleAudio,
   handleVideo,
   handleCallback,
+  GUEST_MENU_COMMANDS,
 } from "./handlers";
 import { getRecentlyActiveUsers } from "./session-registry";
 import { containerManager } from "./containers/manager";
@@ -241,34 +242,25 @@ const containerProfiles = ALLOWED_USERS.map((id) => getUserProfile(id)).filter((
 await containerManager.init(containerProfiles);
 console.log(`Container manager initialized for ${containerProfiles.length} user(s)`);
 
-// Register side menu commands. /restart resets only the user's own session
-// (safe for everyone). /reloadbot performs a full systemd restart and is owner-only.
-const baseCommands = [
-  { command: "dashboard", description: "🧠 Second Brain — задачи и календарь" },
-  { command: "pay", description: "⭐ Оформить или продлить подписку" },
-  { command: "cancel", description: "Отменить подписку" },
-  { command: "info", description: "Что умею и как помочь" },
-  { command: "memory", description: "Что бот помнит обо мне" },
-  { command: "forget", description: "Удалить мою память" },
-  { command: "new", description: "Start fresh session" },
-  { command: "stop", description: "Stop current query" },
-  { command: "status", description: "Show detailed status" },
-  { command: "resume", description: "Resume saved session" },
-  { command: "retry", description: "Retry last message" },
-  { command: "restart", description: "Сбросить сессию" },
-];
+// Register side menu commands.
+// GUEST_MENU_COMMANDS is the authoritative guest list — shared with callback.ts
+// so it can be set for newly approved users without a bot restart.
 const ownerCommands = [
-  ...baseCommands,
+  ...GUEST_MENU_COMMANDS,
+  { command: "restart", description: "Сбросить сессию" },
+  { command: "resume", description: "Resume saved session" },
   { command: "reloadbot", description: "Перезапустить бот" },
 ];
 
 try {
-  // Default menu = guest menu (safe baseline for any user, including new ones).
-  await bot.api.setMyCommands(baseCommands);
+  // Global default = guest menu (applies to any user without a per-chat override).
+  await bot.api.setMyCommands(GUEST_MENU_COMMANDS);
 
-  // Per-chat override for each owner (everyone in ALLOWED_USERS who is NOT a new guest).
+  // Per-chat override for the owner only.
   for (const userId of ALLOWED_USERS) {
     if (NEW_GUEST_USERS.includes(userId)) continue;
+    const profile = getUserProfile(userId);
+    if (!profile.isOwner) continue;
     try {
       await bot.api.setMyCommands(ownerCommands, {
         scope: { type: "chat", chat_id: userId },
@@ -278,7 +270,7 @@ try {
     }
   }
   console.log(
-    `Side menu registered: ${baseCommands.length} base / ${ownerCommands.length} owner commands`
+    `Side menu registered: ${GUEST_MENU_COMMANDS.length} guest / ${ownerCommands.length} owner commands`
   );
 } catch (e) {
   console.warn("Failed to set bot commands menu:", e);
