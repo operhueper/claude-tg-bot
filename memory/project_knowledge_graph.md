@@ -2,6 +2,28 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-12 — containerEnabled bugfix задеплоен на PROD
+
+### Что сделано за эту сессию (2026-05-12) — hotfix контейнеров
+
+**Коммит 10c83d0** — fix: containerEnabled per-user setting takes priority over tier config:
+
+**Найденный баг:**
+- `TIER_CONFIGS.free.containerEnabled = false` перебивал явный `containerEnabled: true` в `users.json` для всех free-тир гостей
+- Логика `tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false` всегда давала `false` для free-тира
+- Последствия: Claude CLI exit code 1 (MCP `mcp__container__Bash` не загружался, но промпт ссылался на него), `python3 -c` BLOCKED через fallback на host Bash
+
+**Исправление (config.ts:1159):**
+- Было: `tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false`
+- Стало: `node?.containerEnabled ?? tierConfig.containerEnabled`
+- Per-user настройка теперь приоритетнее тир-дефолта
+
+**Что было диагностировано дополнительно:**
+- `/pay`, `/cancel` — команды ЕСТЬ на проде, зарегистрированы в `baseCommands`; отсутствие в меню у Ксении — кеш Telegram (закрыть/открыть чат)
+- YuKassa webhooks: отклоняются IP `103.232.213.234` и `77.75.154.206` — вне разрешённого CIDR, возможно YuKassa расширил диапазон
+
+---
+
 ## Состояние: 2026-05-12 — UX hardening задеплоен на PROD (proboi-bot)
 
 ### Что сделано за эту сессию (2026-05-12) — UX аудит + хардининг
