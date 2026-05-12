@@ -48,7 +48,6 @@ import {
   handleCallback,
 } from "./handlers";
 import { getRecentlyActiveUsers } from "./session-registry";
-import { setBotUsername } from "./group-filter";
 import { containerManager } from "./containers/manager";
 import { startDashboardServer, registerDashboardBot } from "./dashboard-server";
 import { registerAlertBot, notifyOwnerDM } from "./owner-alerts";
@@ -236,7 +235,6 @@ console.log("Starting bot...");
 // Get bot info first
 const botInfo = await bot.api.getMe();
 console.log(`Bot started: @${botInfo.username}`);
-setBotUsername(botInfo.username || "");
 
 // Init container manager for all known users
 const containerProfiles = ALLOWED_USERS.map((id) => getUserProfile(id)).filter((p) => p.containerEnabled);

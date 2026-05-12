@@ -1,14 +1,14 @@
 /**
  * Per-user session registry and active-user persistence.
  *
- * Keeps a Map<userId, ClaudeSession> and handles group sessions.
+ * Keeps a Map<userId, ClaudeSession>.
  * Also persists which users were recently active so the bot can
  * send restart notifications.
  */
 
 import * as fs from "fs";
 import { writeFileSync, renameSync } from "node:fs";
-import { getUserProfile, getGroupProfile } from "./config";
+import { getUserProfile } from "./config";
 import { ClaudeSession } from "./session";
 
 // ---------------------------------------------------------------------------
@@ -27,27 +27,8 @@ export function getSession(userId: number): ClaudeSession {
   return s;
 }
 
-// ---------------------------------------------------------------------------
-// Group chat session
-// ---------------------------------------------------------------------------
-
-// groupSession — единая сессия для всех групповых чатов.
-// Намеренно singleton: группа имеет общую историю, а не per-user.
-// Rate limiting для групп — через groupRateLimiter в text.ts.
-let groupSession: ClaudeSession | null = null;
-
-export function getGroupSession(): ClaudeSession {
-  if (!groupSession) {
-    const profile = getGroupProfile();
-    groupSession = new ClaudeSession(profile);
-  }
-  return groupSession;
-}
-
 export function getAllSessions(): ClaudeSession[] {
-  const all = Array.from(sessions.values());
-  if (groupSession) all.push(groupSession);
-  return all;
+  return Array.from(sessions.values());
 }
 
 // ---------------------------------------------------------------------------

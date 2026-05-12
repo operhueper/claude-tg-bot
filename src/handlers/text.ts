@@ -5,37 +5,11 @@
 import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import type { StatusCallback } from "../types";
-import { getSession, getGroupSession } from "../session-registry";
-import { ALLOWED_USERS, GROUP_CHAT_ID, getUserProfile, OWNER_USER_ID, isNewGuest, isNewGuestOnboarded, markNewGuestOnboarded } from "../config";
+import { getSession } from "../session-registry";
+import { ALLOWED_USERS, getUserProfile, OWNER_USER_ID, isNewGuest, isNewGuestOnboarded, markNewGuestOnboarded } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
-
-// Separate rate limiter for group chats so personal quotas are not consumed by
-// group messages. Token bucket: 30 requests per 60 seconds per chat.
-const GROUP_RATE_LIMIT_REQUESTS = 30;
-const GROUP_RATE_LIMIT_WINDOW_MS = 60_000;
-const _groupBuckets = new Map<number, { tokens: number; lastUpdate: number }>();
-
-function checkGroupRateLimit(chatId: number): [allowed: boolean, retryAfter?: number] {
-  const maxTokens = GROUP_RATE_LIMIT_REQUESTS;
-  const refillRate = GROUP_RATE_LIMIT_REQUESTS / (GROUP_RATE_LIMIT_WINDOW_MS / 1000);
-  const now = Date.now();
-  let bucket = _groupBuckets.get(chatId);
-  if (!bucket) {
-    bucket = { tokens: maxTokens, lastUpdate: now };
-    _groupBuckets.set(chatId, bucket);
-  }
-  const elapsed = (now - bucket.lastUpdate) / 1000;
-  bucket.tokens = Math.min(maxTokens, bucket.tokens + elapsed * refillRate);
-  bucket.lastUpdate = now;
-  if (bucket.tokens >= 1) {
-    bucket.tokens -= 1;
-    return [true];
-  }
-  const retryAfter = (1 - bucket.tokens) / refillRate;
-  return [false, retryAfter];
-}
 import { requestAccess } from "../containers/invites";
 import {
   auditLog,
@@ -46,7 +20,6 @@ import {
 } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { escapeHtml } from "../formatting";
-import { isGroupChat, shouldRespondInGroup } from "../group-filter";
 import { maybeAutoNew } from "./topic-helper";
 import { maybeWarmInfrastructure } from "../infrastructure-warmer";
 
@@ -153,11 +126,6 @@ export async function handleText(ctx: Context): Promise<void> {
 
   // 1. Authorization check
   if (!isAuthorized(userId, ALLOWED_USERS)) {
-    // In group chats, silently ignore unauthorized users (no spam)
-    if (isGroupChat(ctx)) {
-      return;
-    }
-
     await requestAccess(ctx, message);
     return;
   }
@@ -194,18 +162,8 @@ export async function handleText(ctx: Context): Promise<void> {
     }
   }
 
-  // 1b. Group chat filter — decide if Claude should respond
-  if (isGroupChat(ctx)) {
-    const shouldRespond = await shouldRespondInGroup(ctx);
-    if (!shouldRespond) {
-      return;
-    }
-  }
-
-  const inGroup = isGroupChat(ctx);
-
-  // Daily message limit for free-tier users (skip group chats)
-  if (!inGroup) {
+  // Daily message limit for free-tier users
+  {
     const _profile = getUserProfile(userId);
     if (_profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
       if (isDailyLimitReached(userId)) {
@@ -236,111 +194,27 @@ export async function handleText(ctx: Context): Promise<void> {
     }
   }
 
-  // Task detection in group chat (only in the family group chat)
-  if (inGroup && chatId === GROUP_CHAT_ID) {
-    const {
-      detectTaskIntent,
-      detectAssignee,
-      savePendingTask,
-      USER_TELEGRAM_NAMES,
-    } = await import("../tasks");
-    if (detectTaskIntent(message)) {
-      const fromUserId = userId;
-      const assigneeId = detectAssignee(message, fromUserId);
-
-      if (!assigneeId) {
-        await ctx.reply("Кому поставить задачу — Евгению или Ксюше?");
-        return;
-      }
-
-      const taskId = crypto.randomUUID().replace(/-/g, "");
-      const now = new Date().toLocaleDateString("ru-RU", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-
-      // Simple deadline extraction
-      let deadline: string | undefined;
-      const deadlineMatch = message.match(/до\s+([^,.!?\n]{2,30})(?:[,.!?\n]|$)/iu);
-      if (deadlineMatch) deadline = deadlineMatch[1]?.trim();
-
-      // Extract task text — remove the trigger phrase
-      const taskText = message
-        .replace(
-          /поставь задачу|запомни задачу|задача для \w+:|задача:|запиши задачу|добавь задачу/gi,
-          ""
-        )
-        .trim();
-
-      const finalTaskText = taskText.trim();
-      if (!finalTaskText || finalTaskText.length < 3) {
-        await ctx.reply("Напиши текст задачи — что именно нужно сделать?");
-        return;
-      }
-
-      const task = {
-        id: taskId,
-        text: finalTaskText,
-        deadline,
-        assignedBy: fromUserId,
-        assignedTo: assigneeId,
-        createdAt: now,
-      };
-
-      savePendingTask(task);
-
-      const tgName = USER_TELEGRAM_NAMES[assigneeId] ?? "пользователь";
-      const deadlineText = deadline
-        ? `📅 Дедлайн: ${deadline}`
-        : "📅 Дедлайн: не указан";
-
-      await ctx.reply(
-        `${tgName}, тебе поставили задачу:\n\n📋 ${task.text}\n${deadlineText}\n\nПринять?`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: "✅ Принять",
-                  callback_data: `task_confirm:${taskId}:accept`,
-                },
-                {
-                  text: "❌ Отклонить",
-                  callback_data: `task_confirm:${taskId}:reject`,
-                },
-              ],
-            ],
-          },
-        }
-      );
-      return; // Don't send to Claude
-    }
-  }
   // Per-user lock — prevent two parallel requests from the same user.
-  // Group chats share the group session so no per-user lock needed there.
   let releaseUserLock: (() => void) | null = null;
   let releaseContainerSlot: (() => void) | null = null;
 
-  if (!inGroup) {
-    if (isUserBusy(userId)) {
-      await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
-      return;
-    }
-    releaseUserLock = await acquireUserLock(userId);
+  if (isUserBusy(userId)) {
+    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
+    return;
+  }
+  releaseUserLock = await acquireUserLock(userId);
 
-    // Container slot for users with containers enabled
-    const _containerProfile = getUserProfile(userId);
-    if (_containerProfile.containerEnabled) {
-      const { queued } = getQueueStatus();
-      if (queued > 0) {
-        await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
-      }
-      releaseContainerSlot = await acquireContainerSlot();
+  // Container slot for users with containers enabled
+  const _containerProfile = getUserProfile(userId);
+  if (_containerProfile.containerEnabled) {
+    const { queued } = getQueueStatus();
+    if (queued > 0) {
+      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
     }
+    releaseContainerSlot = await acquireContainerSlot();
   }
 
-  const session = inGroup ? getGroupSession() : getSession(userId);
+  const session = getSession(userId);
 
   // 2. Check for interrupt prefix
   const interruptResult = await checkInterrupt(message, userId);
@@ -388,11 +262,8 @@ export async function handleText(ctx: Context): Promise<void> {
     return;
   }
 
-  // 3. Rate limit check — group chats use a separate limiter so personal
-  //    quotas are not consumed by group messages.
-  const [allowed, retryAfter] = inGroup
-    ? checkGroupRateLimit(chatId)
-    : rateLimiter.check(userId);
+  // 3. Rate limit check
+  const [allowed, retryAfter] = rateLimiter.check(userId);
   if (!allowed) {
     releaseContainerSlot?.();
     releaseUserLock?.();
@@ -407,19 +278,13 @@ export async function handleText(ctx: Context): Promise<void> {
   // 4. Store message for retry
   session.lastMessage = message;
 
-  // Auto-reset on topic change (only personal chats, active sessions)
-  if (!inGroup && session.isActive && !session.isRunning) {
+  // Auto-reset on topic change (active sessions)
+  if (session.isActive && !session.isRunning) {
     const topicChanged = await maybeAutoNew(session, message, ctx);
     if (topicChanged) {
       const title = message.length > 50 ? message.slice(0, 47) + "..." : message;
       session.conversationTitle = title;
     }
-  }
-
-  // In group chats, prepend sender name so Claude knows who's writing
-  if (inGroup) {
-    const firstName = ctx.from?.first_name || username;
-    message = `[${firstName}]: ${message}`;
   }
 
   // 5. Set conversation title from first message (if new session)

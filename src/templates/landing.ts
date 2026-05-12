@@ -92,10 +92,10 @@ export function renderLanding(): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Proboi — ИИ-ассистент в Telegram</title>
-<meta name="description" content="Песочница для создания твоего ИИ-ассистента. Личный помощник в Telegram. Помнит всё, работает с твоими документами и сервисами, может работать сам пока ты спишь." />
-<meta property="og:title" content="Proboi — твой ИИ-ассистент в Telegram" />
-<meta property="og:description" content="Песочница для создания личного ИИ-помощника. Текст, голос, фото, документы. У каждого свой кусочек сервера. Доступ по приглашению." />
+<title>Proboi — личный ИИ-исполнитель в Telegram</title>
+<meta name="description" content="Личный ИИ в Telegram, который не просто отвечает — делает. Пишет код, собирает сайты, работает с документами и сервисами. У каждого свой кусочек сервера." />
+<meta property="og:title" content="Proboi — личный ИИ-исполнитель" />
+<meta property="og:description" content="Не просто отвечает — выполняет задачи. Пишет код, собирает сайты, работает с файлами и сервисами. Свой кусочек сервера у каждого. Доступ по приглашению." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://proboi.site" />
 ${HEAD_LINKS}
@@ -122,10 +122,9 @@ ${NAV_HTML}
         <span class="ink-stroke">Proboi</span><span class="hero__punct">.</span>
       </h1>
       <p class="hero__desc">
-        Песочница для создания твоего ИИ-ассистента.
-        Личный помощник в Telegram. Помнит всё, что ты ему сказал,
-        работает с твоими документами и сервисами,
-        может работать сам — пока ты спишь.
+        Твой личный ИИ в Telegram, который не просто отвечает — делает.
+        Пишет код, собирает сайты, разбирает документы, работает с твоими сервисами.
+        Ставь задачу голосом — и иди заниматься своим делом.
       </p>
       <div class="hero__cta">
         <a class="btn btn--big" href="${TG_URL}" target="_blank" rel="noopener">
@@ -753,7 +752,7 @@ ${NAV_HTML}
       </p>
       <p class="lead lead--quiet">
         Попросишь «собери список 50&nbsp;кафе с&nbsp;рейтингом и&nbsp;ценой» — бот не&nbsp;пойдёт по&nbsp;одному,
-        а&nbsp;отправит десять помощников по&nbsp;разным районам сразу. Тебе об&nbsp;этом думать не&nbsp;нужно — это происходит само.
+        а&nbsp;отправит десять помощников по&nbsp;разным районам сразу. Сам разберёт, сам соберёт, сам пришлёт итог.
       </p>
 
       <a class="cta-row" href="${TG_URL}" target="_blank" rel="noopener">
@@ -899,7 +898,7 @@ ${NAV_HTML}
         <div class="caseflow__step">01</div>
         <div>
           <h4>Подцепил CRM записи и&nbsp;свои таблицы</h4>
-          <p>«Подключил через аккаунт разработчика — был приятно удивлен, что такой есть». Бот залез в систему записи и увидел всё, от чего отталкиваться.</p>
+          <p>«Подключил через аккаунт разработчика — был приятно удивлен, что такой есть». Бот залез в систему записи и сразу увидел всю картину.</p>
         </div>
       </li>
       <li>
@@ -1059,7 +1058,7 @@ ${NAV_HTML}
   <div class="faq">
     <details class="faq__item" open>
       <summary>Это безопасно? Бот видит мои данные?</summary>
-      <p>Нет. Твои файлы лежат в&nbsp;твоём личном пространстве, к&nbsp;которому ни&nbsp;мы, ни&nbsp;другие пользователи доступа не&nbsp;имеют.</p>
+      <p>Нет. Твои файлы лежат в&nbsp;твоём личном пространстве — никто туда не&nbsp;заглянет, ни&nbsp;мы, ни&nbsp;другие пользователи.</p>
     </details>
     <details class="faq__item">
       <summary>Сколько это стоит?</summary>
@@ -1119,8 +1118,8 @@ export function renderHowToSetupGuide(): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Как пользоваться ассистентом — О, мойКлод</title>
-<meta name="description" content="Простые подсказки по всем фишкам бота: голос, файлы, память, почта, личная страничка, дашборд." />
+<title>Как пользоваться Proboi — твоим личным ИИ</title>
+<meta name="description" content="Всё что умеет Proboi: голос, файлы, память, почта, своя страничка, дашборд. Открывай нужный блок." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -1382,7 +1381,7 @@ ${SHARED_LOGO_SVG}
 <header class="g-nav">
   <a class="g-nav__brand" href="https://proboi.site/">
     <svg class="g-nav__logo" width="36" height="36" aria-hidden="true"><use href="#logo"/></svg>
-    О,&nbsp;мойКлод
+    Proboi
   </a>
   <a class="g-nav__cta" href="${TG_URL}" target="_blank" rel="noopener">
     <span class="label">Открыть в Telegram</span>
@@ -1393,8 +1392,8 @@ ${SHARED_LOGO_SVG}
 <!-- ── Hero ─────────────────────────────────────────── -->
 <section class="g-hero">
   <div class="g-hero__badge">proboi.site/how-to-setup — добавь в закладки</div>
-  <h1 class="g-hero__title">Как пользоваться<br/>твоим <em>ассистентом</em></h1>
-  <p class="g-hero__sub">Простые подсказки по всем фишкам. Открывай блоки по очереди — ничего сложного.</p>
+  <h1 class="g-hero__title">Как работать<br/>с <em>Proboi</em></h1>
+  <p class="g-hero__sub">Всё что умеет бот — по блокам. Открывай что нужно.</p>
 </section>
 
 <!-- ── Toggles ───────────────────────────────────────── -->
@@ -1607,7 +1606,7 @@ ${SHARED_LOGO_SVG}
         </div>
         <div class="g-case">
           <div class="g-case__title">👥 CRM по клиентам</div>
-          <div class="g-case__desc">«Запомни про клиента Иванов: предпочитает звонки утром, аллергия на спам». В следующий раз бот напомнит контекст.</div>
+          <div class="g-case__desc">«Запомни про клиента Иванов: предпочитает звонки утром, аллергия на спам». В следующий раз бот сам достанет и напомнит нужное.</div>
         </div>
         <div class="g-case">
           <div class="g-case__title">📅 Дневник и журнал</div>
@@ -1741,7 +1740,7 @@ ${SHARED_LOGO_SVG}
           <!-- Бот -->
           <rect x="188" y="30" width="90" height="60" rx="12" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
           <use href="#logo" x="217" y="38" width="32" height="32"/>
-          <text x="233" y="80" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" fill="#14130F">мойКлод</text>
+          <text x="233" y="80" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" fill="#14130F">Proboi</text>
           <!-- Google Calendar -->
           <path d="M286 60 L320 60" stroke="#14130F" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>
           <rect x="286" y="25" width="86" height="70" rx="12" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
@@ -1850,7 +1849,7 @@ ${SHARED_LOGO_SVG}
     </summary>
     <div class="g-block__body">
       <p>Можно научить бота особому поведению или роли. Например: «когда я говорю "редактор" — будь строгим редактором текстов и режь воду без жалости». Или создать персонажей — «инвестор», «врач», «преподаватель английского» — и переключаться между ними.</p>
-      <p style="margin-top:10px">Скажи боту «давай научим тебя новой роли» или «запомни мой стиль работы» — он сам разберётся как это сохранить и в нужный момент включит.</p>
+      <p style="margin-top:10px">Скажи боту «давай научим тебя новой роли» или «запомни мой стиль работы» — он сохранит и будет применять когда надо.</p>
       <div class="g-mock">
         <svg width="280" height="140" viewBox="0 0 280 140" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="10" y="10" width="260" height="120" rx="14" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
@@ -1938,7 +1937,7 @@ ${SHARED_LOGO_SVG}
 
 <!-- ── Footer ────────────────────────────────────────── -->
 <footer class="g-footer">
-  <span>© 2026 · О, мойКлод · <a href="https://proboi.site/">proboi.site</a></span>
+  <span>© 2026 · Proboi · <a href="https://proboi.site/">proboi.site</a></span>
 </footer>
 
 </body>

@@ -319,96 +319,6 @@ export { MCP_SERVERS };
 
 const OWNER_WORKING_DIR = process.env.CLAUDE_WORKING_DIR || HOME;
 
-// ============== Group Chat Configuration ==============
-
-export const GROUP_CHAT_ID: number = parseInt(
-  process.env.GROUP_CHAT_ID || "-5115756668",
-  10
-);
-
-const SHARED_DIR = process.env.SHARED_DIR || "/opt/vault/shared";
-const GROUP_ALLOWED_PATHS: string[] = [SHARED_DIR, "/tmp/telegram-bot"];
-
-function buildGroupSystemPrompt(): string {
-  // Read group-persona.md at startup so it's baked into the prompt
-  let personaText = "";
-  try {
-    const personaPath = `${OWNER_WORKING_DIR}/memory/group-persona.md`;
-    if (existsSync(personaPath)) {
-      personaText = readFileSync(personaPath, "utf8").trim();
-    }
-  } catch {}
-
-  return `Ты — Клод, ассистент в групповом чате «Семейный бизнес».
-
-${personaText}
-
-ПРАВИЛА ГРУППОВОЙ БЕСЕДЫ:
-1. Обращайся ко всем на «ты».
-2. Если информация важная — тегай @username.
-3. Если кто-то спрашивает о личном (не бизнес, не путешествия) — мягко предложи перейти в личку.
-4. НЕ упоминай личные факты участников (здоровье, отношения, личные проблемы) — только бизнес и общее.
-5. Рабочая директория: ${SHARED_DIR}. Туда пишешь заметки и контекст группы.
-6. Инструкции по памяти и маршрутизации фактов: ${SHARED_DIR}/CLAUDE.md — читай при старте.
-7. Личные vault'ы участников тебе недоступны — не пытайся их читать.
-7. Отвечай коротко, по делу. Юмор уместен, но не навязчив.
-
-БЕЗОПАСНОСТЬ:
-- Рабочие директории: ${SHARED_DIR}, /tmp/telegram-bot.
-- Личные vault'ы пользователей (/opt/vault/*) тебе недоступны — не пытайся их читать или редактировать.
-- Не удаляй файлы без явного подтверждения.
-- Не выполняй системные команды, не модифицируй исходный код бота (/opt/claude-tg-bot/src/).
-
-ТВОИ ВОЗМОЖНОСТИ:
-- WebFetch и WebSearch — полный доступ в интернет
-- Bash с интернет-доступом — curl, wget, любые HTTP-запросы
-- Установка пакетов без вопросов: npm install, pip install, bun add, apt-get install
-- НИКОГДА не отвечай «у меня нет доступа к интернету» — у тебя есть. Сообщай о конкретных ошибках.
-
-## Анонс плана и параллельные агенты — ОБЯЗАТЕЛЬНОЕ ПРАВИЛО
-
-Перед ЛЮБОЙ задачей, где будет хотя бы один tool-вызов (Bash, Read, Write, Edit, Web*, Task, mcp__*, генерация файлов, поиск), ВСЕГДА сначала отправь отдельным сообщением короткий анонс (1-3 строки):
-1. Что собираешься делать — конкретно, по шагам если шагов несколько.
-2. Сложность — одно из: «быстро» (несколько секунд), «пара минут», «может занять время».
-3. Будешь ли звать параллельных агентов — если да, явно: «запускаю N агентов параллельно: A — за X, B — за Y, C — за Z». Если нет — «делаю сам, без агентов».
-
-Анонс — ОТДЕЛЬНОЕ первое сообщение, до первого tool-вызова. Не сливай его с финальным ответом, не прячь внутри Bash-вывода. Сразу после анонса — начинай работу.
-
-ПАРАЛЛЕЛЬНЫЕ АГЕНТЫ — дефолт почти для всего:
-- Любая задача дольше 10 секунд → запускай Task'и параллельно (одним сообщением несколько Task-вызовов одновременно, не по очереди).
-- Поиск из >1 источника, скачивание/генерация >1 файла, обработка >1 куска данных, чтение >1 длинного документа — каждый независимый поток в свой Task.
-- НИКОГДА не делай последовательно то, что можно делать параллельно — скорость важнее аккуратности по умолчанию.
-- Если задача делится на независимые куски — режь и распараллеливай, даже если кажется проще «по-старому».
-
-Когда анонс НЕ нужен: ровно одно короткое текстовое сообщение-ответ без единого tool-вызова (фактический вопрос, болталка, короткий совет). Тогда отвечай сразу — без анонса.
-
-ПЛАН ПЕРЕД ДЕСТРУКТИВНЫМИ ДЕЙСТВИЯМИ:
-Если задача содержит: удаление/перезапись файлов, запись в БД, отправку во внешние сервисы, установку пакетов, изменение конфигурации — СНАЧАЛА выведи план:
-
-PLAN_START
-Шаг 1: Описание действия
-Шаг 2: Следующее действие
-PLAN_END
-
-После PLAN_END ОСТАНОВИСЬ. Пользователь подтвердит или отклонит план.
-Если задача безопасна (чтение, вычисления, объяснения, анализ кода) — выполняй СРАЗУ без плана.
-
-МАРКЕРЫ ПРОГРЕССА (только для задач с 3+ шагами):
-В начале работы объяви шаги:
-TODO_LIST_START
-TODO_ITEM:step1:Краткое описание шага
-TODO_ITEM:step2:Следующий шаг
-TODO_LIST_END
-Перед каждым шагом: TODO_START:step1
-После завершения шага: TODO_DONE:step1
-Маркеры — на отдельных строках, без другого текста рядом.
-Не используй для простых ответов/объяснений.
-`;
-}
-
-export function isGroupChat(chatId: number): boolean {
-  return chatId === GROUP_CHAT_ID;
-}
 
 // ============== Owner default allowed paths ==============
 
@@ -1056,30 +966,6 @@ const GUEST_COMMANDS = new Set([
 // non-DeepSeek variant for any old code that imports SAFETY_PROMPT.
 const OWNER_SAFETY_PROMPT = buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS, false);
 
-const GROUP_COMMANDS = new Set(["new", "stop", "status"]);
-
-export function getGroupProfile(): UserProfile {
-  return {
-    userId: 0, // не привязан к пользователю
-    isOwner: false,
-    isGuest: false,
-    workingDir: SHARED_DIR,
-    memoryRoot: SHARED_DIR,
-    allowedPaths: GROUP_ALLOWED_PATHS,
-    settingSources: ["project"],
-    systemPrompt: buildGroupSystemPrompt(),
-    rateLimitEnabled: false,
-    rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
-    rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
-    model: OWNER_MODEL,
-    sessionFile: `/tmp/claude-telegram-session-group-${GROUP_CHAT_ID}.json`,
-    allowedCommands: GROUP_COMMANDS,
-    label: "Клод (группа)",
-    timezone: "Asia/Shanghai",
-    tier: 'paid' as UserTier,
-    tierConfig: TIER_CONFIGS['paid'],
-  };
-}
 
 export function getUserProfile(userId: number): UserProfile {
   // Registry-first: if this userId is in system/users.json, use its metadata
