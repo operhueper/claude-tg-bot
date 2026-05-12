@@ -86,7 +86,7 @@ async function processOnce(): Promise<void> {
         await notifyProblemChannel(channelMsg);
       } catch (e) {
         console.error(`[crashloop-watcher] notify failed for ${userId}/${ev.daemon}:`, e);
-        continue;
+        // Mark as handled even on failure — prevents 429 spam on every 30s poll.
       }
 
       try {

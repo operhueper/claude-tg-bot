@@ -128,7 +128,7 @@ export interface YuKassaPayment {
 }
 
 export interface YuKassaWebhookEvent {
-  type: 'payment.succeeded' | 'payment.canceled' | 'refund.succeeded';
-  event: string;
+  type: 'notification' | string;
+  event: 'payment.succeeded' | 'payment.canceled' | 'refund.succeeded' | string;
   object: YuKassaPayment;
 }

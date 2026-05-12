@@ -651,6 +651,8 @@ export class ClaudeSession {
                   const isTmpRead =
                     toolName === "Read" &&
                     (TEMP_PATHS.some((p) => filePath.startsWith(p)) ||
+                      // Claude Code stores its own session data here — allow reads for any user.
+                      filePath.startsWith("/root/.claude/projects/") ||
                       // Owner can still read .claude; guests cannot.
                       (this.profile.isOwner &&
                         filePath.includes("/.claude/")));

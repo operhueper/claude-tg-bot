@@ -469,18 +469,44 @@ async function handleYuKassaWebhookRoute(req: Request): Promise<Response> {
 function handleSubscribePage(req: Request): Response {
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
-  const TG_URL = "https://t.me/proboiAI_bot";
+  const botUsername = process.env.BOT_USERNAME || "proboiAI_bot";
+  const TG_URL = `https://t.me/${botUsername}`;
 
   let heading: string;
   let body: string;
+  const isSuccess = status === "success";
 
-  if (status === "success") {
+  if (isSuccess) {
     heading = "Карта привязана!";
     body = "Возвращайтесь в бот — там уже всё активировано.";
   } else {
     heading = "Оплата отменена.";
     body = "Вы всегда можете вернуться.";
   }
+
+  // Auto-redirect only on success, after 3 seconds
+  const autoRedirectScript = isSuccess ? `
+<script>
+  var tgDeep = "tg://resolve?domain=${botUsername}";
+  var tgWeb  = ${JSON.stringify(TG_URL)};
+  var countdown = 3;
+  var el = document.getElementById("countdown");
+  function tick() {
+    if (countdown <= 0) {
+      window.location.href = tgDeep;
+      setTimeout(function(){ window.location.href = tgWeb; }, 500);
+      return;
+    }
+    if (el) el.textContent = countdown + "…";
+    countdown--;
+    setTimeout(tick, 1000);
+  }
+  tick();
+</script>` : "";
+
+  const countdownHtml = isSuccess
+    ? `<p class="countdown">Открываю бот через <span id="countdown">3…</span></p>`
+    : "";
 
   const html = `<!doctype html>
 <html lang="ru">
@@ -497,7 +523,6 @@ function handleSubscribePage(req: Request): Response {
     --c-text: #F0EDE6;
     --c-text-muted: #8A8680;
     --c-accent: #FF7A48;
-    --font-display: 'Unbounded', sans-serif;
     --font-body: 'Onest', sans-serif;
   }
   body {
@@ -520,7 +545,8 @@ function handleSubscribePage(req: Request): Response {
     text-align: center;
   }
   h1 { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
-  p { color: var(--c-text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 28px; }
+  p { color: var(--c-text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 16px; }
+  .countdown { font-size: 13px; margin-bottom: 24px; }
   .btn {
     display: inline-flex;
     align-items: center;
@@ -541,8 +567,10 @@ function handleSubscribePage(req: Request): Response {
 <div class="card">
   <h1>${heading}</h1>
   <p>${body}</p>
+  ${countdownHtml}
   <a class="btn" href="${TG_URL}">Открыть бот</a>
 </div>
+${autoRedirectScript}
 </body>
 </html>`;
 

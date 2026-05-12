@@ -106,14 +106,28 @@ export async function handleYuKassaWebhook(event: YuKassaWebhookEvent, bot: any)
   const userId = Number(userIdStr);
   if (isNaN(userId)) return;
 
-  // Cross-verify against YuKassa API before acting on webhook
-  let verified: YuKassaPayment;
-  try {
-    verified = await getPayment(payment.id);
-  } catch (err) {
-    console.error('[webhook] failed to verify payment:', err);
-    return;
+  // Cross-verify against YuKassa API before acting on webhook.
+  // Retry up to 3 times with 2s delay — YuKassa may send the webhook
+  // before the payment is visible via GET API (race condition).
+  let verified: YuKassaPayment | null = null;
+  console.log(`[webhook] verifying payment id=${payment.id} event=${event.event} userId=${userIdStr}`);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      verified = await getPayment(payment.id);
+      break;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt < 3 && msg.includes('404')) {
+        console.warn(`[webhook] getPayment attempt ${attempt} returned 404, retrying in 2s...`);
+        await new Promise(r => setTimeout(r, 2000));
+      } else {
+        console.error(`[webhook] failed to verify payment id=${payment.id} (attempt ${attempt}):`, err);
+        return;
+      }
+    }
   }
+  if (!verified) return;
+  console.log(`[webhook] verified payment id=${payment.id} status=${verified.status}`);
   if (verified.status !== 'succeeded' && verified.status !== 'waiting_for_capture') return;
   // Use verified metadata to prevent spoofing
   const verifiedUserIdStr = verified.metadata?.userId;
@@ -125,7 +139,7 @@ export async function handleYuKassaWebhook(event: YuKassaWebhookEvent, bot: any)
     return;
   }
 
-  if (event.type === 'payment.succeeded') {
+  if (event.event === 'payment.succeeded') {
     const methodId = payment.payment_method?.saved ? payment.payment_method.id : undefined;
     const purpose = payment.metadata?.purpose;
 
@@ -144,7 +158,7 @@ export async function handleYuKassaWebhook(event: YuKassaWebhookEvent, bot: any)
       if (user) UserRegistry.saveUser({ ...user, grace_period_until: undefined });
       await bot.api.sendMessage(userId, '✅ Подписка продлена на 30 дней.').catch(() => {});
     }
-  } else if (event.type === 'payment.canceled') {
+  } else if (event.event === 'payment.canceled') {
     const purpose = payment.metadata?.purpose;
     if (purpose === 'card_binding') {
       await bot.api.sendMessage(userId,
