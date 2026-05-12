@@ -8,7 +8,7 @@ import { unlinkSync, realpathSync } from "fs";
 import type { Context } from "grammy";
 import type { Message } from "grammy/types";
 import { InlineKeyboard, InputFile } from "grammy";
-import type { StatusCallback } from "../types";
+import type { StatusCallback, TodoItem } from "../types";
 import { convertMarkdownToHtml, escapeHtml } from "../formatting";
 import {
   TELEGRAM_MESSAGE_LIMIT,
@@ -257,6 +257,14 @@ export async function checkPendingConnectGoogleRequests(
 }
 
 /**
+ * Render a todo list as HTML for Telegram.
+ */
+function renderTodoList(items: TodoItem[]): string {
+  const icon: Record<string, string> = { pending: '◻', in_progress: '⏳', done: '✅' };
+  return '<b>Выполняю:</b>\n' + items.map(i => `${icon[i.status] ?? '•'} ${i.label}`).join('\n');
+}
+
+/**
  * Tracks state for streaming message updates.
  */
 export class StreamingState {
@@ -265,6 +273,8 @@ export class StreamingState {
   lastEditTimes = new Map<number, number>(); // segment_id -> last edit time
   lastContent = new Map<number, string>(); // segment_id -> last sent content
   maxSegmentId: number = -1; // highest segment_id seen so far
+  todoMsgId?: number; // message_id of the todo progress message
+  todoItems: TodoItem[] = [];
   private _heartbeat: IdleHeartbeat | null = null;
 
   set heartbeat(h: IdleHeartbeat) { this._heartbeat = h; }
@@ -447,7 +457,29 @@ export function createStatusCallback(
   return async (statusType: string, content: string, segmentId?: number) => {
     heartbeat.tick();
     try {
-      if (statusType === "thinking") {
+      if (statusType === "todo_init" || statusType === "todo_update") {
+        try {
+          const items = JSON.parse(content) as TodoItem[];
+          state.todoItems = items;
+          const html = renderTodoList(items);
+          if (!state.todoMsgId) {
+            const msg = await ctx.reply(html, { parse_mode: "HTML" });
+            state.todoMsgId = msg.message_id;
+          } else {
+            try {
+              await ctx.api.editMessageText(ctx.chat!.id, state.todoMsgId, html, { parse_mode: "HTML" });
+            } catch (editErr) {
+              const s = String(editErr);
+              if (!s.includes("not modified")) {
+                console.debug("todo edit failed:", editErr);
+              }
+            }
+          }
+        } catch (parseErr) {
+          console.debug("todo parse error:", parseErr);
+        }
+        return;
+      } else if (statusType === "thinking") {
         // Show thinking inline, compact (first 500 chars)
         const preview =
           content.length > 500 ? content.slice(0, 500) + "..." : content;
@@ -565,6 +597,15 @@ export function createStatusCallback(
           }
         }
       } else if (statusType === "done") {
+        // Delete todo progress message if present
+        if (state.todoMsgId) {
+          try {
+            await ctx.api.deleteMessage(ctx.chat!.id, state.todoMsgId);
+          } catch (err) {
+            console.debug("Failed to delete todo message:", err);
+          }
+          state.todoMsgId = undefined;
+        }
         // Delete tool messages
         for (const toolMsg of state.toolMessages) {
           try {

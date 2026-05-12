@@ -8,7 +8,7 @@ import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, NEW_GUEST_USERS, bootstrapNewGuestDir, OWNER_USER_ID } from "../config";
+import { ALLOWED_USERS, NEW_GUEST_USERS, bootstrapNewGuestDir, OWNER_USER_ID, getUserProfile } from "../config";
 import { isAuthorized } from "../security";
 import { auditLog, auditLogError, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -169,6 +169,16 @@ export async function handleCallback(ctx: Context): Promise<void> {
     callbackData.startsWith("goal_delete:")
   ) {
     await handleGoalCallback(ctx, callbackData);
+    return;
+  }
+
+  // 2d. Plan mode callbacks
+  if (
+    callbackData.startsWith("plan_confirm:") ||
+    callbackData.startsWith("plan_cancel:") ||
+    callbackData.startsWith("plan_clarify:")
+  ) {
+    await handlePlanCallback(ctx, callbackData, userId, username, chatId);
     return;
   }
 
@@ -561,5 +571,88 @@ async function handleSubscriptionCheckCallback(ctx: Context): Promise<void> {
       text: "Подписка не найдена. Подпишись и попробуй снова.",
       show_alert: true,
     });
+  }
+}
+
+/**
+ * Handle plan mode callbacks: plan_confirm, plan_cancel, plan_clarify.
+ */
+async function handlePlanCallback(
+  ctx: Context,
+  callbackData: string,
+  userId: number,
+  username: string,
+  chatId: number
+): Promise<void> {
+  await ctx.answerCallbackQuery();
+  const session = getSession(userId);
+
+  if (callbackData.startsWith("plan_cancel:")) {
+    session.clearPendingPlan();
+    try {
+      await ctx.editMessageText("❌ Задача отменена.");
+    } catch {
+      await ctx.reply("❌ Задача отменена.");
+    }
+    return;
+  }
+
+  if (callbackData.startsWith("plan_clarify:")) {
+    session.pendingClarification = true;
+    try {
+      await ctx.editMessageText("✏️ Опиши, что изменить в плане. Следующее сообщение я приму как уточнение.");
+    } catch {
+      await ctx.reply("✏️ Опиши, что изменить в плане. Следующее сообщение я приму как уточнение.");
+    }
+    return;
+  }
+
+  if (callbackData.startsWith("plan_confirm:")) {
+    const plan = session.pendingPlan;
+    if (!plan) {
+      try {
+        await ctx.editMessageText("Нет ожидающего плана.");
+      } catch {
+        await ctx.reply("Нет ожидающего плана.");
+      }
+      return;
+    }
+
+    session.clearPendingPlan();
+    try {
+      await ctx.editMessageText("▶️ Выполняю...");
+    } catch {
+      await ctx.reply("▶️ Выполняю...");
+    }
+
+    const typing = startTypingIndicator(ctx);
+    const state = new StreamingState();
+    const statusCallback = createStatusCallback(ctx, state);
+
+    try {
+      const confirmMsg = plan.originalMessage + "\n\n[Пользователь подтвердил план, выполняй]";
+      const response = await session.sendMessageStreaming(
+        confirmMsg,
+        username,
+        userId,
+        statusCallback,
+        chatId,
+        ctx
+      );
+      await auditLog(userId, username, "PLAN_CONFIRM", plan.originalMessage, response);
+    } catch (error) {
+      console.error("[plan_confirm] Error:", error);
+      if (String(error).includes("abort") || String(error).includes("cancel")) {
+        const wasInterrupt = session.consumeInterruptFlag();
+        if (!wasInterrupt) {
+          await ctx.reply("🛑 Выполнение остановлено.");
+        }
+      } else {
+        await ctx.reply("Не удалось выполнить задачу, попробуй ещё раз.");
+      }
+    } finally {
+      await state.cleanup();
+      typing.stop();
+    }
   }
 }

@@ -7,10 +7,17 @@ import type { Message } from "grammy/types";
 
 // Status callback for streaming updates
 export type StatusCallback = (
-  type: "thinking" | "tool" | "text" | "segment_end" | "done",
+  type: "thinking" | "tool" | "text" | "segment_end" | "done" | "todo_init" | "todo_update",
   content: string,
   segmentId?: number
 ) => Promise<void>;
+
+// Todo item for progress tracking
+export interface TodoItem {
+  id: string;
+  label: string;
+  status: 'pending' | 'in_progress' | 'done';
+}
 
 // Rate limit bucket for token bucket algorithm
 export interface RateLimitBucket {

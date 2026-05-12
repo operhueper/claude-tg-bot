@@ -45,6 +45,7 @@ import {
   startTypingIndicator,
 } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
+import { escapeHtml } from "../formatting";
 import { isGroupChat, shouldRespondInGroup } from "../group-filter";
 import { maybeAutoNew } from "./topic-helper";
 import { maybeWarmInfrastructure } from "../infrastructure-warmer";
@@ -390,6 +391,17 @@ export async function handleText(ctx: Context): Promise<void> {
     message = maybePrependOrchestrationHint(message, userId);
   }
 
+  // If user is clarifying a pending plan, reattach the original message context
+  if (session.pendingClarification && session.pendingPlan) {
+    session.pendingClarification = false;
+    const originalMsg = session.pendingPlan.originalMessage;
+    session.clearPendingPlan();
+    message = `Пользователь уточнил план: ${message}\n\nИсходная задача была: ${originalMsg}\n\nПересмотри план с учётом уточнения и снова выведи PLAN_START/PLAN_END.`;
+  } else if (session.pendingClarification) {
+    // No plan to attach — just clear the flag
+    session.pendingClarification = false;
+  }
+
   // 10. Send to Claude with retry logic for crashes
   const MAX_RETRIES = 1;
 
@@ -404,6 +416,20 @@ export async function handleText(ctx: Context): Promise<void> {
           chatId,
           ctx
         );
+
+        // Check for pending plan — show to user with action buttons
+        if (session.pendingPlan) {
+          const planText = session.pendingPlan.planText;
+          // Keep pendingPlan on session so callback handlers can read originalMessage
+          const planHtml = `📋 <b>План выполнения:</b>\n${escapeHtml(planText)}`;
+          const keyboard = new InlineKeyboard()
+            .text('✅ Выполнить', `plan_confirm:${userId}`)
+            .text('❌ Отменить', `plan_cancel:${userId}`)
+            .row()
+            .text('✏️ Уточнить', `plan_clarify:${userId}`);
+          await ctx.reply(planHtml, { parse_mode: 'HTML', reply_markup: keyboard });
+          break; // exit retry loop — waiting for user decision
+        }
 
         // 11. Audit log
         await auditLog(userId, username, "TEXT", message, response);

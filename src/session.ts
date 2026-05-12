@@ -44,6 +44,7 @@ import type {
   SessionHistory,
   StatusCallback,
   TokenUsage,
+  TodoItem,
 } from "./types";
 import {
   queryOpenRouter,
@@ -100,6 +101,108 @@ function getThinkingLevel(message: string): number {
 
 const MAX_SESSIONS = 5;
 
+// ============== Todo marker parser ==============
+
+type TodoAction =
+  | { type: 'init'; items: TodoItem[] }
+  | { type: 'update'; items: TodoItem[] };
+
+class TodoMarkerParser {
+  private lineBuffer = '';
+  private items: TodoItem[] = [];
+
+  /** Returns [cleanText, action | null] */
+  feed(chunk: string): [string, TodoAction | null] {
+    this.lineBuffer += chunk;
+    const lines = this.lineBuffer.split('\n');
+    this.lineBuffer = lines.pop() ?? '';
+
+    const cleanLines: string[] = [];
+    let action: TodoAction | null = null;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === 'TODO_LIST_START') {
+        this.items = [];
+        continue;
+      }
+      if (trimmed === 'TODO_LIST_END') {
+        action = { type: 'init', items: [...this.items] };
+        continue;
+      }
+      const itemMatch = trimmed.match(/^TODO_ITEM:([^:]+):(.+)$/);
+      if (itemMatch) {
+        this.items.push({ id: itemMatch[1]!, label: itemMatch[2]!, status: 'pending' });
+        continue;
+      }
+      const startMatch = trimmed.match(/^TODO_START:(.+)$/);
+      if (startMatch) {
+        const id = startMatch[1]!;
+        this.items = this.items.map(i => ({ ...i, status: i.id === id ? 'in_progress' : i.status }));
+        action = { type: 'update', items: [...this.items] };
+        continue;
+      }
+      const doneMatch = trimmed.match(/^TODO_DONE:(.+)$/);
+      if (doneMatch) {
+        const id = doneMatch[1]!;
+        this.items = this.items.map(i => ({ ...i, status: i.id === id ? 'done' : i.status }));
+        action = { type: 'update', items: [...this.items] };
+        continue;
+      }
+      cleanLines.push(line);
+    }
+
+    return [cleanLines.join('\n'), action];
+  }
+
+  flush(): string {
+    const remaining = this.lineBuffer;
+    this.lineBuffer = '';
+    if (remaining.trim().startsWith('TODO_')) return '';
+    return remaining;
+  }
+}
+
+// ============== Plan marker parser ==============
+
+class PlanMarkerParser {
+  private inPlan = false;
+  private planLines: string[] = [];
+  private lineBuffer = '';
+  planComplete: string | null = null;
+
+  feed(chunk: string): string {
+    this.lineBuffer += chunk;
+    const lines = this.lineBuffer.split('\n');
+    this.lineBuffer = lines.pop() ?? '';
+
+    const cleanLines: string[] = [];
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === 'PLAN_START') {
+        this.inPlan = true;
+        this.planLines = [];
+        continue;
+      }
+      if (trimmed === 'PLAN_END') {
+        this.inPlan = false;
+        this.planComplete = this.planLines.join('\n');
+        continue;
+      }
+      if (this.inPlan) {
+        this.planLines.push(line);
+        continue;
+      }
+      cleanLines.push(line);
+    }
+
+    return cleanLines.join('\n');
+  }
+}
+
+// ============== End parsers ==============
+
 export class ClaudeSession {
   readonly profile: UserProfile;
 
@@ -115,6 +218,8 @@ export class ClaudeSession {
   conversationTitle: string | null = null;
 
   pendingContextMessages: string[] = [];
+  pendingPlan: { planText: string; originalMessage: string } | null = null;
+  pendingClarification = false;
 
   private abortController: AbortController | null = null;
   private isQueryRunning = false;
@@ -150,6 +255,10 @@ export class ClaudeSession {
 
   clearStopRequested(): void {
     this.stopRequested = false;
+  }
+
+  clearPendingPlan(): void {
+    this.pendingPlan = null;
   }
 
   startProcessing(): () => void {
@@ -533,6 +642,9 @@ export class ClaudeSession {
     let usageRecorded = false;
     let currentUsage: TokenUsage | null = null;
     const toolsInSession: string[] = [];
+    const todoParser = new TodoMarkerParser();
+    const planParser = new PlanMarkerParser();
+    let planAborted = false;
 
     try {
       const queryInstance = query({
@@ -757,23 +869,50 @@ export class ClaudeSession {
             }
 
             if (block.type === "text") {
-              responseParts.push(block.text);
-              currentSegmentText += block.text;
+              // Plan parsing (runs first — strips PLAN_START/PLAN_END blocks)
+              const cleanFromPlan = planParser.feed(block.text);
 
-              const now = Date.now();
-              if (
-                now - lastTextUpdate > STREAMING_THROTTLE_MS &&
-                currentSegmentText.length > 20
-              ) {
-                await statusCallback(
-                  "text",
-                  currentSegmentText,
-                  currentSegmentId
-                );
-                lastTextUpdate = now;
+              if (planParser.planComplete !== null) {
+                // Save plan and abort the stream
+                this.pendingPlan = {
+                  planText: planParser.planComplete,
+                  originalMessage: message,
+                };
+                planParser.planComplete = null;
+                planAborted = true;
+                this.abortController?.abort();
+                break; // exit block loop
+              }
+
+              // Todo parsing (strips TODO_* markers from plan-clean text)
+              const [cleanChunk, todoAction] = todoParser.feed(cleanFromPlan);
+
+              if (todoAction) {
+                const evtType = todoAction.type === 'init' ? 'todo_init' : 'todo_update';
+                await statusCallback(evtType, JSON.stringify(todoAction.items));
+              }
+
+              if (cleanChunk) {
+                responseParts.push(cleanChunk);
+                currentSegmentText += cleanChunk;
+
+                const now = Date.now();
+                if (
+                  now - lastTextUpdate > STREAMING_THROTTLE_MS &&
+                  currentSegmentText.length > 20
+                ) {
+                  await statusCallback(
+                    "text",
+                    currentSegmentText,
+                    currentSegmentId
+                  );
+                  lastTextUpdate = now;
+                }
               }
             }
           }
+
+          if (planAborted) break; // exit event loop
 
           if (askUserTriggered) {
             break;
@@ -873,9 +1012,22 @@ export class ClaudeSession {
       containerManager.resetIdleTimer(this.profile.userId, this.profile);
     }
 
+    if (planAborted) {
+      // Plan was intercepted — fire done so streaming state cleanup runs
+      await statusCallback("done", "");
+      return "[Plan pending confirmation]";
+    }
+
     if (askUserTriggered) {
       await statusCallback("done", "");
       return "[Waiting for user selection]";
+    }
+
+    // Flush any buffered text from todo parser
+    const flushedTodo = todoParser.flush();
+    if (flushedTodo) {
+      currentSegmentText += flushedTodo;
+      responseParts.push(flushedTodo);
     }
 
     if (currentSegmentText) {
