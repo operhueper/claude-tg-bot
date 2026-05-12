@@ -11,6 +11,7 @@ import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { execSync, execFileSync } from "child_process";
 import { existsSync, unlinkSync } from "fs";
+import * as fs from "fs";
 import { getSession } from "../session-registry";
 import {
   ALLOWED_USERS,
@@ -25,6 +26,11 @@ import { replyFriendly } from "../utils";
 import { requestAccess } from "../containers/invites";
 import { getUserSubscriptionExpiry, isTrialUsed, sendYuKassaBindingLink } from "../payments.js";
 import { getTodayCount, resetIfNewDay } from "../daily-limit";
+import { GraphStore } from "../memory/graph";
+import { GoalsStore } from "../memory/goals";
+import { buildMemoryContext } from "../memory/inject";
+import { graphFile, goalsFilePath, transcriptsDir } from "../memory/paths";
+import { escapeHtml } from "../formatting";
 
 /** Reject command if the profile doesn't permit it. */
 function commandAllowed(userId: number, command: string): boolean {
@@ -620,6 +626,91 @@ export async function handlePay(ctx: Context): Promise<void> {
     await sendYuKassaBindingLink(ctx, userId);
   } catch (e) {
     await replyFriendly(ctx, e, 'pay');
+  }
+}
+
+/**
+ * /memory — show what the bot remembers about this user.
+ */
+export async function handleMemory(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!userId || !isAuthorized(userId, ALLOWED_USERS)) return;
+
+  const profile = getUserProfile(userId);
+
+  if (profile.isOwner) {
+    await ctx.reply("У владельца своя система памяти через ~/.claude.");
+    return;
+  }
+
+  try {
+    const graphStore = new GraphStore(profile.memoryRoot, userId);
+    const goalsStore = new GoalsStore(profile.memoryRoot, userId);
+    const graph = graphStore.load();
+    const goals = goalsStore.load();
+
+    const nodeCount = Object.keys(graph.nodes ?? {}).length;
+    const goalCount = Object.values(goals.goals ?? {}).filter(
+      (g) => g.status === "active"
+    ).length;
+
+    if (nodeCount === 0 && goalCount === 0) {
+      await ctx.reply(
+        "Пока ничего не сохранено о тебе. Память накапливается по мере диалогов."
+      );
+      return;
+    }
+
+    const memCtx = buildMemoryContext(graph, goals, {
+      maxNodes: 15,
+      maxChars: 3000,
+    });
+
+    const header = `🧠 <b>Что я о тебе помню</b> (${nodeCount} фактов, ${goalCount} активных целей):\n\n`;
+    const body = memCtx.appendText || "Нет данных для отображения.";
+    await ctx.reply(header + escapeHtml(body), { parse_mode: "HTML" });
+  } catch (err) {
+    await ctx.reply("Не удалось загрузить память. Попробуй позже.");
+    console.error("[/memory]", err);
+  }
+}
+
+/**
+ * /forget — delete all memory about this user.
+ */
+export async function handleForget(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!userId || !isAuthorized(userId, ALLOWED_USERS)) return;
+
+  const profile = getUserProfile(userId);
+
+  if (profile.isOwner) {
+    await ctx.reply("Для владельца /forget не применяется.");
+    return;
+  }
+
+  try {
+    const gFile = graphFile(profile.memoryRoot, userId);
+    const goFile = goalsFilePath(profile.memoryRoot, userId);
+    const tDir = transcriptsDir(profile.memoryRoot, userId);
+
+    for (const filePath of [gFile, goFile]) {
+      try {
+        await fs.promises.unlink(filePath);
+      } catch {
+        // ignore — file may not exist
+      }
+    }
+    try {
+      await fs.promises.rm(tDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+
+    await ctx.reply("Память очищена. Начинаем с чистого листа.");
+  } catch (err) {
+    await ctx.reply("Не удалось очистить память. Попробуй позже.");
+    console.error("[/forget]", err);
   }
 }
 

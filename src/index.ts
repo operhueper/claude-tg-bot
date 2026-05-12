@@ -37,6 +37,8 @@ import {
   handlePay,
   handleCancel,
   handleInfo,
+  handleMemory,
+  handleForget,
   handleText,
   handleVoice,
   handlePhoto,
@@ -178,6 +180,8 @@ bot.command("dashboard", handleDashboard);
 bot.command("pay", handlePay);
 bot.command("cancel", handleCancel);
 bot.command("info", handleInfo);
+bot.command("memory", handleMemory);
+bot.command("forget", handleForget);
 
 // ============== Message Handlers ==============
 
@@ -236,6 +240,8 @@ const baseCommands = [
   { command: "pay", description: "⭐ Оформить или продлить подписку" },
   { command: "cancel", description: "Отменить подписку" },
   { command: "info", description: "Что умею и как помочь" },
+  { command: "memory", description: "Что бот помнит обо мне" },
+  { command: "forget", description: "Удалить мою память" },
   { command: "new", description: "Start fresh session" },
   { command: "stop", description: "Stop current query" },
   { command: "status", description: "Show detailed status" },

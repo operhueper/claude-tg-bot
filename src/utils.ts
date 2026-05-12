@@ -235,12 +235,30 @@ export async function replyFriendly(
 // Lazy import to avoid circular dependency
 let sessionModule: typeof import("./session-registry") | null = null;
 
+export interface InterruptResult {
+  isInterrupt: boolean;
+  isRedirect?: boolean;
+  redirectMessage?: string;
+  /** Original full text if not an interrupt prefix */
+  originalText?: string;
+}
+
+/**
+ * Check if the message starts with `!` (interrupt prefix).
+ * Returns an InterruptResult describing how to handle the message:
+ * - `isInterrupt: false` — normal message, pass `originalText` to Claude.
+ * - `isInterrupt: true, isRedirect: false` — stop-only interrupt (`!`, `!стоп`, `!stop`).
+ * - `isInterrupt: true, isRedirect: true` — stop + redirect: abort current query
+ *   then fire a new one with `redirectMessage`.
+ *
+ * Side effect: if a session is running, it is stopped synchronously before returning.
+ */
 export async function checkInterrupt(
   text: string,
   userId: number
-): Promise<string> {
+): Promise<InterruptResult> {
   if (!text || !text.startsWith("!")) {
-    return text;
+    return { isInterrupt: false, originalText: text };
   }
 
   if (!sessionModule) {
@@ -259,9 +277,11 @@ export async function checkInterrupt(
     userSession.clearStopRequested();
   }
 
-  if (normalizedInterrupt === "stop" || normalizedInterrupt === "/stop") {
-    return "";
+  const isStopOnly = normalizedInterrupt === "stop" || normalizedInterrupt === "/stop" || normalizedInterrupt === "стоп" || normalizedInterrupt === "";
+
+  if (isStopOnly) {
+    return { isInterrupt: true, isRedirect: false };
   }
 
-  return strippedText;
+  return { isInterrupt: true, isRedirect: true, redirectMessage: strippedText };
 }

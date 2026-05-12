@@ -315,8 +315,34 @@ export async function handleText(ctx: Context): Promise<void> {
   const session = inGroup ? getGroupSession() : getSession(userId);
 
   // 2. Check for interrupt prefix
-  message = await checkInterrupt(message, userId);
+  const interruptResult = await checkInterrupt(message, userId);
+  if (interruptResult.isInterrupt) {
+    if (interruptResult.isRedirect && interruptResult.redirectMessage) {
+      // Stop was already called inside checkInterrupt; wait a bit for abort to settle
+      await new Promise((r) => setTimeout(r, 600));
+
+      // Build redirect message with optional partial context
+      const partial = session.lastPartialResponse;
+      session.lastPartialResponse = null;
+
+      const contextNote = partial
+        ? `[Контекст: предыдущее выполнение прервано. Вот что было выведено до прерывания: "${partial}"]\n\n`
+        : "";
+      message = contextNote + interruptResult.redirectMessage;
+      // Fall through to send the redirect message as a new query
+    } else {
+      // Pure stop — return early
+      releaseContainerSlot?.();
+      releaseUserLock?.();
+      return;
+    }
+  } else {
+    message = interruptResult.originalText ?? message;
+  }
+
   if (!message.trim()) {
+    releaseContainerSlot?.();
+    releaseUserLock?.();
     return;
   }
 

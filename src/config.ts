@@ -1030,6 +1030,8 @@ const OWNER_COMMANDS = new Set([
   "retry",
   "restart",
   "reloadbot",
+  "memory",
+  "forget",
 ]);
 // /restart is now a per-user session reset, so it's safe for guests.
 // /reloadbot (full systemd restart) stays owner-only.
@@ -1044,6 +1046,8 @@ const GUEST_COMMANDS = new Set([
   "resume",
   "retry",
   "restart",
+  "memory",
+  "forget",
 ]);
 
 // Owner system prompt is now computed per-call inside getUserProfile so we

@@ -220,6 +220,7 @@ export class ClaudeSession {
   pendingContextMessages: string[] = [];
   pendingPlan: { planText: string; originalMessage: string } | null = null;
   pendingClarification = false;
+  lastPartialResponse: string | null = null;
 
   private abortController: AbortController | null = null;
   private isQueryRunning = false;
@@ -321,6 +322,95 @@ export class ClaudeSession {
       return "pending";
     }
     return false;
+  }
+
+  /**
+   * Compact context when input tokens are approaching the model limit.
+   * Summarizes recent transcript turns via DeepSeek, resets the session,
+   * and injects the summary into the system prompt for the next query.
+   * Returns true if compaction ran (summary injected), false if skipped.
+   */
+  private async compactIfNeeded(
+    systemPromptRef: { value: string },
+    statusCallback: StatusCallback
+  ): Promise<boolean> {
+    const lastInput = this.lastUsage?.input_tokens ?? 0;
+    const limit = this.profile.isOwner ? 160_000 : 50_000;
+    if (lastInput < limit * 0.8) return false;
+
+    const turns = this.transcriptRecorder?.getRecentTurns(20) ?? [];
+    if (turns.length === 0) return false;
+
+    const dialog = turns
+      .map(
+        (t) =>
+          `${t.role === "user" ? "Пользователь" : "Ассистент"}: ${
+            typeof t.content === "string"
+              ? t.content.slice(0, 1000)
+              : JSON.stringify(t.content).slice(0, 500)
+          }`
+      )
+      .join("\n\n");
+
+    const summaryPrompt = `Сделай краткое резюме диалога (не более 800 слов). Сохрани:
+- ключевые договорённости и решения
+- имена файлов, переменных, функций
+- незавершённые задачи
+- важные ограничения и контекст
+
+Диалог:
+${dialog}
+
+Резюме:`;
+
+    try {
+      const apiKey =
+        this.profile.deepseekEnv?.ANTHROPIC_API_KEY ??
+        process.env.DEEPSEEK_API_KEY;
+      if (!apiKey) return false;
+
+      const res = await fetch("https://api.deepseek.com/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [{ role: "user", content: summaryPrompt }],
+          max_tokens: 1500,
+          temperature: 0.3,
+        }),
+      });
+
+      if (!res.ok) return false;
+      const data = (await res.json()) as {
+        choices: Array<{ message: { content: string } }>;
+      };
+      const summary = data.choices?.[0]?.message?.content;
+      if (!summary) return false;
+
+      // Reset session so SDK starts fresh
+      this.sessionId = null;
+      this.lastUsage = null;
+
+      // Inject summary into system prompt
+      systemPromptRef.value =
+        (systemPromptRef.value || "") +
+        `\n\n[Краткое резюме предыдущего диалога, сжатого из-за превышения контекста]\n${summary}`;
+
+      // Notify user
+      await statusCallback("text", "Контекст сессии стал большим — сжимаю историю...", 99);
+      await statusCallback("segment_end", "Контекст сжат, продолжаем.", 99);
+
+      return true;
+    } catch (err) {
+      console.warn(
+        `[${this.profile.label}] Compaction failed (non-fatal):`,
+        err
+      );
+      return false;
+    }
   }
 
   async sendMessageStreaming(
@@ -439,6 +529,14 @@ export class ClaudeSession {
           err
         );
       }
+    }
+
+    // Compact context if approaching model token limit (non-fatal, guests only since
+    // owner's Claude API has generous limits and automatic context management)
+    if (!mediaHint && !this.profile.isOwner) {
+      const promptRef = { value: systemPromptWithMemory };
+      await this.compactIfNeeded(promptRef, statusCallback);
+      systemPromptWithMemory = promptRef.value;
     }
 
     // ============== Universal vision routing: all users with mediaHint go via OpenRouter Gemini ==============
@@ -658,6 +756,10 @@ export class ClaudeSession {
       for await (const event of queryInstance) {
         if (this.stopRequested) {
           console.log(`[${this.profile.label}] Query aborted by user`);
+          // Save partial response so redirect-interrupt can use it
+          if (currentSegmentText.length > 50) {
+            this.lastPartialResponse = currentSegmentText.slice(0, 2000);
+          }
           break;
         }
 
