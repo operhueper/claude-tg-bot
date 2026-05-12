@@ -1156,7 +1156,7 @@ export function getUserProfile(userId: number): UserProfile {
       timezone: node?.timezone ?? "Europe/Moscow",
       deepseekApiKey,
       deepseekEnv,
-      containerEnabled: tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false,
+      containerEnabled: node?.containerEnabled ?? tierConfig.containerEnabled,
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
       // to prevent "does not support this tool_choice" errors.
       disallowedTools: ["WebSearch"],
