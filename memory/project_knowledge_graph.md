@@ -2,6 +2,74 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-12 — UX hardening задеплоен на PROD (proboi-bot)
+
+### Что сделано за эту сессию (2026-05-12) — UX аудит + хардининг
+
+**Коммит e562cb0** — UX hardening (задеплоен на proboi-bot 89.167.125.175):
+
+**Исправлено по результатам аудита 4 агентов (баги, UX, JTBD, resilience):**
+- `commands.ts`: `/resume` — убраны итальянские строки (it-IT → ru-RU), дата/время по-русски
+- `commands.ts`: кнопка «Оформить Профи» в `/pay` (trial used path) — мёртвая ссылка → callback `pay_upgrade`
+- `invites.ts`: «Доступ закрыт» → дружелюбное приветствие с объяснением что такое бот
+- `voice.ts`: все 4 английских error message → русские; кнопка лимита → callback; добавлено время сброса
+- `text.ts`: утечка блокировки (releaseUserLock/releaseContainerSlot) при rate-limit + isRunning ранних return
+- `text.ts`: кнопка лимита → callback `pay_upgrade`; добавлено «Лимит обновится в полночь по Москве»
+- `text.ts`: онбординг-приветствие теперь показывается при ПЕРВОМ ТЕКСТЕ (не только /start)
+- `video.ts`: полная перезапись — Whisper вместо сломанного Gemini-vision; daily limit; per-user lock; русские сообщения
+- `tasks.ts`: catch в chargeRecurring теперь уведомляет пользователя + логирует ошибку
+- `index.ts`: `process.on('uncaughtException')` + `process.on('unhandledRejection')` — процесс не падает молча
+
+**Что осталось (не исправлено в этой сессии):**
+- YuKassa missed webhook — нет reconciliation job и self-service `/check` команды
+- `/subscribe?status=success` URL — ведёт на заглушку (нет страницы успеха)
+- `addUser` в user-registry.ts — неатомарная запись для новых пользователей
+- `callback.ts (plan_confirm)` — нет acquireUserLock при выполнении плана (race condition)
+- IP check пропускается если x-forwarded-for пустой (webhook security)
+- `/status` слишком технично для обычных пользователей
+
+**Аудит проведён:** 4 независимых агента (bug hunt, user journey, JTBD, resilience) по всему коду бота.
+
+---
+
+## Состояние: 2026-05-12 — Claude Code Features (5 фич) задеплоены на TEST (jinru)
+
+### Что сделано за эту сессию (2026-05-12) — Claude Code Features
+
+**Коммит 9d61473** — Ф2 Todo-list + Ф1 Plan Mode:
+- `TodoMarkerParser` + `PlanMarkerParser` в `session.ts` — line-buffer парсинг маркеров в тексте стрима
+- `StreamingState.todoMsgId` + `todoItems` + `renderTodoList()` в `streaming.ts` — отдельное Telegram-сообщение с ◻/⏳/✅
+- `statusCallback("todo_init" | "todo_update")` — новые типы событий
+- Plan Mode: `pendingPlan` поле в `ClaudeSession`, abort при PLAN_END, показ с inline кнопками (✅/❌/✏️)
+- `callback.ts`: handlers plan_confirm / plan_cancel / plan_clarify
+- `config.ts`: блоки ПЛАН и МАРКЕРЫ ПРОГРЕССА добавлены во все системные промпты (owner/guest/group)
+
+**Коммит 633c634** — Ф3 Компакция + Ф5 Redirect + Ф4 /memory /forget:
+- `compactIfNeeded()` в `session.ts`: если `input_tokens > 80% лимита` → DeepSeek суммаризует 20 последних turn'ов → `sessionId = null` (новая сессия SDK) → summary инжектируется в system prompt
+- `lastPartialResponse` в `ClaudeSession`: при abort накапливает `currentSegmentText` для redirect
+- `checkInterrupt()` в `utils.ts` → возвращает `InterruptResult` с `isRedirect` + `redirectMessage`
+- `text.ts`: redirect flow — 600ms задержка → читает partial response → строит redirect message → fire new query
+- `/memory` и `/forget` команды в `commands.ts`: показывает knowledge graph (buildMemoryContext) / удаляет файлы памяти
+- Обе команды добавлены в `baseCommands` + `GUEST_COMMANDS`
+
+**Деплой**: rsync → jinru (5.223.82.96, @ORCH7_bot), `systemctl restart` ✅, 12 base / 13 owner команд
+
+### Ключевые открытия при ревизии roadmap
+
+- **Ф4 (Память)** — ядро уже было реализовано: `src/memory/` с knowledge graph (nodes/edges/goals/achievements). Добавлены только UI-команды /memory и /forget
+- **Ф3 (Компакция)** — roadmap описывал манипуляцию `messages[]` в session file, но SDK хранит историю внутри, доступна только через session_id. Реализована через reset sessionId + summary в system prompt
+- `profile.sessionFile` — хранит только session_id метаданные, НЕ messages[]
+
+### Технический долг / follow-up
+
+- Тестирование на реальных сессиях: план-маркеры и todo-маркеры нужно проверить на обеих моделях (DeepSeek + Claude)
+- Компакция: порог 50K токенов для гостей (DeepSeek 64K лимит), может требовать калибровки
+- Plan Mode: `pendingClarification` поле — простая реализация, не сохраняет текст плана в clarify-flow
+- Todo-парсер: буферизует по строкам, маркеры внутри одной строки без \n не распознаются (намеренно)
+- `analyzeSession` bug на jinru (TypeError: undefined is not an object) — pre-existing, не связан с новыми фичами
+
+---
+
 ## Состояние: 2026-05-11 — YuKassa-фаза ВЫПОЛНЕНА, задеплоено на TEST (jinru)
 
 11 коммитов сегодня (волны 1-4 + security fixes). Бот `@ORCH7_bot` активен на jinru.
