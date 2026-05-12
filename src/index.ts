@@ -55,6 +55,16 @@ import { registerAlertBot, notifyOwnerDM } from "./owner-alerts";
 import { startCrashloopWatcher } from "./crashloop-watcher";
 import { chargeExpiredTrials } from "./tasks";
 
+// Prevent unhandled errors from crashing the bot for all users.
+// grammY catches handler errors via bot.catch, but we need a last-resort handler
+// for errors that escape the grammY middleware chain.
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] uncaughtException:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] unhandledRejection:', reason);
+});
+
 // Create bot instance
 const bot = new Bot(TELEGRAM_TOKEN);
 registerAlertBot(bot);

@@ -87,7 +87,11 @@ export async function requestAccess(
     timestamp: Date.now(),
   });
 
-  await ctx.reply("🔒 Доступ закрыт. Ваш запрос отправлен администратору.");
+  await ctx.reply(
+    "👋 Привет! Я Proboi — ИИ-ассистент в Telegram.\n\n" +
+    "Чтобы начать, нужно одобрение администратора. Запрос отправлен — обычно отвечаем быстро.\n\n" +
+    "Как только тебя одобрят, напишу сам."
+  );
 
   // Owner = first user in ALLOWED_USERS who is NOT a guest
   const ownerId = ALLOWED_USERS.find((id) => !NEW_GUEST_USERS.includes(id));

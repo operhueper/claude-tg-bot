@@ -287,24 +287,24 @@ export async function handleResume(ctx: Context): Promise<void> {
   const session = getSession(userId);
 
   if (session.isActive) {
-    await ctx.reply("Sessione già attiva. Usa /new per iniziare da capo.");
+    await ctx.reply("✅ Сессия уже активна. Используй /new чтобы начать заново.");
     return;
   }
 
   const sessions = session.getSessionList();
 
   if (sessions.length === 0) {
-    await ctx.reply("❌ Nessuna sessione salvata.");
+    await ctx.reply("📭 Нет сохранённых сессий.");
     return;
   }
 
   const buttons = sessions.map((s) => {
     const date = new Date(s.saved_at);
-    const dateStr = date.toLocaleDateString("it-IT", {
+    const dateStr = date.toLocaleDateString("ru-RU", {
       day: "2-digit",
       month: "2-digit",
     });
-    const timeStr = date.toLocaleTimeString("it-IT", {
+    const timeStr = date.toLocaleTimeString("ru-RU", {
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -321,7 +321,7 @@ export async function handleResume(ctx: Context): Promise<void> {
   });
 
   await ctx.reply(
-    "📋 <b>Sessioni salvate</b>\n\nSeleziona una sessione da riprendere:",
+    "📋 <b>Сохранённые сессии</b>\n\nВыбери сессию для продолжения:",
     {
       parse_mode: "HTML",
       reply_markup: {
@@ -615,7 +615,7 @@ export async function handlePay(ctx: Context): Promise<void> {
 
   if (isTrialUsed(userId)) {
     const kb = new InlineKeyboard()
-      .url('Оформить Профи — 499 ₽/мес', 'https://t.me/proboiAI_bot?start=pay')
+      .text('Оформить Профи — 499 ₽/мес', 'pay_upgrade')
       .row()
       .url('Что даёт Профи →', 'https://proboi.site/how-to-setup');
     await ctx.reply('Ваш бесплатный пробный период уже был использован.\n\nОформите Профи — 499 ₽/мес:', { reply_markup: kb });

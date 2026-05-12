@@ -40,9 +40,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
 
   // 2. Check if transcription is available
   if (!TRANSCRIPTION_AVAILABLE) {
-    await ctx.reply(
-      "Voice transcription is not configured. Set OPENAI_API_KEY in .env"
-    );
+    await ctx.reply("Голосовые сообщения временно недоступны. Попробуй написать текстом.");
     return;
   }
 
@@ -50,9 +48,8 @@ export async function handleVoice(ctx: Context): Promise<void> {
   const [allowed, retryAfter] = rateLimiter.check(userId);
   if (!allowed) {
     await auditLogRateLimit(userId, username, retryAfter!);
-    await ctx.reply(
-      `⏳ Rate limited. Please wait ${retryAfter!.toFixed(1)} seconds.`
-    );
+    const waitSec = Math.ceil(retryAfter!);
+    await ctx.reply(`⏳ Слишком много запросов. Подожди ${waitSec} сек и попробуй снова.`);
     return;
   }
 
@@ -63,12 +60,13 @@ export async function handleVoice(ctx: Context): Promise<void> {
       if (isDailyLimitReached(userId)) {
         const { limit } = getDailyUsage(userId);
         await ctx.reply(
-          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n\n` +
+          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n` +
+          `Лимит обновится в полночь по Москве.\n\n` +
           `На тарифе Профи — без ограничений. Плюс документы, код, Google и многое другое.\n\n` +
           `Привяжите карту — первые 5 дней бесплатно.`,
           {
             reply_markup: new InlineKeyboard()
-              .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
+              .text('5 дней Профи бесплатно', 'pay_upgrade')
               .row()
               .url('Что даёт Профи →', 'https://proboi.site/how-to-setup'),
           }
@@ -110,14 +108,14 @@ export async function handleVoice(ctx: Context): Promise<void> {
     await Bun.write(voicePath, buffer);
 
     // 7. Transcribe
-    const statusMsg = await ctx.reply("🎤 Transcribing...");
+    const statusMsg = await ctx.reply("🎤 Расшифровываю...");
 
     const transcript = await transcribeVoice(voicePath);
     if (!transcript) {
       await ctx.api.editMessageText(
         chatId,
         statusMsg.message_id,
-        "❌ Transcription failed."
+        "❌ Не удалось расшифровать голосовое. Попробуй ещё раз."
       );
       stopProcessing();
       return;

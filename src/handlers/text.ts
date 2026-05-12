@@ -6,7 +6,7 @@ import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import type { StatusCallback } from "../types";
 import { getSession, getGroupSession } from "../session-registry";
-import { ALLOWED_USERS, GROUP_CHAT_ID, getUserProfile, OWNER_USER_ID } from "../config";
+import { ALLOWED_USERS, GROUP_CHAT_ID, getUserProfile, OWNER_USER_ID, isNewGuest, isNewGuestOnboarded, markNewGuestOnboarded } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
@@ -151,6 +151,22 @@ export async function handleText(ctx: Context): Promise<void> {
     return;
   }
 
+  // Show onboarding for new guests who type text instead of /start after approval
+  if (isNewGuest(userId) && !isNewGuestOnboarded(userId)) {
+    markNewGuestOnboarded(userId);
+    await ctx.reply(
+      `👋 <b>Привет! Я Proboi — ИИ-ассистент прямо в Telegram.</b>\n\n` +
+      `Никаких кнопок и меню — просто напиши мне обычным текстом, как другу. Например:\n\n` +
+      `• <i>«Объясни простыми словами что такое инфляция»</i>\n` +
+      `• <i>«Напиши письмо клиенту об отсрочке платежа»</i>\n` +
+      `• <i>«Что на этом фото?»</i> — и прикрепи картинку\n` +
+      `• Отправь голосовое — я переведу и отвечу\n\n` +
+      `📖 <a href="https://proboi.site/how-to-setup">Полный гайд — все возможности и примеры</a>`,
+      { parse_mode: "HTML", link_preview_options: { is_disabled: true } }
+    );
+    // Continue processing — user already wrote something, handle it below
+  }
+
   // Prepend replied-to message context if user is replying to something
   const replyMsg = ctx.message?.reply_to_message;
   if (replyMsg) {
@@ -184,12 +200,13 @@ export async function handleText(ctx: Context): Promise<void> {
       if (isDailyLimitReached(userId)) {
         const { limit } = getDailyUsage(userId);
         await ctx.reply(
-          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n\n` +
+          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n` +
+          `Лимит обновится в полночь по Москве.\n\n` +
           `На тарифе Профи — без ограничений. Плюс документы, код, Google и многое другое.\n\n` +
           `Привяжите карту — первые 5 дней бесплатно.`,
           {
             reply_markup: new InlineKeyboard()
-              .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
+              .text('5 дней Профи бесплатно', 'pay_upgrade')
               .row()
               .url('Что даёт Профи →', 'https://proboi.site/how-to-setup'),
           }
@@ -350,6 +367,8 @@ export async function handleText(ctx: Context): Promise<void> {
   // queue it as pending context and acknowledge with a reaction.
   if (session.isRunning) {
     session.addPendingContext(message);
+    releaseContainerSlot?.();
+    releaseUserLock?.();
     try {
       await ctx.react("👌");
     } catch {
@@ -364,6 +383,8 @@ export async function handleText(ctx: Context): Promise<void> {
     ? checkGroupRateLimit(chatId)
     : rateLimiter.check(userId);
   if (!allowed) {
+    releaseContainerSlot?.();
+    releaseUserLock?.();
     await auditLogRateLimit(userId, username, retryAfter!);
     const waitSec = Math.ceil(retryAfter!);
     await ctx.reply(

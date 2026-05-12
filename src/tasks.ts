@@ -207,9 +207,15 @@ export async function chargeExpiredTrials(bot: any): Promise<void> {
           '/pay — обновить карту'
         ).catch(() => {});
       }
-    } catch {
+    } catch (chargeErr) {
+      console.error(`[billing] chargeRecurring failed for user ${user.userId}:`, chargeErr);
       const graceEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000);
       UserRegistry.saveUser({ ...user, grace_period_until: graceEnd.toISOString() });
+      await bot.api.sendMessage(user.userId,
+        '⚠️ Не удалось провести оплату за подписку Профи.\n\n' +
+        'У вас есть 48 часов для повторной попытки. Если оплата не пройдёт — доступ будет приостановлен.\n\n' +
+        '/pay — обновить карту'
+      ).catch(() => {});
     }
   }
 
