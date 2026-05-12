@@ -22,7 +22,7 @@ import {
   markNewGuestOnboarded,
 } from "../config";
 import { isAuthorized } from "../security";
-import { replyFriendly } from "../utils";
+import { auditLog, replyFriendly } from "../utils";
 import { requestAccess } from "../containers/invites";
 import { getUserSubscriptionExpiry, isTrialUsed, sendYuKassaBindingLink } from "../payments.js";
 import { getTodayCount, resetIfNewDay } from "../daily-limit";
@@ -410,7 +410,7 @@ function killUserClaudeProcesses(workingDir: string): number {
   try {
     const out = execFileSync(
       "pgrep",
-      ["-f", `--add-dir ${workingDir}`],
+      ["-f", `--add-dir ${workingDir}/`],
       { encoding: "utf-8" }
     );
     pids = out.trim().split("\n").filter(Boolean).map(Number).filter(n => Number.isFinite(n) && n > 0);
@@ -693,6 +693,9 @@ export async function handleForget(ctx: Context): Promise<void> {
     const gFile = graphFile(profile.memoryRoot, userId);
     const goFile = goalsFilePath(profile.memoryRoot, userId);
     const tDir = transcriptsDir(profile.memoryRoot, userId);
+
+    const username = ctx.from?.username || "unknown";
+    await auditLog(userId, username, "FORGET", "/forget", `Deleting memory: graph=${gFile}, goals=${goFile}, transcripts=${tDir}`);
 
     for (const filePath of [gFile, goFile]) {
       try {

@@ -261,7 +261,7 @@ export async function checkPendingConnectGoogleRequests(
  */
 function renderTodoList(items: TodoItem[]): string {
   const icon: Record<string, string> = { pending: '◻', in_progress: '⏳', done: '✅' };
-  return '<b>Выполняю:</b>\n' + items.map(i => `${icon[i.status] ?? '•'} ${i.label}`).join('\n');
+  return '<b>Выполняю:</b>\n' + items.map(i => `${icon[i.status] ?? '•'} ${escapeHtml(i.label)}`).join('\n');
 }
 
 /**

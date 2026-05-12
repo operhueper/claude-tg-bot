@@ -128,6 +128,17 @@ function maybePrependOrchestrationHint(text: string, userId: number): string {
 }
 
 /**
+ * Strip lines from raw model output that could be used for prompt injection
+ * before re-embedding the partial response into the next query.
+ */
+function sanitizePartial(text: string): string {
+  return text
+    .split('\n')
+    .filter(line => !/^\s*(ignore|forget|disregard|system:|<system>|инструкция:|забудь|игнорируй)/i.test(line))
+    .join('\n');
+}
+
+/**
  * Handle incoming text messages.
  */
 export async function handleText(ctx: Context): Promise<void> {
@@ -343,7 +354,7 @@ export async function handleText(ctx: Context): Promise<void> {
       session.lastPartialResponse = null;
 
       const contextNote = partial
-        ? `[Контекст: предыдущее выполнение прервано. Вот что было выведено до прерывания: "${partial}"]\n\n`
+        ? `[Контекст: предыдущее выполнение прервано. Вот что было выведено до прерывания: "${sanitizePartial(partial)}"]\n\n`
         : "";
       message = contextNote + interruptResult.redirectMessage;
       // Fall through to send the redirect message as a new query

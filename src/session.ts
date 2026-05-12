@@ -67,6 +67,17 @@ const CONTAINER_BASH_PROMPT = `
 У тебя есть инструмент для запуска shell-команд в твоей рабочей среде. Используй его для выполнения кода, обработки файлов, установки пакетов (pip install, npm install, apt-get и т.д.). Все команды работают в изолированной среде. Доступны python3, node, bun, git и обычные unix-утилиты. Состояние (установленные пакеты, файлы) сохраняется между сообщениями. Файлы созданные через инструмент Bash видны инструментам Read/Write/Edit и наоборот — это одна и та же рабочая папка.`;
 
 /**
+ * Sanitize a DeepSeek-generated compaction summary before injecting it into
+ * the system prompt. Strips lines that look like prompt-injection attempts.
+ */
+function sanitizeCompactionSummary(text: string): string {
+  return text
+    .split('\n')
+    .filter(line => !/^\s*(ignore|forget|disregard|system:|<system>|инструкция:|забудь|игнорируй)/i.test(line))
+    .join('\n');
+}
+
+/**
  * Infrastructure disclosure patterns that must not surface in guest-visible
  * thinking blocks. If any pattern matches, the block is suppressed entirely.
  */
@@ -392,12 +403,16 @@ ${dialog}
 
       // Reset session so SDK starts fresh
       this.sessionId = null;
+      this.transcriptRecorder = null;
       this.lastUsage = null;
+
+      // Sanitize before injecting to prevent prompt injection via summary content
+      const safeSummary = sanitizeCompactionSummary(summary);
 
       // Inject summary into system prompt
       systemPromptRef.value =
         (systemPromptRef.value || "") +
-        `\n\n[Краткое резюме предыдущего диалога, сжатого из-за превышения контекста]\n${summary}`;
+        `\n\n[Краткое резюме предыдущего диалога, сжатого из-за превышения контекста]\n${safeSummary}`;
 
       // Notify user
       await statusCallback("text", "Контекст сессии стал большим — сжимаю историю...", 99);
@@ -1280,6 +1295,14 @@ ${dialog}
         false,
         `Sessione per directory diversa: ${sessionData.working_dir}`,
       ];
+    }
+
+    const SESSION_ID_RE = /^[0-9a-f-]{36}$/i;
+    if (!SESSION_ID_RE.test(sessionData.session_id)) {
+      console.warn(
+        `[${this.profile.label}] Skipping resume — session_id failed UUID validation: "${sessionData.session_id.slice(0, 40)}"`
+      );
+      return [false, "Sessione non valida"];
     }
 
     this.sessionId = sessionData.session_id;
