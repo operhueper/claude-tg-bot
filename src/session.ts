@@ -548,16 +548,24 @@ ${dialog}
         ? getNewGuestOpenRouterKey(this.profile.userId)
         : process.env.OPENROUTER_API_KEY;
       const msgs = this.buildConversationHistory(messageToSend, mediaHint);
-      const response = await queryOpenRouter(
-        msgs,
-        this.profile.visionModel || "google/gemini-2.5-flash",
-        openrouterKey,
-        systemPromptWithMemory,
-        statusCallback,
-        null,
-        this.profile,
-        chatId
-      );
+      const visionAbort = new AbortController();
+      const visionTimeout = setTimeout(() => visionAbort.abort(), 90_000);
+      let response: string;
+      try {
+        response = await queryOpenRouter(
+          msgs,
+          this.profile.visionModel || "google/gemini-2.5-flash",
+          openrouterKey,
+          systemPromptWithMemory,
+          statusCallback,
+          null,
+          this.profile,
+          chatId,
+          visionAbort.signal
+        );
+      } finally {
+        clearTimeout(visionTimeout);
+      }
       await statusCallback("segment_end", response, 0);
       await statusCallback("done", "");
       this.lastActivity = new Date();

@@ -572,6 +572,11 @@ async function openRouterRequest(
   }
 
   const reader = resp.body.getReader();
+  // Cancel the reader immediately when the abort signal fires so reader.read()
+  // does not hang indefinitely waiting for the next SSE chunk.
+  const onAbort = () => { reader.cancel().catch(() => {}); };
+  abortSignal?.addEventListener("abort", onAbort, { once: true });
+
   const decoder = new TextDecoder();
   let text = "";
   let buffer = "";
@@ -585,9 +590,9 @@ async function openRouterRequest(
     { id: string; name: string; argsRaw: string }
   > = {};
 
+  try {
   while (true) {
     if (abortSignal?.aborted) {
-      await reader.cancel();
       throw new Error("AbortError: OpenRouter request aborted");
     }
     const { done, value } = await reader.read();
@@ -643,6 +648,9 @@ async function openRouterRequest(
         // Skip malformed chunks
       }
     }
+  }
+  } finally {
+    abortSignal?.removeEventListener("abort", onAbort);
   }
 
   // Parse assembled tool calls

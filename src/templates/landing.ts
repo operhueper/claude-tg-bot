@@ -1108,6 +1108,7 @@ ${FOOTER_HTML}
 </html>`;
 }
 
+
 export function renderHowToSetup(): string {
   return renderHowToSetupGuide();
 }
@@ -1118,8 +1119,8 @@ export function renderHowToSetupGuide(): string {
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Как пользоваться Proboi</title>
-<meta name="description" content="Голос, фото, файлы, код, Google — всё что умеет ваш личный ИИ-ассистент в Telegram." />
+<title>Как пользоваться ассистентом — О, мойКлод</title>
+<meta name="description" content="Простые подсказки по всем фишкам бота: голос, файлы, память, почта, личная страничка, дашборд." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -1136,7 +1137,6 @@ body {
   --lime:    #D8FF36;
   --lime-2:  #B7E022;
   --coral:   #FF4F2E;
-  --orange:  #f97316;
   --cream:   #FFF9EC;
   --line:    #1A1814;
   --r-md:    14px;
@@ -1184,205 +1184,182 @@ body {
 /* ── Hero ──────────────────────────────────────────── */
 .g-hero {
   max-width: 860px; margin: 0 auto;
-  padding: 56px 32px 40px;
+  padding: 56px 32px 12px;
 }
-.g-hero h1 {
+.g-hero__badge {
+  display: inline-block;
+  background: var(--lime); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: 999px;
+  font-family: var(--f-mono); font-size: 12px; font-weight: 500;
+  padding: 5px 14px; letter-spacing: .04em;
+  margin-bottom: 28px;
+}
+.g-hero__title {
   font-family: var(--f-display); font-weight: 800;
-  font-size: clamp(26px, 4.5vw, 48px);
+  font-size: clamp(28px, 5vw, 52px);
   line-height: 1.08; letter-spacing: -.03em;
   color: var(--ink);
   margin-bottom: 18px;
 }
-.g-hero p {
+.g-hero__title em { font-style: normal; color: var(--coral); }
+.g-hero__sub {
   font-size: 18px; color: var(--ink-2); max-width: 54ch;
-  line-height: 1.5; margin-bottom: 28px;
-}
-
-/* ── Content sections ──────────────────────────────── */
-.g-content {
-  max-width: 860px; margin: 0 auto;
-  padding: 0 32px 140px;
-  display: flex; flex-direction: column; gap: 0;
-}
-.g-section {
-  padding: 48px 0;
-  border-bottom: 1.5px solid var(--paper-2);
-}
-.g-section:last-child { border-bottom: none; }
-.g-section h2 {
-  font-family: var(--f-display); font-weight: 700;
-  font-size: clamp(18px, 2.8vw, 26px);
-  letter-spacing: -.02em; line-height: 1.15;
-  color: var(--ink); margin-bottom: 20px;
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-}
-.g-section__narrative {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-  margin-bottom: 24px;
-}
-.g-narrative-card {
-  padding: 18px 20px;
-  border: 1.5px solid var(--ink);
-  border-radius: var(--r-lg);
-  font-size: 15px; line-height: 1.55;
-}
-.g-narrative-card--before {
-  background: #FFE5E0;
-}
-.g-narrative-card--after {
-  background: #EDFFB0;
-}
-.g-narrative-card__label {
-  font-family: var(--f-mono); font-size: 11px; font-weight: 500;
-  letter-spacing: .06em; margin-bottom: 8px; display: block;
-}
-.g-narrative-card--before .g-narrative-card__label { color: #C0280D; }
-.g-narrative-card--after .g-narrative-card__label { color: #5A7A00; }
-
-.g-examples-list {
-  list-style: none; padding: 0; margin: 0;
-  display: flex; flex-direction: column; gap: 10px;
-}
-.g-examples-list li {
-  padding: 13px 18px;
-  background: var(--cream);
-  border: 1.5px solid var(--paper-2);
-  border-radius: var(--r-md);
-  font-size: 15px; color: var(--ink-2); line-height: 1.4;
-  font-style: italic;
-}
-.g-examples-list li::before {
-  content: "\\00AB";
-  color: var(--muted);
-}
-.g-examples-list li::after {
-  content: "\\00BB";
-  color: var(--muted);
-}
-
-.g-tip {
-  margin-top: 20px; padding: 14px 18px;
-  background: var(--paper-2); border: 1.5px solid var(--ink);
-  border-radius: var(--r-md); font-size: 14px; color: var(--ink-2);
   line-height: 1.5;
 }
-.g-tip strong { color: var(--ink); font-weight: 600; }
 
-.g-steps {
-  list-style: none; padding: 0; margin: 0;
-  display: flex; flex-direction: column; gap: 10px;
-  counter-reset: step;
+/* ── Toggles wrapper ───────────────────────────────── */
+.g-toggles {
+  max-width: 860px; margin: 48px auto 0;
+  padding: 0 32px 80px;
+  display: flex; flex-direction: column; gap: 12px;
 }
-.g-steps li {
-  counter-increment: step;
-  padding: 13px 18px 13px 52px;
+
+/* ── Single toggle card ────────────────────────────── */
+details.g-block {
+  border: 1.5px solid var(--ink);
+  border-radius: var(--r-lg);
   background: var(--cream);
-  border: 1.5px solid var(--paper-2);
-  border-radius: var(--r-md);
-  font-size: 15px; color: var(--ink-2); line-height: 1.5;
-  position: relative;
+  overflow: hidden;
+  transition: box-shadow .18s;
 }
-.g-steps li::before {
-  content: counter(step);
-  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-  width: 26px; height: 26px;
-  background: var(--ink); color: var(--cream);
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-family: var(--f-display); font-weight: 700; font-size: 12px;
-}
+details.g-block:hover { box-shadow: 3px 3px 0 var(--ink); }
+details.g-block[open] { box-shadow: 4px 4px 0 var(--ink); }
 
-/* ── Badge pro ─────────────────────────────────────── */
-.badge-pro {
-  display: inline-flex; align-items: center;
-  background: var(--orange); color: #fff;
-  border-radius: 6px;
-  padding: 3px 10px;
-  font-family: var(--f-body); font-size: 12px; font-weight: 600;
-  letter-spacing: .02em;
+details.g-block summary {
+  list-style: none;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
   cursor: pointer;
   user-select: none;
-  flex-shrink: 0;
-  transition: opacity .15s;
+  min-height: 64px;
 }
-.badge-pro:hover { opacity: .82; }
+details.g-block summary::-webkit-details-marker { display: none; }
 
-/* ── Primary button ────────────────────────────────── */
-.btn-primary {
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--lime); color: var(--ink);
-  border: 1.5px solid var(--ink); border-radius: 999px;
-  padding: 13px 28px;
-  font-family: var(--f-body); font-weight: 700; font-size: 15px;
-  text-decoration: none;
-  transition: background .18s, transform .14s;
+.g-block__hd { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+.g-block__title {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: clamp(14px, 2vw, 17px); color: var(--ink);
+  letter-spacing: -.01em; line-height: 1.2;
 }
-.btn-primary:hover { background: var(--lime-2); transform: translateY(-1px); }
+.g-block__hint {
+  font-size: 13px; color: var(--muted); font-weight: 400;
+}
+.g-block__arrow {
+  font-size: 18px; color: var(--ink); flex-shrink: 0;
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  line-height: 1;
+}
+details.g-block[open] .g-block__arrow { transform: rotate(180deg); }
 
-/* ── FAQ ───────────────────────────────────────────── */
-.g-faq { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
-.g-faq-item {
-  padding: 20px 22px;
-  background: var(--cream);
-  border: 1.5px solid var(--paper-2);
-  border-radius: var(--r-lg);
+.g-block__body {
+  padding: 0 24px 26px;
+  border-top: 1.5px solid var(--paper-2);
 }
-.g-faq-item dt {
-  font-weight: 600; font-size: 15px; color: var(--ink);
+.g-block__body p {
+  color: var(--ink-2); font-size: 16px; line-height: 1.6;
+  margin-top: 18px; max-width: 65ch;
+}
+.g-block__body ul, .g-block__body ol {
+  padding-left: 20px; margin-top: 14px;
+}
+.g-block__body li {
+  color: var(--ink-2); font-size: 15px; line-height: 1.5;
   margin-bottom: 8px;
 }
-.g-faq-item dd {
-  font-size: 15px; color: var(--ink-2); line-height: 1.55;
+.g-block__tip {
+  margin-top: 18px; padding: 14px 18px;
+  background: var(--paper-2); border: 1.5px solid var(--ink);
+  border-radius: var(--r-md); font-size: 14px; color: var(--ink-2);
 }
+.g-block__tip strong { color: var(--ink); font-weight: 600; }
 
-/* ── Pay CTA section ───────────────────────────────── */
-.g-cta-section {
-  margin-top: 56px;
+/* SVG mockup container */
+.g-mock {
+  margin-top: 22px;
+  display: flex; justify-content: flex-start;
+  overflow-x: auto;
+}
+.g-mock svg { max-width: 100%; height: auto; }
+
+/* Example pairs (блок 3) */
+.g-examples { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+.g-ex-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.g-ex {
+  padding: 14px 16px; border-radius: var(--r-md);
+  border: 1.5px solid var(--ink); font-size: 14px; line-height: 1.5;
+}
+.g-ex--bad { background: #FFE5E0; }
+.g-ex--good { background: #EDFFB0; }
+.g-ex__label {
+  font-family: var(--f-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: .06em; margin-bottom: 6px; display: block;
+}
+.g-ex--bad .g-ex__label { color: #C0280D; }
+.g-ex--good .g-ex__label { color: #5A7A00; }
+
+/* Capabilities grid (блок 2) */
+.g-caps { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 18px; }
+.g-cap {
+  padding: 14px 12px; border: 1.5px solid var(--ink);
+  border-radius: var(--r-md); background: var(--paper);
+  font-size: 13px; color: var(--ink-2); line-height: 1.4;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.g-cap__ico { font-size: 20px; line-height: 1; }
+
+/* Cases list (блок 5) */
+.g-cases { display: flex; flex-direction: column; gap: 16px; margin-top: 18px; }
+.g-case { padding: 16px 18px; background: var(--paper); border: 1.5px solid var(--ink); border-radius: var(--r-md); }
+.g-case__title { font-weight: 600; font-size: 15px; color: var(--ink); margin-bottom: 4px; }
+.g-case__desc { font-size: 14px; color: var(--ink-2); line-height: 1.5; }
+
+/* ── CTA block ─────────────────────────────────────── */
+.g-cta {
+  max-width: 860px; margin: 0 auto 80px;
+  padding: 0 32px;
+}
+.g-cta__box {
   background: var(--ink); color: var(--cream);
   border-radius: var(--r-xl); padding: 48px 40px;
   display: flex; flex-direction: column; gap: 18px;
   align-items: flex-start;
 }
-.g-cta-section h2 {
+.g-cta__title {
   font-family: var(--f-display); font-weight: 800;
   font-size: clamp(22px, 3.5vw, 36px); letter-spacing: -.02em;
-  line-height: 1.1; color: var(--lime);
-  display: block;
+  line-height: 1.1;
 }
-.g-cta-section p {
-  font-size: 16px; color: #B5AFA3; max-width: 52ch; line-height: 1.5;
+.g-cta__sub { font-size: 16px; color: #B5AFA3; max-width: 50ch; line-height: 1.5; }
+.g-cta__sub code {
+  font-family: var(--f-mono); background: #2A2823;
+  padding: 1px 7px; border-radius: 5px; font-size: 14px; color: var(--lime);
 }
-.g-cta-section .btn-primary {
+.g-cta__btn {
+  display: inline-flex; align-items: center; gap: 8px;
   background: var(--lime); color: var(--ink);
-  border-color: var(--lime);
+  border-radius: 999px; padding: 14px 30px;
+  font-family: var(--f-body); font-weight: 700; font-size: 16px;
+  text-decoration: none; border: 1.5px solid var(--lime);
+  transition: background .18s, transform .14s;
+  margin-top: 6px;
 }
-.g-cta-section .btn-primary:hover { background: var(--lime-2); }
-
-/* ── Sticky CTA ────────────────────────────────────── */
-.cta-sticky {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: var(--ink); color: var(--cream);
-  padding: 14px 24px;
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 16px; z-index: 200;
-  border-top: 2px solid var(--line);
+.g-cta__btn:hover { background: var(--lime-2); transform: translateY(-2px); }
+.g-cta__btns { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+.g-cta__btn--ghost {
+  background: transparent; color: var(--cream);
+  border: 1.5px solid var(--cream);
 }
-.cta-sticky p {
-  font-size: 14px; color: #B5AFA3; line-height: 1.3;
-  flex: 1;
-}
-.cta-sticky .btn-primary {
-  white-space: nowrap; flex-shrink: 0;
-  padding: 10px 20px; font-size: 14px;
-}
+.g-cta__btn--ghost:hover { background: var(--cream); color: var(--ink); }
 
 /* ── Footer ────────────────────────────────────────── */
 .g-footer {
   max-width: 860px; margin: 0 auto 40px;
-  padding: 24px 32px 0;
+  padding: 0 32px;
   display: flex; align-items: center; justify-content: space-between;
   font-size: 13px; color: var(--muted);
   border-top: 1.5px solid var(--paper-2);
+  padding-top: 24px;
 }
 .g-footer a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 .g-footer a:hover { color: var(--ink); }
@@ -1390,11 +1367,9 @@ body {
 /* ── Responsive ────────────────────────────────────── */
 @media (max-width: 640px) {
   .g-nav { padding: 14px 18px; }
-  .g-hero, .g-content { padding-left: 18px; padding-right: 18px; }
-  .g-section__narrative { grid-template-columns: 1fr; }
-  .g-cta-section { padding: 32px 22px; }
-  .cta-sticky { flex-direction: column; gap: 10px; text-align: center; }
-  .cta-sticky p { font-size: 13px; }
+  .g-hero, .g-toggles, .g-cta, .g-footer { padding-left: 18px; padding-right: 18px; }
+  .g-ex-pair { grid-template-columns: 1fr; }
+  .g-cta__box { padding: 32px 22px; }
   .g-nav__cta span.label { display: none; }
 }
 </style>
@@ -1407,7 +1382,7 @@ ${SHARED_LOGO_SVG}
 <header class="g-nav">
   <a class="g-nav__brand" href="https://proboi.site/">
     <svg class="g-nav__logo" width="36" height="36" aria-hidden="true"><use href="#logo"/></svg>
-    Proboi
+    О,&nbsp;мойКлод
   </a>
   <a class="g-nav__cta" href="${TG_URL}" target="_blank" rel="noopener">
     <span class="label">Открыть в Telegram</span>
@@ -1415,260 +1390,557 @@ ${SHARED_LOGO_SVG}
   </a>
 </header>
 
-<main>
-
 <!-- ── Hero ─────────────────────────────────────────── -->
-<section id="hero" class="g-hero">
-  <h1>Proboi — ваш личный ИИ-ассистент прямо в Telegram</h1>
-  <p>Голос, фото, файлы, код, Google — всё в одном чате.<br/>Без установки. Без регистрации. Просто напишите.</p>
-  <a href="${TG_URL}" class="btn-primary" target="_blank" rel="noopener">Открыть бот →</a>
+<section class="g-hero">
+  <div class="g-hero__badge">proboi.site/how-to-setup — добавь в закладки</div>
+  <h1 class="g-hero__title">Как пользоваться<br/>твоим <em>ассистентом</em></h1>
+  <p class="g-hero__sub">Простые подсказки по всем фишкам. Открывай блоки по очереди — ничего сложного.</p>
 </section>
 
-<!-- ── Content sections ──────────────────────────────── -->
-<div class="g-content">
+<!-- ── Toggles ───────────────────────────────────────── -->
+<div class="g-toggles">
 
-  <!-- 1. Просто пишите -->
-  <section id="text" class="g-section">
-    <h2>Просто пишите</h2>
-    <div class="g-section__narrative">
-      <div class="g-narrative-card g-narrative-card--before">
-        <span class="g-narrative-card__label">РАНЬШЕ</span>
-        Открыть ChatGPT в браузере, скопировать текст, ждать. С телефона неудобно, нужно переключаться между вкладками.
+  <!-- Блок 1: голос (открыт по умолчанию) -->
+  <details class="g-block" open>
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Как поговорить с ботом голосом?</span>
+        <span class="g-block__hint">Самый быстрый способ — наговори вместо набора</span>
       </div>
-      <div class="g-narrative-card g-narrative-card--after">
-        <span class="g-narrative-card__label">ТЕПЕРЬ</span>
-        Откройте бот и напишите что думаете. Без формулировок и шаблонов. Бот понимает разговорный язык.
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <p>Бот понимает голосовые сообщения и аудиофайлы любого формата. Можно говорить как угодно — нечётко, со словами-паразитами, на ходу. Бот сам распознает речь и ответит.</p>
+      <p>Идеально, когда руки заняты: едешь, идёшь или просто лень печатать длинное.</p>
+      <div class="g-block__tip"><strong>Совет:</strong> можешь надиктовать сразу всё, что в голове — бот разберётся, что это была одна задача, а не пять.</div>
+      <div class="g-mock">
+        <svg width="420" height="160" viewBox="0 0 420 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Телефон -->
+          <rect x="10" y="10" width="90" height="140" rx="14" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
+          <rect x="22" y="26" width="66" height="100" rx="6" fill="#14130F"/>
+          <!-- Кнопка микрофона -->
+          <circle cx="55" cy="110" r="12" fill="#FF4F2E" stroke="#14130F" stroke-width="1.5"/>
+          <rect x="51" y="102" width="8" height="12" rx="4" fill="#FFF9EC"/>
+          <path d="M48 112 Q55 120 62 112" stroke="#FFF9EC" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <line x1="55" y1="120" x2="55" y2="124" stroke="#FFF9EC" stroke-width="1.5" stroke-linecap="round"/>
+          <!-- Волна голоса -->
+          <g transform="translate(32, 62)">
+            <line x1="0"  y1="10" x2="0"  y2="18" stroke="#D8FF36" stroke-width="2" stroke-linecap="round"/>
+            <line x1="7"  y1="4"  x2="7"  y2="24" stroke="#D8FF36" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="0"  x2="14" y2="28" stroke="#D8FF36" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="21" y1="6"  x2="21" y2="22" stroke="#D8FF36" stroke-width="2" stroke-linecap="round"/>
+            <line x1="28" y1="11" x2="28" y2="17" stroke="#D8FF36" stroke-width="2" stroke-linecap="round"/>
+          </g>
+          <!-- Стрелка -->
+          <path d="M112 80 L148 80" stroke="#14130F" stroke-width="2" stroke-linecap="round" marker-end="url(#arr)"/>
+          <defs>
+            <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+              <path d="M0 0 L6 3 L0 6" fill="none" stroke="#14130F" stroke-width="1.2"/>
+            </marker>
+          </defs>
+          <!-- Пузырь ответа -->
+          <rect x="152" y="44" width="248" height="72" rx="16" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="168" y="72" font-family="Onest, sans-serif" font-size="13" fill="#2A2823">«Напомни завтра в 10 созвониться</text>
+          <text x="168" y="90" font-family="Onest, sans-serif" font-size="13" fill="#2A2823">с Ивановым по поводу договора»</text>
+          <text x="168" y="108" font-family="Onest, sans-serif" font-size="11" fill="#6F695C">распознано и сохранено ✓</text>
+        </svg>
       </div>
     </div>
-    <ul class="g-examples-list">
-      <li>Объясни мне что такое НДС простыми словами</li>
-      <li>Помоги написать вежливый отказ клиенту, вот его сообщение: [вставить]</li>
-      <li>Я устал. Что посмотреть сегодня вечером?</li>
-    </ul>
-  </section>
+  </details>
 
-  <!-- 2. Голосовые сообщения -->
-  <section id="voice" class="g-section">
-    <h2>Голосовые сообщения</h2>
-    <div class="g-section__narrative">
-      <div class="g-narrative-card g-narrative-card--before">
-        <span class="g-narrative-card__label">РАНЬШЕ</span>
-        Голосовые не работали ни в одном AI-инструменте без плясок с транскрибацией. Нужно было сначала распознать, потом вставить.
+  <!-- Блок 2: что умеет -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Что бот вообще умеет?</span>
+        <span class="g-block__hint">Короткий список — пробегись глазами</span>
       </div>
-      <div class="g-narrative-card g-narrative-card--after">
-        <span class="g-narrative-card__label">ТЕПЕРЬ</span>
-        Записали голосовое — бот расслышит и ответит. Удобно за рулём, на кухне, когда руки заняты.
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <div class="g-caps">
+        <div class="g-cap"><span class="g-cap__ico">💬</span>Обычный чат — отвечает, объясняет, советует</div>
+        <div class="g-cap"><span class="g-cap__ico">🎤</span>Голос — распознаёт всё что наговоришь</div>
+        <div class="g-cap"><span class="g-cap__ico">📷</span>Фото — смотрит на картинки, чеки, скриншоты</div>
+        <div class="g-cap"><span class="g-cap__ico">📄</span>Файлы — PDF, Excel, Word, презентации, архивы</div>
+        <div class="g-cap"><span class="g-cap__ico">🌐</span>Интернет — ищет в сети, читает сайты</div>
+        <div class="g-cap"><span class="g-cap__ico">💻</span>Код — пишет программы, сайты, скрипты</div>
+        <div class="g-cap"><span class="g-cap__ico">🧠</span>Память — запоминает важное про тебя</div>
+        <div class="g-cap"><span class="g-cap__ico">📨</span>Gmail и Google Calendar — почта и события</div>
+        <div class="g-cap"><span class="g-cap__ico">🗂️</span>Google Drive, Docs, Sheets — файлы и таблицы</div>
+        <div class="g-cap"><span class="g-cap__ico">⚙️</span>Скиллы — научи его своим штукам</div>
+      </div>
+      <div class="g-mock">
+        <svg width="420" height="130" viewBox="0 0 420 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 5 иконок-плиток в ряд -->
+          <rect x="8"   y="10" width="72" height="64" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="44"  y="46" font-size="22" text-anchor="middle" font-family="sans-serif">💬</text>
+          <rect x="92"  y="10" width="72" height="64" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="128" y="46" font-size="22" text-anchor="middle" font-family="sans-serif">🎤</text>
+          <rect x="176" y="10" width="72" height="64" rx="10" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
+          <text x="212" y="46" font-size="22" text-anchor="middle" font-family="sans-serif">📷</text>
+          <rect x="260" y="10" width="72" height="64" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="296" y="46" font-size="22" text-anchor="middle" font-family="sans-serif">📄</text>
+          <rect x="344" y="10" width="72" height="64" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="380" y="46" font-size="22" text-anchor="middle" font-family="sans-serif">🌐</text>
+          <!-- Второй ряд -->
+          <rect x="8"   y="84" width="72" height="40" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="44"  y="109" font-size="18" text-anchor="middle" font-family="sans-serif">💻</text>
+          <rect x="92"  y="84" width="72" height="40" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="128" y="109" font-size="18" text-anchor="middle" font-family="sans-serif">🧠</text>
+          <rect x="176" y="84" width="72" height="40" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="212" y="109" font-size="18" text-anchor="middle" font-family="sans-serif">📨</text>
+          <rect x="260" y="84" width="72" height="40" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="296" y="109" font-size="18" text-anchor="middle" font-family="sans-serif">🗂️</text>
+          <rect x="344" y="84" width="72" height="40" rx="10" fill="#FF4F2E" stroke="#14130F" stroke-width="1.5"/>
+          <text x="380" y="109" font-size="18" text-anchor="middle" font-family="sans-serif">⚙️</text>
+        </svg>
       </div>
     </div>
-    <ul class="g-examples-list">
-      <li>Надиктовали задачу — получили структурированный список</li>
-      <li>Сказали «перепиши вот этот абзац» и зачитали его вслух — бот исправит</li>
-    </ul>
-  </section>
+  </details>
 
-  <!-- 3. Фотографии -->
-  <section id="photos" class="g-section">
-    <h2>Фотографии</h2>
-    <div class="g-section__narrative">
-      <div class="g-narrative-card g-narrative-card--before">
-        <span class="g-narrative-card__label">РАНЬШЕ</span>
-        Для анализа изображения нужны были отдельные сервисы. Каждый — своя регистрация и интерфейс.
+  <!-- Блок 3: как объяснять задачи -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Как объяснять задачу так, чтобы бот понял?</span>
+        <span class="g-block__hint">Несколько примеров — плохо vs хорошо</span>
       </div>
-      <div class="g-narrative-card g-narrative-card--after">
-        <span class="g-narrative-card__label">ТЕПЕРЬ</span>
-        Отправьте фото — бот опишет, переведёт, посчитает, объяснит. Прямо в том же чате.
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <div class="g-examples">
+        <div class="g-ex-pair">
+          <div class="g-ex g-ex--bad">
+            <span class="g-ex__label">❌ Плохо</span>
+            напиши письмо
+          </div>
+          <div class="g-ex g-ex--good">
+            <span class="g-ex__label">✅ Хорошо</span>
+            напиши деловое письмо клиенту Иванову, что задержим поставку на 3 дня по причине логистики, тон — извиняющийся но уверенный
+          </div>
+        </div>
+        <div class="g-ex-pair">
+          <div class="g-ex g-ex--bad">
+            <span class="g-ex__label">❌ Плохо</span>
+            помоги с экселем
+          </div>
+          <div class="g-ex g-ex--good">
+            <span class="g-ex__label">✅ Хорошо</span>
+            у меня в файле «продажи.xlsx» 200 строк, нужно посчитать сумму по каждому менеджеру и сделать сводную таблицу
+          </div>
+        </div>
+        <div class="g-ex-pair">
+          <div class="g-ex g-ex--bad">
+            <span class="g-ex__label">❌ Плохо</span>
+            найди инфу
+          </div>
+          <div class="g-ex g-ex--good">
+            <span class="g-ex__label">✅ Хорошо</span>
+            найди 3 свежих статьи (за 2026 год) про то как ИИ применяют в малом бизнесе, дай ссылки и краткие выводы
+          </div>
+        </div>
+      </div>
+      <div class="g-block__tip"><strong>Главное правило:</strong> чем больше деталей — тем точнее результат. Не бойся писать длинно, бот любит контекст.</div>
+    </div>
+  </details>
+
+  <!-- Блок 4: как запоминает -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Как бот тебя запоминает?</span>
+        <span class="g-block__hint">Второй мозг — личная память бота про тебя</span>
+      </div>
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <p>Бот ведёт твою личную память — туда попадает всё важное: кто ты, чем занимаешься, твои проекты, заметки, интересы, предпочтения. Это твоя личная папка на сервере, никто кроме тебя её не видит.</p>
+      <p>Можно сказать «запомни что я работаю в ИКЕА» или «забудь про того клиента». Бот сам решает что важно сохранить, но можно явно попросить.</p>
+      <div class="g-block__tip"><strong>Попробуй:</strong> скажи боту «покажи мою память» или «что ты обо мне знаешь».</div>
+      <div class="g-mock">
+        <svg width="380" height="160" viewBox="0 0 380 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Голова -->
+          <circle cx="60" cy="80" r="38" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <circle cx="51" cy="74" r="5" fill="#14130F"/>
+          <circle cx="69" cy="74" r="5" fill="#14130F"/>
+          <path d="M50 90 Q60 100 70 90" stroke="#14130F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <!-- Стрелки -->
+          <path d="M100 60 L150 40" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+          <path d="M100 80 L150 80" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+          <path d="M100 100 L150 120" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+          <!-- Карточки памяти -->
+          <rect x="152" y="18" width="100" height="34" rx="8" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
+          <text x="162" y="38" font-family="Onest,sans-serif" font-size="13" font-weight="600" fill="#14130F">📋 профиль</text>
+          <rect x="152" y="63" width="100" height="34" rx="8" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="162" y="83" font-family="Onest,sans-serif" font-size="13" font-weight="600" fill="#14130F">🗂 проекты</text>
+          <rect x="152" y="108" width="100" height="34" rx="8" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="162" y="128" font-family="Onest,sans-serif" font-size="13" font-weight="600" fill="#14130F">✏️ заметки</text>
+          <!-- Справа -->
+          <rect x="268" y="40" width="100" height="34" rx="8" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="278" y="60" font-family="Onest,sans-serif" font-size="13" font-weight="600" fill="#14130F">🎯 навыки</text>
+          <path d="M252 35 L266 55" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+          <path d="M252 80 L266 57" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+        </svg>
       </div>
     </div>
-    <ul class="g-examples-list">
-      <li>Фото чека → Сколько я потратил на еду?</li>
-      <li>Фото меню на иностранном языке → перевод</li>
-      <li>Скриншот переписки → Как лучше ответить?</li>
-    </ul>
-  </section>
+  </details>
 
-  <!-- 4. Документы, таблицы, PDF -->
-  <section id="docs" class="g-section">
-    <h2>Документы, таблицы, PDF <span class="badge-pro" onclick="location.href='#pay-cta'">Профи</span></h2>
-    <div class="g-section__narrative">
-      <div class="g-narrative-card g-narrative-card--before">
-        <span class="g-narrative-card__label">РАНЬШЕ</span>
-        Чтобы разобраться в договоре на 30 страниц, нужен был час и юрист. Таблицы Excel — отдельная история.
+  <!-- Блок 5: кейсы второго мозга -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Что можно сделать со вторым мозгом?</span>
+        <span class="g-block__hint">Реальные сценарии — для чего это вообще нужно</span>
       </div>
-      <div class="g-narrative-card g-narrative-card--after">
-        <span class="g-narrative-card__label">ТЕПЕРЬ</span>
-        Загрузите PDF — задайте вопрос. Бот прочитал весь документ и ответит по существу.
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <div class="g-cases">
+        <div class="g-case">
+          <div class="g-case__title">📚 Личная база знаний</div>
+          <div class="g-case__desc">«Запомни, что я нашёл интересную статью про X» — потом через месяц спросишь «что я читал про X?» и бот всё вытащит.</div>
+        </div>
+        <div class="g-case">
+          <div class="g-case__title">🧾 Учёт расходов и финансов</div>
+          <div class="g-case__desc">Кидаешь чеки фотками, бот распознаёт и складывает в табличку. В конце месяца спросишь — он покажет на что ушли деньги.</div>
+        </div>
+        <div class="g-case">
+          <div class="g-case__title">👥 CRM по клиентам</div>
+          <div class="g-case__desc">«Запомни про клиента Иванов: предпочитает звонки утром, аллергия на спам». В следующий раз бот напомнит контекст.</div>
+        </div>
+        <div class="g-case">
+          <div class="g-case__title">📅 Дневник и журнал</div>
+          <div class="g-case__desc">Каждый вечер наговариваешь голосом «как прошёл день», бот складывает. Потом за год можно посмотреть динамику.</div>
+        </div>
+        <div class="g-case">
+          <div class="g-case__title">🎯 Цели и привычки</div>
+          <div class="g-case__desc">Поставил цель — бот спрашивает прогресс, ведёт статистику.</div>
+        </div>
+        <div class="g-case">
+          <div class="g-case__title">📖 Конспекты книг и видео</div>
+          <div class="g-case__desc">Скинул главу или транскрипт лекции — бот делает выжимку и кладёт в твою библиотеку. Потом легко найти.</div>
+        </div>
+      </div>
+      <div class="g-mock">
+        <svg width="380" height="120" viewBox="0 0 380 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Имитация мини-таблицы чеков -->
+          <rect x="8" y="8" width="360" height="104" rx="12" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <!-- Заголовок -->
+          <rect x="8" y="8" width="360" height="28" rx="12" fill="#14130F"/>
+          <text x="24" y="27" font-family="JetBrains Mono,monospace" font-size="12" fill="#D8FF36">дата</text>
+          <text x="100" y="27" font-family="JetBrains Mono,monospace" font-size="12" fill="#D8FF36">магазин</text>
+          <text x="270" y="27" font-family="JetBrains Mono,monospace" font-size="12" fill="#D8FF36">сумма</text>
+          <!-- Строка 1 -->
+          <line x1="8" y1="50" x2="368" y2="50" stroke="#E8E1D2" stroke-width="1"/>
+          <text x="24"  y="66" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">05.05</text>
+          <text x="100" y="66" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">Магнит</text>
+          <text x="270" y="66" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">1 240 ₽</text>
+          <!-- Строка 2 -->
+          <line x1="8" y1="78" x2="368" y2="78" stroke="#E8E1D2" stroke-width="1"/>
+          <text x="24"  y="94" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">06.05</text>
+          <text x="100" y="94" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">Вкусвилл</text>
+          <text x="270" y="94" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">870 ₽</text>
+          <!-- Итого -->
+          <text x="24"  y="114" font-family="Onest,sans-serif" font-size="11" font-weight="600" fill="#6F695C">из фото-чеков за май</text>
+          <rect x="240" y="102" width="118" height="16" rx="4" fill="#D8FF36"/>
+          <text x="250" y="114" font-family="Onest,sans-serif" font-size="11" font-weight="600" fill="#14130F">итого: 2 110 ₽</text>
+        </svg>
       </div>
     </div>
-    <ul class="g-examples-list">
-      <li>Какие штрафы предусмотрены в этом договоре?</li>
-      <li>Загрузить Excel с продажами → Какой месяц был лучшим?</li>
-      <li>Перепиши этот раздел более официальным языком</li>
-    </ul>
-  </section>
+  </details>
 
-  <!-- 5. Код и автоматизация -->
-  <section id="code" class="g-section">
-    <h2>Код и автоматизация <span class="badge-pro" onclick="location.href='#pay-cta'">Профи</span></h2>
-    <div class="g-section__narrative">
-      <div class="g-narrative-card g-narrative-card--before">
-        <span class="g-narrative-card__label">РАНЬШЕ</span>
-        Нужно было знать программирование или нанимать разработчика для каждой автоматизации.
+  <!-- Блок 6: что можно кинуть -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Что можно кинуть боту в чат?</span>
+        <span class="g-block__hint">Любые файлы, фото, документы — бот разберётся</span>
       </div>
-      <div class="g-narrative-card g-narrative-card--after">
-        <span class="g-narrative-card__label">ТЕПЕРЬ</span>
-        Опишите задачу словами — бот напишет код, запустит его в изолированной среде и покажет результат.
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <ul>
+        <li><strong>Фото</strong> — чек из магазина, скриншот переписки, фотография документа, экран ноутбука</li>
+        <li><strong>PDF</strong> — счета, договоры, статьи, книги</li>
+        <li><strong>Excel/CSV</strong> — таблицы данных</li>
+        <li><strong>Word, PowerPoint</strong> — документы и презентации</li>
+        <li><strong>Аудиофайлы</strong> — лекции, подкасты, звонки (бот распознает речь)</li>
+        <li><strong>Архивы (zip, tar)</strong> — пакетная обработка</li>
+      </ul>
+      <p>Бот распознает текст, выпишет цифры из чеков, переведёт на другой язык, объяснит непонятное, найдёт нужное, сделает сводку.</p>
+      <div class="g-mock">
+        <svg width="400" height="140" viewBox="0 0 400 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Чек -->
+          <rect x="10" y="10" width="120" height="120" rx="6" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="70"  y="30"  text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="11" font-weight="500" fill="#14130F">МАГНИТ</text>
+          <line x1="20" y1="36" x2="120" y2="36" stroke="#E8E1D2" stroke-width="1"/>
+          <text x="20"  y="52" font-family="JetBrains Mono,monospace" font-size="10" fill="#2A2823">Молоко 1л</text>
+          <text x="110" y="52" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="10" fill="#2A2823">89р</text>
+          <text x="20"  y="66" font-family="JetBrains Mono,monospace" font-size="10" fill="#2A2823">Хлеб</text>
+          <text x="110" y="66" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="10" fill="#2A2823">45р</text>
+          <text x="20"  y="80" font-family="JetBrains Mono,monospace" font-size="10" fill="#2A2823">Яйца 10шт</text>
+          <text x="110" y="80" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="10" fill="#2A2823">149р</text>
+          <line x1="20" y1="88" x2="120" y2="88" stroke="#14130F" stroke-width="1"/>
+          <text x="20"  y="103" font-family="JetBrains Mono,monospace" font-size="11" font-weight="500" fill="#14130F">ИТОГО</text>
+          <text x="110" y="103" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="11" font-weight="500" fill="#14130F">283р</text>
+          <text x="70"  y="122" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="9" fill="#6F695C">05.05.2026 14:22</text>
+          <!-- Стрелка -->
+          <path d="M140 70 L190 70" stroke="#14130F" stroke-width="2" stroke-linecap="round"/>
+          <path d="M183 63 L190 70 L183 77" stroke="#14130F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <!-- Таблица -->
+          <rect x="200" y="20" width="190" height="100" rx="10" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <rect x="200" y="20" width="190" height="26" rx="10" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
+          <text x="215" y="36" font-family="Onest,sans-serif" font-size="12" font-weight="600" fill="#14130F">Позиция</text>
+          <text x="345" y="36" text-anchor="end" font-family="Onest,sans-serif" font-size="12" font-weight="600" fill="#14130F">Цена</text>
+          <text x="215" y="60" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">Молоко 1л</text>
+          <text x="345" y="60" text-anchor="end" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">89 ₽</text>
+          <text x="215" y="78" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">Хлеб</text>
+          <text x="345" y="78" text-anchor="end" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">45 ₽</text>
+          <text x="215" y="96" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">Яйца 10шт</text>
+          <text x="345" y="96" text-anchor="end" font-family="Onest,sans-serif" font-size="12" fill="#2A2823">149 ₽</text>
+          <line x1="210" y1="103" x2="382" y2="103" stroke="#14130F" stroke-width="1"/>
+          <text x="215" y="116" font-family="Onest,sans-serif" font-size="12" font-weight="600" fill="#14130F">Итого</text>
+          <text x="345" y="116" text-anchor="end" font-family="Onest,sans-serif" font-size="12" font-weight="600" fill="#14130F">283 ₽</text>
+        </svg>
       </div>
     </div>
-    <ul class="g-examples-list">
-      <li>Напиши скрипт, который переименует все файлы в папке по дате</li>
-      <li>Скачай это видео с YouTube [ссылка]</li>
-      <li>Конвертируй этот PDF в Word</li>
-    </ul>
-    <div class="g-tip"><strong>Важно:</strong> бот не просто пишет код — он его запускает в изолированной среде и возвращает результат прямо в чат.</div>
-  </section>
+  </details>
 
-  <!-- 6. Google Workspace -->
-  <section id="google" class="g-section">
-    <h2>Google Workspace <span class="badge-pro" onclick="location.href='#pay-cta'">Профи</span></h2>
-    <div class="g-section__narrative">
-      <div class="g-narrative-card g-narrative-card--before">
-        <span class="g-narrative-card__label">РАНЬШЕ</span>
-        Найти письмо двухнедельной давности — нужно было помнить ключевые слова и листать папки в Gmail.
+  <!-- Блок 7: почта и календарь -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Как подключить почту, календарь и файлы Google?</span>
+        <span class="g-block__hint">Один разговор — и бот работает с Gmail, Calendar, Drive, Docs и Sheets</span>
       </div>
-      <div class="g-narrative-card g-narrative-card--after">
-        <span class="g-narrative-card__label">ТЕПЕРЬ</span>
-        Подключите Google-аккаунт один раз — работайте голосом или текстом с почтой, календарём и файлами.
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <p>Просто скажи боту в чат — «подключи мою почту», «хочу подключить календарь» или «дай доступ к моему гугл-диску». Бот пришлёт ссылку, нажмёшь, разрешишь доступ — и всё.</p>
+      <p>После этого бот может:</p>
+      <ul style="margin:6px 0 12px 22px;line-height:1.7;">
+        <li><strong>Gmail</strong> — читать письма, искать по архиву, отвечать, отправлять новые</li>
+        <li><strong>Calendar</strong> — смотреть расписание, создавать и переносить события</li>
+        <li><strong>Drive</strong> — открывать любые твои файлы (PDF, картинки, что угодно)</li>
+        <li><strong>Docs</strong> — читать и редактировать документы, делать новые</li>
+        <li><strong>Sheets</strong> — работать с таблицами, считать, заполнять данные</li>
+      </ul>
+      <div class="g-block__tip"><strong>Важно:</strong> доступ только к твоему аккаунту, ни к кому больше. Можно отозвать в любой момент через настройки Google.</div>
+      <div class="g-mock">
+        <svg width="380" height="110" viewBox="0 0 380 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Gmail иконка -->
+          <rect x="10" y="30" width="90" height="60" rx="12" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="55" y="58" text-anchor="middle" font-size="22" font-family="sans-serif">📧</text>
+          <text x="55" y="80" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" fill="#6F695C">Gmail</text>
+          <!-- Стрелка с подписью -->
+          <path d="M108 60 L180 60" stroke="#14130F" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M173 53 L180 60 L173 67" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="116" y="38" width="56" height="18" rx="6" fill="#D8FF36" stroke="#14130F" stroke-width="1"/>
+          <text x="144" y="50" text-anchor="middle" font-family="Onest,sans-serif" font-size="10" font-weight="600" fill="#14130F">🔗 разрешил</text>
+          <!-- Бот -->
+          <rect x="188" y="30" width="90" height="60" rx="12" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
+          <use href="#logo" x="217" y="38" width="32" height="32"/>
+          <text x="233" y="80" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" fill="#14130F">мойКлод</text>
+          <!-- Google Calendar -->
+          <path d="M286 60 L320 60" stroke="#14130F" stroke-width="1.5" stroke-dasharray="4 3" stroke-linecap="round"/>
+          <rect x="286" y="25" width="86" height="70" rx="12" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="329" y="52" text-anchor="middle" font-size="20" font-family="sans-serif">📅</text>
+          <text x="329" y="72" text-anchor="middle" font-family="Onest,sans-serif" font-size="10" fill="#6F695C">Calendar</text>
+          <text x="329" y="86" text-anchor="middle" font-family="Onest,sans-serif" font-size="10" fill="#6F695C">Drive, Docs</text>
+          <path d="M279 55 L288 60 L279 65" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
     </div>
-    <ul class="g-examples-list">
-      <li>Найди письмо от Ивана про контракт</li>
-      <li>Создай документ с планом встречи на завтра</li>
-      <li>Что у меня в календаре на следующей неделе?</li>
-    </ul>
-    <div class="g-tip"><strong>Как подключить:</strong> напишите боту «подключи Google» — он пришлёт кнопку для безопасной авторизации.</div>
-  </section>
+  </details>
 
-  <!-- 7. Напоминания и автономная работа -->
-  <section id="tasks" class="g-section">
-    <h2>Напоминания и автономная работа <span class="badge-pro" onclick="location.href='#pay-cta'">Профи</span></h2>
-    <div class="g-section__narrative">
-      <div class="g-narrative-card g-narrative-card--before">
-        <span class="g-narrative-card__label">РАНЬШЕ</span>
-        Приложения для задач и напоминалок — отдельные экосистемы, не знают о вашей переписке.
+  <!-- Блок 8: личная страничка -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Что за страничка по адресу /u/твой_id/?</span>
+        <span class="g-block__hint">Твоя личная веб-страница в интернете — этот сайт и есть пример</span>
       </div>
-      <div class="g-narrative-card g-narrative-card--after">
-        <span class="g-narrative-card__label">ТЕПЕРЬ</span>
-        Бот помнит контекст и умеет работать пока вы спите. Установите напоминание — получите результат.
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <p>У тебя есть своя папка на сервере, которая видна в интернете. Можно положить туда что угодно — заметки, дашборд, мини-сайт, портфолио. Достаточно сказать боту «сделай мне страничку про мой проект Х» — и он сам соберёт HTML.</p>
+      <p>Адрес твоей странички: <code style="font-family:var(--f-mono);background:var(--paper-2);padding:2px 8px;border-radius:5px;font-size:14px">proboi.site/u/{твой_id}/</code> (бот пришлёт точный адрес если спросить «где моя страничка»).</p>
+      <div class="g-block__tip"><strong>Кстати:</strong> этот гайд, который ты сейчас читаешь — и есть та самая страничка. Бот сам её собрал. Можешь попросить переделать под себя или сказать «верни как было».</div>
+      <div class="g-mock">
+        <svg width="380" height="130" viewBox="0 0 380 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Окно браузера -->
+          <rect x="10" y="10" width="360" height="115" rx="12" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <!-- Тулбар -->
+          <rect x="10" y="10" width="360" height="28" rx="12" fill="#E8E1D2" stroke="#14130F" stroke-width="1.5"/>
+          <circle cx="30" cy="24" r="5" fill="#FF4F2E" stroke="#14130F" stroke-width="1"/>
+          <circle cx="46" cy="24" r="5" fill="#D8FF36" stroke="#14130F" stroke-width="1"/>
+          <circle cx="62" cy="24" r="5" fill="#B7E022" stroke="#14130F" stroke-width="1"/>
+          <!-- Адресная строка -->
+          <rect x="80" y="16" width="240" height="16" rx="5" fill="#FFF9EC" stroke="#14130F" stroke-width="1"/>
+          <text x="90" y="27" font-family="JetBrains Mono,monospace" font-size="10" fill="#6F695C">proboi.site/u/me/</text>
+          <!-- Контент страницы -->
+          <rect x="24" y="48" width="140" height="66" rx="8" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
+          <text x="34"  y="68"  font-family="Onest,sans-serif" font-size="12" font-weight="600" fill="#14130F">Мои проекты</text>
+          <text x="34"  y="84"  font-family="Onest,sans-serif" font-size="11" fill="#2A2823">• Сайт для кафе</text>
+          <text x="34"  y="98"  font-family="Onest,sans-serif" font-size="11" fill="#2A2823">• Дашборд продаж</text>
+          <text x="34"  y="112" font-family="Onest,sans-serif" font-size="11" fill="#2A2823">• Мои заметки</text>
+          <rect x="176" y="48" width="180" height="30" rx="8" fill="#14130F"/>
+          <text x="186" y="67" font-family="Onest,sans-serif" font-size="12" fill="#D8FF36">Привет! Это моя страничка</text>
+          <rect x="176" y="84" width="84" height="30" rx="8" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="186" y="103" font-family="Onest,sans-serif" font-size="11" fill="#2A2823">📊 Статистика</text>
+          <rect x="270" y="84" width="86" height="30" rx="8" fill="#FF4F2E" stroke="#14130F" stroke-width="1.5"/>
+          <text x="280" y="103" font-family="Onest,sans-serif" font-size="11" fill="#FFF9EC">📁 Документы</text>
+        </svg>
       </div>
     </div>
-    <ul class="g-examples-list">
-      <li>Напомни мне в пятницу в 9 утра проверить отчёт</li>
-      <li>Каждое утро в 8:00 пиши мне сводку погоды</li>
-    </ul>
-  </section>
+  </details>
 
-  <!-- 8. Генерация изображений -->
-  <section id="images" class="g-section">
-    <h2>Генерация изображений <span class="badge-pro" onclick="location.href='#pay-cta'">Профи</span></h2>
-    <div class="g-section__narrative">
-      <div class="g-narrative-card g-narrative-card--before">
-        <span class="g-narrative-card__label">РАНЬШЕ</span>
-        Midjourney, DALL-E — отдельные сервисы с отдельными подписками и интерфейсами.
+  <!-- Блок 9: дашборд и лимиты -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Где смотреть статистику и лимиты?</span>
+        <span class="g-block__hint">Дашборд: токены, ресурсы, что бот знает про тебя</span>
       </div>
-      <div class="g-narrative-card g-narrative-card--after">
-        <span class="g-narrative-card__label">ТЕПЕРЬ</span>
-        Опишите что хотите — картинка придёт прямо в чат. Без дополнительных сервисов.
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <p>У тебя есть веб-дашборд со статистикой использования. Скажи боту «открой дашборд» или «покажи мои лимиты» — пришлёт кнопку. Там видно: сколько токенов потратил, сколько места занимают твои файлы, ресурсы контейнера, тарифы.</p>
+      <div class="g-mock">
+        <svg width="400" height="140" viewBox="0 0 400 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Фон дашборда -->
+          <rect x="10" y="10" width="380" height="120" rx="14" fill="#14130F" stroke="#14130F" stroke-width="1.5"/>
+          <!-- Виджет 1: токены -->
+          <rect x="20" y="22" width="170" height="48" rx="8" fill="#1E1C19"/>
+          <text x="32" y="40" font-family="Onest,sans-serif" font-size="11" fill="#6F695C">Токены сегодня</text>
+          <text x="32" y="60" font-family="Unbounded,sans-serif" font-size="16" font-weight="700" fill="#D8FF36">12 480</text>
+          <!-- Прогресс-бар токенов -->
+          <rect x="32" y="65" width="148" height="4" rx="2" fill="#2A2823"/>
+          <rect x="32" y="65" width="86"  height="4" rx="2" fill="#D8FF36"/>
+          <!-- Виджет 2: место -->
+          <rect x="202" y="22" width="178" height="48" rx="8" fill="#1E1C19"/>
+          <text x="214" y="40" font-family="Onest,sans-serif" font-size="11" fill="#6F695C">Место на диске</text>
+          <text x="214" y="60" font-family="Unbounded,sans-serif" font-size="16" font-weight="700" fill="#FFF9EC">234 МБ</text>
+          <rect x="214" y="65" width="154" height="4" rx="2" fill="#2A2823"/>
+          <rect x="214" y="65" width="46"  height="4" rx="2" fill="#FF4F2E"/>
+          <!-- Виджет 3: тариф -->
+          <rect x="20" y="80" width="112" height="40" rx="8" fill="#D8FF36"/>
+          <text x="32" y="96" font-family="Onest,sans-serif" font-size="11" font-weight="600" fill="#14130F">Тариф</text>
+          <text x="32" y="112" font-family="Unbounded,sans-serif" font-size="13" font-weight="700" fill="#14130F">Базовый</text>
+          <!-- Виджет 4: контейнер -->
+          <rect x="144" y="80" width="236" height="40" rx="8" fill="#1E1C19"/>
+          <text x="156" y="96" font-family="Onest,sans-serif" font-size="11" fill="#6F695C">CPU контейнера</text>
+          <rect x="156" y="103" width="212" height="6" rx="3" fill="#2A2823"/>
+          <rect x="156" y="103" width="30"  height="6" rx="3" fill="#B7E022"/>
+          <text x="372" y="112" text-anchor="end" font-family="JetBrains Mono,monospace" font-size="10" fill="#6F695C">14%</text>
+        </svg>
       </div>
     </div>
-    <ul class="g-examples-list">
-      <li>Нарисуй логотип для кофейни в минималистичном стиле</li>
-      <li>Сделай обложку для поста в Instagram: синий фон, текст Новый запуск</li>
-    </ul>
-  </section>
+  </details>
 
-  <!-- 9. Свои рецепты -->
-  <section id="recipes" class="g-section">
-    <h2>Свои рецепты <span class="badge-pro" onclick="location.href='#pay-cta'">Профи</span></h2>
-    <p style="font-size:16px;color:var(--ink-2);line-height:1.6;margin-bottom:20px;">Бот умеет учиться вашим командам. Создайте файл с рецептом в своей рабочей папке — и бот будет следовать ему при каждом запросе.</p>
-    <div class="g-tip"><strong>Попробуйте:</strong> напишите «Помоги мне создать рецепт для [задача]» — бот сам объяснит как это сделать.</div>
-  </section>
-
-  <!-- 10. Совет трёх экспертов -->
-  <section id="council" class="g-section">
-    <h2>Совет трёх экспертов</h2>
-    <p style="font-size:16px;color:var(--ink-2);line-height:1.6;margin-bottom:20px;">Когда нужно принять сложное решение — попросите бота провести совет. Бот возьмёт роли предпринимателя, финансиста и скептика — каждый выскажет своё, потом они поспорят, и вы получите честный вывод.</p>
-    <ul class="g-examples-list">
-      <li>Проведи совет: стоит ли мне открывать второй магазин сейчас или подождать?</li>
-    </ul>
-  </section>
-
-  <!-- 11. FAQ -->
-  <section id="faq" class="g-section">
-    <h2>Частые вопросы</h2>
-    <dl class="g-faq">
-      <div class="g-faq-item">
-        <dt>Это безопасно? Бот видит мои файлы?</dt>
-        <dd>Файлы обрабатываются только в момент запроса. Бот не хранит их постоянно.</dd>
+  <!-- Блок 10: научить бота -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">Как научить бота своим штукам?</span>
+        <span class="g-block__hint">Сделай ему персону или роль — будет работать так, как надо именно тебе</span>
       </div>
-      <div class="g-faq-item">
-        <dt>Чем Профи отличается от бесплатного?</dt>
-        <dd>Бесплатный — текст и голос, до 10 сообщений в день. Профи — документы, код, Google, изображения, напоминания, свои рецепты. Без ограничений.</dd>
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <p>Можно научить бота особому поведению или роли. Например: «когда я говорю "редактор" — будь строгим редактором текстов и режь воду без жалости». Или создать персонажей — «инвестор», «врач», «преподаватель английского» — и переключаться между ними.</p>
+      <p style="margin-top:10px">Скажи боту «давай научим тебя новой роли» или «запомни мой стиль работы» — он сам разберётся как это сохранить и в нужный момент включит.</p>
+      <div class="g-mock">
+        <svg width="280" height="140" viewBox="0 0 280 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="10" y="10" width="260" height="120" rx="14" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="140" y="36" text-anchor="middle" font-family="Onest,sans-serif" font-size="12" font-weight="600" fill="#14130F">персоны и роли</text>
+          <circle cx="140" cy="72" r="20" fill="#E8E1D2" stroke="#14130F" stroke-width="1.5"/>
+          <circle cx="130" cy="68" r="3" fill="#14130F"/>
+          <circle cx="150" cy="68" r="3" fill="#14130F"/>
+          <path d="M132 79 Q140 85 148 79" stroke="#14130F" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          <rect x="100" y="38" width="30" height="10" rx="3" fill="#D8FF36" stroke="#14130F" stroke-width="1"/>
+          <text x="115" y="46" text-anchor="middle" font-family="Onest,sans-serif" font-size="9" fill="#14130F">редактор</text>
+          <rect x="135" y="28" width="32" height="10" rx="3" fill="#FF4F2E" stroke="#14130F" stroke-width="1"/>
+          <text x="151" y="36" text-anchor="middle" font-family="Onest,sans-serif" font-size="9" fill="#FFF9EC">врач</text>
+          <rect x="170" y="38" width="34" height="10" rx="3" fill="#14130F" stroke="#14130F" stroke-width="1"/>
+          <text x="187" y="46" text-anchor="middle" font-family="Onest,sans-serif" font-size="9" fill="#D8FF36">тренер</text>
+          <text x="140" y="115" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" fill="#6F695C">переключайся командой</text>
+        </svg>
       </div>
-      <div class="g-faq-item">
-        <dt>Как отменить подписку?</dt>
-        <dd>Напишите боту «отмени подписку» или нажмите кнопку в разделе /status. Карта не будет списана.</dd>
-      </div>
-      <div class="g-faq-item">
-        <dt>Что если карта не прошла?</dt>
-        <dd>Бот пришлёт уведомление и даст 48 часов на повторную оплату. Доступ не прекратится сразу.</dd>
-      </div>
-      <div class="g-faq-item">
-        <dt>Можно ли работать с нескольких устройств?</dt>
-        <dd>Да, это обычный Telegram-чат. Работает везде где есть Telegram.</dd>
-      </div>
-    </dl>
-  </section>
-
-  <!-- 12. Как работает подключение Google -->
-  <section id="oauth" class="g-section">
-    <h2>Как работает подключение Google (OAuth)</h2>
-    <p style="font-size:16px;color:var(--ink-2);line-height:1.6;margin-bottom:20px;">Что происходит когда вы нажимаете «Подключить Google»:</p>
-    <ol class="g-steps">
-      <li>Открывается страница Google — не наша.</li>
-      <li>Вы выбираете аккаунт и нажимаете «Разрешить».</li>
-      <li>Google передаёт нам токен доступа — временный ключ только для указанных действий.</li>
-    </ol>
-    <div class="g-tip" style="margin-top:20px">
-      <strong>Что бот не видит:</strong> ваш пароль Google. Никогда. Это технически невозможно при OAuth.<br/>
-      <strong>Как отозвать доступ:</strong> <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener" style="color:var(--ink);text-underline-offset:3px">myaccount.google.com/permissions</a> → найдите Proboi → «Удалить доступ».
     </div>
-  </section>
+  </details>
 
-  <!-- Pay CTA -->
-  <section id="pay-cta" class="g-cta-section">
-    <h2>Попробуйте Профи</h2>
-    <p>5 дней бесплатно при привязке карты. Потом 499 ₽/мес. Отменить можно в любой момент.</p>
-    <a href="${TG_URL}?start=pay" class="btn-primary" target="_blank" rel="noopener">Привязать карту — 5 дней бесплатно</a>
-  </section>
+  <!-- Блок 11: исследуй сам -->
+  <details class="g-block">
+    <summary>
+      <div class="g-block__hd">
+        <span class="g-block__title">А что ещё? Тут точно всё?</span>
+        <span class="g-block__hint">Нет — пробуй сам, бот подскажет</span>
+      </div>
+      <span class="g-block__arrow" aria-hidden="true">▾</span>
+    </summary>
+    <div class="g-block__body">
+      <p>Бот умеет больше, чем здесь написано. Многие фишки появляются и обновляются быстрее, чем эта страничка успевает за ними. Не стесняйся пробовать — попроси что-нибудь необычное.</p>
+      <p style="margin-top:10px">Спроси напрямую:</p>
+      <ul style="margin:6px 0 12px 22px;line-height:1.7;">
+        <li>«Что ты ещё умеешь?»</li>
+        <li>«Можешь ли ты сделать вот такое: …?»</li>
+        <li>«Как мне лучше сделать Х?»</li>
+        <li>«Покажи примеры что у тебя обычно спрашивают»</li>
+      </ul>
+      <p>Бот сам подскажет лучший способ. Если что-то не получится — объяснит почему и предложит, как обойти.</p>
+      <div class="g-block__tip"><strong>Совет:</strong> лучший способ узнать возможности — наглеть. Попроси сделать что-нибудь странное — посмотришь что выйдет. Часто оказывается, что бот может то, о чём ты даже не думал.</div>
+      <div class="g-mock">
+        <svg width="320" height="130" viewBox="0 0 320 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Лупа большая -->
+          <circle cx="80" cy="65" r="38" fill="#FFF9EC" stroke="#14130F" stroke-width="2"/>
+          <line x1="108" y1="92" x2="128" y2="112" stroke="#14130F" stroke-width="4" stroke-linecap="round"/>
+          <text x="80" y="74" text-anchor="middle" font-family="Unbounded,sans-serif" font-weight="800" font-size="32" fill="#14130F">?</text>
+          <!-- Стрелочки в разные стороны -->
+          <path d="M150 35 L210 28" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3"/>
+          <path d="M204 24 L210 28 L206 34" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M150 65 L210 65" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3"/>
+          <path d="M204 61 L210 65 L204 69" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path d="M150 95 L210 102" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="3 3"/>
+          <path d="M204 96 L210 102 L206 108" stroke="#14130F" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <!-- Три «облачка» с возможностями -->
+          <rect x="212" y="14" width="98" height="28" rx="14" fill="#D8FF36" stroke="#14130F" stroke-width="1.5"/>
+          <text x="261" y="32" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" font-weight="600" fill="#14130F">а так можешь?</text>
+          <rect x="212" y="51" width="98" height="28" rx="14" fill="#FFF9EC" stroke="#14130F" stroke-width="1.5"/>
+          <text x="261" y="69" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" font-weight="600" fill="#14130F">а так?</text>
+          <rect x="212" y="88" width="98" height="28" rx="14" fill="#FF4F2E" stroke="#14130F" stroke-width="1.5"/>
+          <text x="261" y="106" text-anchor="middle" font-family="Onest,sans-serif" font-size="11" font-weight="600" fill="#FFF9EC">а вот так?</text>
+        </svg>
+      </div>
+    </div>
+  </details>
 
 </div>
-</main>
+
+<!-- ── CTA ───────────────────────────────────────────── -->
+<div class="g-cta">
+  <div class="g-cta__box">
+    <p class="g-cta__title">Возвращайся когда захочешь</p>
+    <p class="g-cta__sub">Эту страничку всегда можно открыть и добавить в закладки.</p>
+    <div class="g-cta__btns">
+      <a class="g-cta__btn" href="${TG_URL}" target="_blank" rel="noopener">
+        Открыть бота в Telegram
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a class="g-cta__btn g-cta__btn--ghost" href="https://proboi.site/how-to-setup">
+        proboi.site/how-to-setup
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
+</div>
 
 <!-- ── Footer ────────────────────────────────────────── -->
 <footer class="g-footer">
-  <span>© 2026 · Proboi · <a href="https://proboi.site/">proboi.site</a></span>
-  <a href="${TG_URL}" target="_blank" rel="noopener">@proboiAI_bot</a>
-  <a href="/oferta" style="color: var(--muted);">Публичная оферта</a>
-  <a href="/privacy" style="color: var(--muted);">Политика конфиденциальности</a>
+  <span>© 2026 · О, мойКлод · <a href="https://proboi.site/">proboi.site</a></span>
 </footer>
-
-<!-- ── Sticky CTA ─────────────────────────────────────── -->
-<div class="cta-sticky">
-  <p>Попробуйте Профи — 5 дней бесплатно при привязке карты</p>
-  <a href="${TG_URL}" class="btn-primary" target="_blank" rel="noopener">Открыть бот →</a>
-</div>
 
 </body>
 </html>`;
 }
-
