@@ -553,7 +553,19 @@ export function createStatusCallback(
           state.lastEditTimes.set(segmentId, now);
         }
       } else if (statusType === "segment_end" && segmentId !== undefined) {
-        if (state.textMessages.has(segmentId) && content) {
+        if (!state.textMessages.has(segmentId) && content) {
+          // No intermediate message was created (short response, no streaming updates).
+          // Send it fresh now.
+          const formatted = convertMarkdownToHtml(content);
+          try {
+            const msg = await ctx.reply(formatted, { parse_mode: "HTML" });
+            state.textMessages.set(segmentId, msg);
+            state.lastContent.set(segmentId, formatted);
+          } catch {
+            await ctx.reply(content);
+          }
+          state.maxSegmentId = Math.max(state.maxSegmentId, segmentId);
+        } else if (state.textMessages.has(segmentId) && content) {
           const msg = state.textMessages.get(segmentId)!;
           const formatted = convertMarkdownToHtml(content);
 

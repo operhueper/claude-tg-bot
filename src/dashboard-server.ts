@@ -14,7 +14,11 @@
  */
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { getUserProfile, ALLOWED_USERS, OWNER_USER_ID as OWNER_ID } from "./config";
+
+const execFileAsync = promisify(execFile);
 import {
   getUserTotals,
   getAllUsersTotals,
@@ -744,6 +748,25 @@ function startNotifyBridge(): void {
       // Validate userId is a known allowed user
       if (!getAllowedUsers().has(userId)) {
         console.warn(`[notify-bridge] unknown userId: ${userId}`);
+        return new Response("Forbidden", { status: 403 });
+      }
+
+      // Verify the source IP belongs to the container owned by this userId
+      try {
+        const containerName = `claude-user-${userId}`;
+        const { stdout } = await execFileAsync(
+          "docker",
+          ["inspect", containerName, "--format", "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}"],
+          { timeout: 5_000 }
+        );
+        const containerIps = stdout.trim().split(/\s+/).filter(Boolean);
+        if (!containerIps.includes(sourceIp)) {
+          console.warn(`[notify-bridge] IP mismatch for userId ${userId}: got ${sourceIp}, container has ${containerIps.join(", ")}`);
+          return new Response("Forbidden", { status: 403 });
+        }
+      } catch (err) {
+        // docker inspect failed (container absent, docker unavailable) — reject to be safe
+        console.warn(`[notify-bridge] docker inspect failed for userId ${userId}: ${err}`);
         return new Response("Forbidden", { status: 403 });
       }
 

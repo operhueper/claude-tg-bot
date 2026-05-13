@@ -636,6 +636,12 @@ async function handlePlanCallback(
   }
 
   if (callbackData.startsWith("plan_confirm:")) {
+    const embeddedId = parseInt(callbackData.slice("plan_confirm:".length), 10);
+    if (embeddedId !== userId) {
+      await ctx.answerCallbackQuery({ text: "Это не твоя задача" });
+      return;
+    }
+
     const plan = session.pendingPlan;
     if (!plan) {
       try {

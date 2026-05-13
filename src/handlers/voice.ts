@@ -44,16 +44,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
     return;
   }
 
-  // 3. Rate limit check
-  const [allowed, retryAfter] = rateLimiter.check(userId);
-  if (!allowed) {
-    await auditLogRateLimit(userId, username, retryAfter!);
-    const waitSec = Math.ceil(retryAfter!);
-    await ctx.reply(`⏳ Слишком много запросов. Подожди ${waitSec} сек и попробуй снова.`);
-    return;
-  }
-
-  // 4. Daily message limit for free-tier users
+  // 3. Daily message limit for free-tier users (checked before lock — no serialisation needed)
   {
     const profile = getUserProfile(userId);
     if (profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
@@ -84,18 +75,28 @@ export async function handleVoice(ctx: Context): Promise<void> {
   }
   const releaseUserLock = await acquireUserLock(userId);
 
+  // 4. Rate limit check (after lock so two concurrent messages can't both pass)
+  const [allowed, retryAfter] = rateLimiter.check(userId);
+  if (!allowed) {
+    releaseUserLock();
+    await auditLogRateLimit(userId, username, retryAfter!);
+    const waitSec = Math.ceil(retryAfter!);
+    await ctx.reply(`⏳ Слишком много запросов. Подожди ${waitSec} сек и попробуй снова.`);
+    return;
+  }
+
   const session = getSession(userId);
 
-  // 4. Mark processing started (allows /stop to work during transcription/classification)
+  // 5. Mark processing started (allows /stop to work during transcription/classification)
   const stopProcessing = session.startProcessing();
 
-  // 5. Start typing indicator for transcription
+  // 6. Start typing indicator for transcription
   const typing = startTypingIndicator(ctx);
 
   let voicePath: string | null = null;
 
   try {
-    // 6. Download voice file
+    // 7. Download voice file
     const file = await ctx.getFile();
     const timestamp = Date.now();
     voicePath = `${TEMP_DIR}/voice_${timestamp}.ogg`;
@@ -107,7 +108,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
     const buffer = await downloadRes.arrayBuffer();
     await Bun.write(voicePath, buffer);
 
-    // 7. Transcribe
+    // 8. Transcribe
     const statusMsg = await ctx.reply("🎤 Расшифровываю...");
 
     const transcript = await transcribeVoice(voicePath);
@@ -121,7 +122,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
       return;
     }
 
-    // 8. Show transcript (truncate display if needed - full transcript still sent to Claude)
+    // 9. Show transcript (truncate display if needed - full transcript still sent to Claude)
     const maxDisplay = 4000; // Leave room for 🎤 "" wrapper within 4096 limit
     const displayTranscript =
       transcript.length > maxDisplay
@@ -133,18 +134,18 @@ export async function handleVoice(ctx: Context): Promise<void> {
       `🎤 "${displayTranscript}"`
     );
 
-    // 9. Set conversation title from transcript (if new session)
+    // 10. Set conversation title from transcript (if new session)
     if (!session.isActive) {
       const title =
         transcript.length > 50 ? transcript.slice(0, 47) + "..." : transcript;
       session.conversationTitle = title;
     }
 
-    // 10. Create streaming state and callback
+    // 11. Create streaming state and callback
     const state = new StreamingState();
     const statusCallback = createStatusCallback(ctx, state);
 
-    // 11. Send to Claude
+    // 12. Send to Claude
     const claudeResponse = await session.sendMessageStreaming(
       transcript,
       username,
@@ -155,7 +156,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
       false // mediaHint: transcript is plain text, not a binary media file
     );
 
-    // 12. Audit log
+    // 13. Audit log
     await auditLog(userId, username, "VOICE", transcript, claudeResponse);
   } catch (error) {
     if (String(error).includes("abort") || String(error).includes("cancel")) {
