@@ -246,6 +246,8 @@ export class ClaudeSession {
   private _isProcessing = false;
   private _wasInterruptedByNewMessage = false;
   private transcriptRecorder: TranscriptRecorder | null = null;
+  private runningPromise: Promise<void> | null = null;
+  private _resolveRunningPromise: (() => void) | null = null;
 
   constructor(profile: UserProfile) {
     this.profile = profile;
@@ -337,6 +339,7 @@ export class ClaudeSession {
       console.log(
         `[${this.profile.label}] Stop requested - aborting current query`
       );
+      await this.runningPromise;
       return "stopped";
     }
     if (this._isProcessing) {
@@ -774,6 +777,9 @@ ${dialog}
     this.stopRequested = false;
     this.queryStarted = new Date();
     this.currentTool = null;
+    this.runningPromise = new Promise<void>((resolve) => {
+      this._resolveRunningPromise = resolve;
+    });
 
     // Hard 10-minute timeout: abort the query if it hasn't finished by then.
     // We create a wrapper controller so the SDK receives a single AbortController
@@ -1163,6 +1169,9 @@ ${dialog}
       this.abortController = null;
       this.queryStarted = null;
       this.currentTool = null;
+      this._resolveRunningPromise?.();
+      this.runningPromise = null;
+      this._resolveRunningPromise = null;
       // Flush transcript on stop/abort so partial turns are persisted
       if (this.stopRequested) {
         this.transcriptRecorder?.flush();

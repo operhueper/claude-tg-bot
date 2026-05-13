@@ -292,7 +292,6 @@ export async function checkInterrupt(
     console.log(`[${userSession.profile.label}] ! prefix - interrupting current query`);
     userSession.markInterrupt();
     await userSession.stop();
-    await Bun.sleep(100);
     userSession.clearStopRequested();
   }
 
