@@ -31,5 +31,6 @@ jobs:
             cd /opt/claude-tg-bot
             bun install --frozen-lockfile
             systemctl restart claude-tg-bot
-            sleep 2
-            systemctl is-active claude-tg-bot && echo "Deploy OK"
+            sleep 5
+            systemctl status claude-tg-bot --no-pager | tail -5
+            echo "Deploy OK"
