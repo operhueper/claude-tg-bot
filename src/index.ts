@@ -458,6 +458,9 @@ startCrashloopWatcher();
 
 // ============== Subscription billing ==============
 
+// Initial sweep on startup so expired subscriptions and orphan containers
+// are cleaned up immediately, not just after the first 6h interval.
+chargeExpiredTrials(bot).catch(console.error);
 setInterval(() => chargeExpiredTrials(bot).catch(console.error), 6 * 60 * 60 * 1000);
 
 // Start with concurrent runner (commands work immediately)

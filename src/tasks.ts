@@ -151,6 +151,15 @@ import {
   SUBSCRIPTION_DAYS,
 } from "./payments.js";
 import { chargeRecurring } from "./engines/yukassa.js";
+import { containerManager } from "./containers/manager.js";
+
+async function reclaimContainerForFreeUser(userId: number): Promise<void> {
+  try {
+    await containerManager.remove(userId);
+  } catch (err) {
+    console.error(`[billing] container remove failed for user ${userId}:`, err);
+  }
+}
 
 /**
  * Charge users whose trial/subscription has expired.
@@ -171,6 +180,7 @@ export async function chargeExpiredTrials(bot: any): Promise<void> {
       if (graceEnd > now) continue; // still in grace period
       // Grace period expired — downgrade
       downgradeToFree(user.userId);
+      await reclaimContainerForFreeUser(user.userId);
       await bot.api.sendMessage(user.userId,
         '😔 К сожалению, нам не удалось провести оплату. Доступ к Профи приостановлен.\n\n' +
         'Чтобы восстановить подписку — /pay'
@@ -182,6 +192,7 @@ export async function chargeExpiredTrials(bot: any): Promise<void> {
     const methodId = user.payment_method_id;
     if (!methodId) {
       downgradeToFree(user.userId);
+      await reclaimContainerForFreeUser(user.userId);
       continue;
     }
 
@@ -236,5 +247,37 @@ export async function chargeExpiredTrials(bot: any): Promise<void> {
 
     const updated = UserRegistry.getUser(user.userId);
     if (updated) UserRegistry.saveUser({ ...updated, day4_push_sent: true });
+  }
+
+  await reapOrphanFreeContainers();
+}
+
+/**
+ * Idempotent safety net: any user currently on the free tier (or owner,
+ * who is exempt by design) should not own a running Docker sandbox. Sweep
+ * Docker for `claude-user-<id>` containers whose users.json tier is not 'paid'
+ * and remove them. Catches leftover containers from before tier enforcement
+ * was wired in, and any state drift if `downgradeToFree` ran but the
+ * subsequent `containerManager.remove` failed.
+ */
+export async function reapOrphanFreeContainers(): Promise<void> {
+  const paidUserIds = new Set(
+    UserRegistry.getAllUsers()
+      .filter((u) => u.tier === 'paid')
+      .map((u) => u.userId),
+  );
+
+  let liveIds: number[];
+  try {
+    liveIds = await containerManager.listLiveUserIds();
+  } catch (err) {
+    console.error('[billing] reapOrphanFreeContainers: list failed:', err);
+    return;
+  }
+
+  for (const uid of liveIds) {
+    if (paidUserIds.has(uid)) continue;
+    console.log(`[billing] reaping orphan container for free user ${uid}`);
+    await reclaimContainerForFreeUser(uid);
   }
 }

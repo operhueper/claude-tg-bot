@@ -456,6 +456,32 @@ class ContainerManager {
   }
 
   /**
+   * Return numeric userIds for every container that currently exists with
+   * the `claude-bot-user` label, regardless of state. Used by billing
+   * sweeps to reap orphans whose tier has lapsed.
+   */
+  async listLiveUserIds(): Promise<number[]> {
+    if (!(await this.ensureDocker())) return [];
+    const { stdout } = await execFileAsync("docker", [
+      "ps",
+      "-a",
+      "--filter",
+      "label=claude-bot-user",
+      "--format",
+      "{{.Names}}",
+    ]);
+    const ids: number[] = [];
+    for (const name of stdout.split("\n")) {
+      const trimmed = name.trim();
+      if (!trimmed.startsWith("claude-user-")) continue;
+      const idStr = trimmed.slice("claude-user-".length);
+      const n = Number(idStr);
+      if (Number.isFinite(n)) ids.push(n);
+    }
+    return ids;
+  }
+
+  /**
    * Reset the idle watchdog. Call on every user message so the container
    * stays warm while they're actively chatting, and gets paused/stopped
    * once they go quiet.
