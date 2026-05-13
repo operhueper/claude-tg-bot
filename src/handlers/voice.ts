@@ -106,6 +106,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
   const typing = startTypingIndicator(ctx);
 
   let voicePath: string | null = null;
+  let state = new StreamingState();
 
   try {
     // 7. Download voice file
@@ -154,7 +155,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
     }
 
     // 11. Create streaming state and callback
-    const state = new StreamingState();
+    state = new StreamingState();
     const statusCallback = createStatusCallback(ctx, state);
 
     // 12. Send to Claude
@@ -181,6 +182,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
       await replyFriendly(ctx, error, "транскрипция голоса");
     }
   } finally {
+    await state.cleanup();
     stopProcessing();
     typing.stop();
     releaseContainerSlot?.();

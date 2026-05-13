@@ -72,6 +72,7 @@ export async function processAudioFile(
   const session = getSession(userId);
   const stopProcessing = session.startProcessing();
   const typing = startTypingIndicator(ctx);
+  let state = new StreamingState();
 
   try {
     // Transcribe
@@ -114,7 +115,7 @@ export async function processAudioFile(
     }
 
     // Create streaming state and callback
-    const state = new StreamingState();
+    state = new StreamingState();
     const statusCallback = createStatusCallback(ctx, state);
 
     // Send to Claude
@@ -140,6 +141,7 @@ export async function processAudioFile(
       await replyFriendly(ctx, error, "транскрипция аудио");
     }
   } finally {
+    await state.cleanup();
     stopProcessing();
     typing.stop();
 

@@ -149,6 +149,7 @@ export async function handleVideo(ctx: Context): Promise<void> {
   const typing = startTypingIndicator(ctx);
 
   let videoPath: string | null = null;
+  let state = new StreamingState();
 
   try {
     // 7. Download video
@@ -188,7 +189,7 @@ export async function handleVideo(ctx: Context): Promise<void> {
     }
 
     // 11. Create streaming state and callback
-    const state = new StreamingState();
+    state = new StreamingState();
     const statusCallback = createStatusCallback(ctx, state);
 
     // 12. Send transcript (not video path) to Claude
@@ -214,6 +215,7 @@ export async function handleVideo(ctx: Context): Promise<void> {
       await replyFriendly(ctx, error, "обработка видео");
     }
   } finally {
+    await state.cleanup();
     stopProcessing();
     typing.stop();
     releaseContainerSlot?.();

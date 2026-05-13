@@ -416,6 +416,7 @@ async function processArchive(
   const session = getSession(userId);
   const stopProcessing = session.startProcessing();
   const typing = startTypingIndicator(ctx);
+  let state = new StreamingState();
 
   // Show extraction progress
   const statusMsg = await ctx.reply(`📦 Extracting <b>${fileName}</b>...`, {
@@ -457,7 +458,7 @@ async function processArchive(
     }
 
     // Create streaming state
-    const state = new StreamingState();
+    state = new StreamingState();
     const statusCallback = createStatusCallback(ctx, state);
 
     const response = await session.sendMessageStreaming(
@@ -496,6 +497,7 @@ async function processArchive(
     }
     await replyFriendly(ctx, error, "распаковка архива");
   } finally {
+    await state.cleanup();
     stopProcessing();
     typing.stop();
   }
@@ -588,6 +590,7 @@ async function processDocuments(
   } catch (error) {
     await handleProcessingError(ctx, error, state.toolMessages);
   } finally {
+    await state.cleanup();
     stopProcessing();
     typing.stop();
   }
