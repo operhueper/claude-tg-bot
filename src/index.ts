@@ -56,14 +56,29 @@ import { registerAlertBot, notifyOwnerDM } from "./owner-alerts";
 import { startCrashloopWatcher } from "./crashloop-watcher";
 import { chargeExpiredTrials } from "./tasks";
 
-// Prevent unhandled errors from crashing the bot for all users.
-// grammY catches handler errors via bot.catch, but we need a last-resort handler
-// for errors that escape the grammY middleware chain.
+// Last-resort error handlers.
+// grammY catches handler errors via bot.catch; these handle anything that escapes.
+
 process.on('uncaughtException', (err) => {
-  console.error('[FATAL] uncaughtException:', err);
+  console.error('[FATAL] uncaughtException — exiting:', err);
+  process.exit(1);
 });
+
+// Throttle: if unhandledRejection fires >10 times in 60 s → assume corrupt runtime.
+const _rejectionTimestamps: number[] = [];
 process.on('unhandledRejection', (reason) => {
-  console.error('[FATAL] unhandledRejection:', reason);
+  console.error('[WARN] unhandledRejection:', reason);
+  const now = Date.now();
+  _rejectionTimestamps.push(now);
+  // Keep only events within the last 60 seconds.
+  const cutoff = now - 60_000;
+  while (_rejectionTimestamps.length > 0 && _rejectionTimestamps[0]! < cutoff) {
+    _rejectionTimestamps.shift();
+  }
+  if (_rejectionTimestamps.length > 10) {
+    console.error('[FATAL] unhandledRejection storm (>10 in 60 s) — exiting');
+    process.exit(1);
+  }
 });
 
 // Create bot instance
