@@ -113,6 +113,46 @@ function sanitizePartial(text: string): string {
 }
 
 /**
+ * Drain accumulated pending-context messages after a query completes.
+ * Each message in the queue is sent as a separate turn so the model sees
+ * them in order. This helper owns its own StreamingState/typing/processing
+ * lifecycle — the outer handler's cleanup has already run before this is called.
+ */
+async function drainPendingContext(
+  session: import("../session").ClaudeSession,
+  ctx: Context,
+  username: string,
+  userId: number,
+  chatId: number
+): Promise<void> {
+  let pendingMsg = session.consumePendingContext();
+  while (pendingMsg) {
+    const pendingState = new StreamingState();
+    const pendingCallback = createStatusCallback(ctx, pendingState);
+    const pendingTyping = startTypingIndicator(ctx);
+    const stopPendingProcessing = session.startProcessing();
+    try {
+      const pendingResponse = await session.sendMessageStreaming(
+        pendingMsg,
+        username,
+        userId,
+        pendingCallback,
+        chatId,
+        ctx
+      );
+      await auditLog(userId, username, "TEXT", pendingMsg, pendingResponse);
+    } catch (pendingError) {
+      await replyFriendly(ctx, pendingError, "обработка отложенного контекста");
+    } finally {
+      await pendingState.cleanup();
+      stopPendingProcessing();
+      pendingTyping.stop();
+    }
+    pendingMsg = session.consumePendingContext();
+  }
+}
+
+/**
  * Handle incoming text messages.
  */
 export async function handleText(ctx: Context): Promise<void> {
@@ -372,39 +412,6 @@ export async function handleText(ctx: Context): Promise<void> {
         // 11. Audit log
         await auditLog(userId, username, "TEXT", message, response);
 
-        // 11b. Drain pending context queue accumulated during generation
-        const pendingMsg = session.consumePendingContext();
-        if (pendingMsg) {
-          // Remove the ⏳ reaction on all pending messages is not trivial,
-          // so we simply send the accumulated context as a new turn.
-          stopProcessing();
-          typing.stop();
-
-          // Re-enter full send flow for the pending context
-          const pendingState = new StreamingState();
-          const pendingCallback = createStatusCallback(ctx, pendingState);
-          const pendingTyping = startTypingIndicator(ctx);
-          const stopPendingProcessing = session.startProcessing();
-          try {
-            const pendingResponse = await session.sendMessageStreaming(
-              pendingMsg,
-              username,
-              userId,
-              pendingCallback,
-              chatId,
-              ctx
-            );
-            await auditLog(userId, username, "TEXT", pendingMsg, pendingResponse);
-          } catch (pendingError) {
-            console.error("Error processing pending context:", pendingError);
-          } finally {
-            await pendingState.cleanup();
-            stopPendingProcessing();
-            pendingTyping.stop();
-          }
-          return; // stopProcessing and typing already called above
-        }
-
         break; // Success - exit retry loop
       } catch (error) {
         const errorStr = String(error);
@@ -457,6 +464,11 @@ export async function handleText(ctx: Context): Promise<void> {
     releaseContainerSlot?.();
     releaseUserLock?.();
   }
+
+  // 13. Drain pending context accumulated while the main query was running.
+  // Runs AFTER outer finally so stopProcessing/typing are guaranteed to have
+  // been called exactly once above. Each drain iteration owns its own state.
+  await drainPendingContext(session, ctx, username, userId, chatId);
 
   // Fire-and-forget infrastructure warming for free-tier users approaching limit
   maybeWarmInfrastructure(userId).catch(() => {});
