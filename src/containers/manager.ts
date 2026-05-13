@@ -510,17 +510,15 @@ class ContainerManager {
     const next = new Promise<void>((r) => {
       resolveLock = r;
     });
-    this.locks.set(
-      userId,
-      prev.then(() => next)
-    );
+    const chained = prev.then(() => next);
+    this.locks.set(userId, chained);
     try {
       await prev;
       return await fn();
     } finally {
       resolveLock();
       // Best-effort cleanup so the map doesn't grow unbounded.
-      if (this.locks.get(userId) === prev.then(() => next)) {
+      if (this.locks.get(userId) === chained) {
         this.locks.delete(userId);
       }
     }
