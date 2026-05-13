@@ -17,25 +17,22 @@ let activeContainerSessions = 0;
 const containerQueue: Array<() => void> = [];
 
 /**
- * Acquire per-user lock. If user already has an active request, waits for it.
+ * Acquire per-user lock. Throws if user is already locked — caller must call
+ * isUserBusy() first and handle the busy case explicitly.
  * Returns a release function — MUST be called in a finally block.
  */
 export async function acquireUserLock(userId: number): Promise<() => void> {
-  // Chain onto any existing lock for this user
-  const existing = userLocks.get(userId);
-  if (existing) {
-    await existing;
+  if (userLocks.has(userId)) {
+    throw new Error(`acquireUserLock: user ${userId} already locked — caller must isUserBusy() first`);
   }
 
-  let releaseFn!: () => void;
-  const lock = new Promise<void>((resolve) => {
-    releaseFn = resolve;
-  });
+  let release!: () => void;
+  const lock = new Promise<void>((resolve) => { release = resolve; });
   userLocks.set(userId, lock);
 
   return () => {
     userLocks.delete(userId);
-    releaseFn();
+    release();
   };
 }
 
