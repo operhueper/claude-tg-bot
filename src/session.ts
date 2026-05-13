@@ -671,7 +671,7 @@ ${dialog}
     // tools from the profile (e.g. WebSearch for DeepSeek guests).
     const disallowedTools = useContainer
       ? Array.from(
-          new Set([...(this.profile.disallowedTools ?? []), "Bash"])
+          new Set([...(this.profile.disallowedTools ?? []), "Bash", "BashOutput", "KillShell"])
         )
       : this.profile.disallowedTools ?? [];
 
