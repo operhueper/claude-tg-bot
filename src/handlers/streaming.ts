@@ -614,31 +614,54 @@ export function createStatusCallback(
           try {
             await ctx.api.deleteMessage(ctx.chat!.id, state.todoMsgId);
           } catch (err) {
-            console.debug("Failed to delete todo message:", err);
+            const s = String(err);
+            if (s.includes("429") || s.includes("Too Many Requests")) {
+              console.warn("[rate-limit] Telegram 429 deleting todo message, skipping");
+            } else {
+              console.debug("Failed to delete todo message:", err);
+            }
           }
           state.todoMsgId = undefined;
         }
-        // Delete tool messages
+        // Delete tool messages — stop the loop immediately on 429 to avoid
+        // making Telegram's rate limit worse (retry_after can reach hours).
+        let rateLimited = false;
         for (const toolMsg of state.toolMessages) {
+          if (rateLimited) break;
           try {
             await ctx.api.deleteMessage(toolMsg.chat.id, toolMsg.message_id);
           } catch (error) {
-            console.debug("Failed to delete tool message:", error);
+            const s = String(error);
+            if (s.includes("429") || s.includes("Too Many Requests")) {
+              console.warn(`[rate-limit] Telegram 429 on deleteMessage (tool), aborting remaining deletions`);
+              rateLimited = true;
+            } else {
+              console.debug("Failed to delete tool message:", error);
+            }
           }
         }
         // Delete intermediate text segments.
-        // Keep: the final segment (maxSegmentId) always.
-        // Also keep: segment 0 (plan announcement) when there are multiple segments —
-        // it's the pre-work announcement the user should see alongside the final answer.
-        const totalSegments = state.textMessages.size;
-        for (const [sid, textMsg] of state.textMessages) {
-          const isFinal = sid === state.maxSegmentId;
-          const isAnnouncement = sid === 0 && totalSegments > 1;
-          if (isFinal || isAnnouncement) continue;
-          try {
-            await ctx.api.deleteMessage(textMsg.chat.id, textMsg.message_id);
-          } catch (error) {
-            console.debug("Failed to delete intermediate text message:", error);
+        // Keep: the final segment (maxSegmentId) and segment 0 (plan announcement).
+        // Segment 0 is the pre-work announcement Claude writes before the first tool call
+        // per the system prompt instruction — it should stay visible alongside the result.
+        if (!rateLimited) {
+          const totalSegments = state.textMessages.size;
+          for (const [sid, textMsg] of state.textMessages) {
+            if (rateLimited) break;
+            const isFinal = sid === state.maxSegmentId;
+            const isAnnouncement = sid === 0 && totalSegments > 1;
+            if (isFinal || isAnnouncement) continue;
+            try {
+              await ctx.api.deleteMessage(textMsg.chat.id, textMsg.message_id);
+            } catch (error) {
+              const s = String(error);
+              if (s.includes("429") || s.includes("Too Many Requests")) {
+                console.warn(`[rate-limit] Telegram 429 on deleteMessage (text segment), aborting remaining deletions`);
+                rateLimited = true;
+              } else {
+                console.debug("Failed to delete intermediate text message:", error);
+              }
+            }
           }
         }
         await heartbeat.stop();

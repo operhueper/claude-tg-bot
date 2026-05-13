@@ -6,10 +6,10 @@
 
 import type { Context } from "grammy";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, inboxDirFor, getUserProfile } from "../config";
-import { acquireUserLock, isUserBusy } from "../request-queue";
+import { ALLOWED_USERS, inboxDirFor, getUserProfile, OWNER_USER_ID } from "../config";
+import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
-import { resetIfNewDay, isLimitReached, incrementCount } from "../daily-limit";
+import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import { upgradeKeyboard } from "../keyboards";
 import { auditLog, auditLogRateLimit, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
@@ -153,16 +153,20 @@ export async function handlePhoto(ctx: Context): Promise<void> {
   // 1b. Daily message limit for free-tier users
   {
     const _profile = getUserProfile(userId);
-    if (_profile.tierConfig.dailyMessageLimit !== null) {
-      resetIfNewDay(userId);
-      if (isLimitReached(userId, _profile.tierConfig.dailyMessageLimit)) {
+    const dailyLimit = _profile.tierConfig.dailyMessageLimit;
+    if (dailyLimit !== null && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId, dailyLimit)) {
+        const { limit } = getDailyUsage(userId, dailyLimit);
         await ctx.reply(
-          `Лимит на сегодня исчерпан (${_profile.tierConfig.dailyMessageLimit} сообщений).\n\nОформи подписку и пиши без ограничений 👇`,
+          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n` +
+            `Лимит обновится в полночь по Москве.\n\n` +
+            `На тарифе Профи — без ограничений. Плюс документы, код, Google и многое другое.\n\n` +
+            `Привяжите карту — первые 5 дней бесплатно.`,
           { reply_markup: upgradeKeyboard() }
         );
         return;
       }
-      incrementCount(userId);
+      incrementDailyUsage(userId);
     }
   }
 
@@ -172,6 +176,17 @@ export async function handlePhoto(ctx: Context): Promise<void> {
     return;
   }
   const releaseUserLock = await acquireUserLock(userId);
+
+  // Container slot for users with containers enabled
+  const _photoContainerProfile = getUserProfile(userId);
+  let releaseContainerSlot: (() => void) | null = null;
+  if (_photoContainerProfile.containerEnabled) {
+    const { queued } = getQueueStatus();
+    if (queued > 0) {
+      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
+    }
+    releaseContainerSlot = await acquireContainerSlot();
+  }
 
   try {
     // 2. For single photos, show status and rate limit early
@@ -247,6 +262,7 @@ export async function handlePhoto(ctx: Context): Promise<void> {
       processPhotos
     );
   } finally {
+    releaseContainerSlot?.();
     releaseUserLock();
   }
 }

@@ -7,7 +7,7 @@ import { InlineKeyboard } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE, getUserProfile, OWNER_USER_ID } from "../config";
-import { acquireUserLock, isUserBusy } from "../request-queue";
+import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
 import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import {
@@ -75,6 +75,17 @@ export async function handleVoice(ctx: Context): Promise<void> {
     return;
   }
   const releaseUserLock = await acquireUserLock(userId);
+
+  // Container slot for users with containers enabled
+  const _voiceContainerProfile = getUserProfile(userId);
+  let releaseContainerSlot: (() => void) | null = null;
+  if (_voiceContainerProfile.containerEnabled) {
+    const { queued } = getQueueStatus();
+    if (queued > 0) {
+      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
+    }
+    releaseContainerSlot = await acquireContainerSlot();
+  }
 
   // 4. Rate limit check (after lock so two concurrent messages can't both pass)
   const [allowed, retryAfter] = rateLimiter.check(userId);
@@ -172,6 +183,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
   } finally {
     stopProcessing();
     typing.stop();
+    releaseContainerSlot?.();
     releaseUserLock();
 
     // Clean up voice file

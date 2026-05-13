@@ -6,10 +6,13 @@
  */
 
 import type { Context } from "grammy";
+import { InlineKeyboard } from "grammy";
 import { unlinkSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE } from "../config";
+import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE, getUserProfile, OWNER_USER_ID } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
+import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
+import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
 import {
   auditLog,
   auditLogRateLimit,
@@ -168,9 +171,55 @@ export async function handleAudio(ctx: Context): Promise<void> {
     return;
   }
 
-  // 2. Rate limit check
+  // 2. Daily message limit
+  {
+    const profile = getUserProfile(userId);
+    const dailyLimit = profile.tierConfig.dailyMessageLimit;
+    if (dailyLimit !== null && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId, dailyLimit)) {
+        const { limit } = getDailyUsage(userId, dailyLimit);
+        await ctx.reply(
+          `Вы использовали все ${limit} бесплатных сообщений сегодня.\n` +
+          `Лимит обновится в полночь по Москве.\n\n` +
+          `На тарифе Профи — без ограничений. Плюс документы, код, Google и многое другое.\n\n` +
+          `Привяжите карту — первые 5 дней бесплатно.`,
+          {
+            reply_markup: new InlineKeyboard()
+              .text('5 дней Профи бесплатно', 'pay_upgrade')
+              .row()
+              .url('Что даёт Профи →', 'https://proboi.site/how-to-setup'),
+          }
+        );
+        return;
+      }
+      incrementDailyUsage(userId);
+    }
+  }
+
+  // Per-user lock — prevent two parallel requests from the same user
+  if (isUserBusy(userId)) {
+    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
+    return;
+  }
+  let releaseUserLock: (() => void) | null = null;
+  let releaseContainerSlot: (() => void) | null = null;
+  releaseUserLock = await acquireUserLock(userId);
+
+  // Container slot for users with containers enabled
+  const audioProfile = getUserProfile(userId);
+  if (audioProfile.containerEnabled) {
+    const { queued } = getQueueStatus();
+    if (queued > 0) {
+      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
+    }
+    releaseContainerSlot = await acquireContainerSlot();
+  }
+
+  // 3. Rate limit check
   const [allowed, retryAfter] = rateLimiter.check(userId);
   if (!allowed) {
+    releaseContainerSlot?.();
+    releaseUserLock?.();
     await auditLogRateLimit(userId, username, retryAfter!);
     await ctx.reply(
       `⏳ Rate limited. Please wait ${retryAfter!.toFixed(1)} seconds.`
@@ -180,7 +229,7 @@ export async function handleAudio(ctx: Context): Promise<void> {
 
   console.log(`Received audio from @${username}`);
 
-  // 3. Download audio file
+  // 5. Download audio file
   let audioPath: string;
   try {
     const file = await ctx.getFile();
@@ -195,18 +244,25 @@ export async function handleAudio(ctx: Context): Promise<void> {
     const buffer = await response.arrayBuffer();
     await Bun.write(audioPath, buffer);
   } catch (error) {
+    releaseContainerSlot?.();
+    releaseUserLock?.();
     console.error("Failed to download audio:", error);
     await ctx.reply("❌ Failed to download audio file.");
     return;
   }
 
-  // 4. Process audio
-  await processAudioFile(
-    ctx,
-    audioPath,
-    ctx.message?.caption,
-    userId,
-    username,
-    chatId
-  );
+  // 6. Process audio
+  try {
+    await processAudioFile(
+      ctx,
+      audioPath,
+      ctx.message?.caption,
+      userId,
+      username,
+      chatId
+    );
+  } finally {
+    releaseContainerSlot?.();
+    releaseUserLock?.();
+  }
 }

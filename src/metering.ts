@@ -35,6 +35,13 @@ try {
     );
     CREATE INDEX IF NOT EXISTS idx_usage_user ON usage(user_id);
     CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage(ts);
+    CREATE TABLE IF NOT EXISTS daily_counts (
+      user_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      msg_count INTEGER NOT NULL DEFAULT 0,
+      doc_count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (user_id, date)
+    );
   `);
 } catch (e) {
   console.error("[metering] Failed to open database:", e);
@@ -250,6 +257,72 @@ export function getUserTotals(
 
 export interface AllUserTotals extends UserTotals {
   userId: string;
+}
+
+// ---------------------------------------------------------------------------
+// Daily counts helpers (for daily-limit.ts)
+// ---------------------------------------------------------------------------
+
+function todayMsk(): string {
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Moscow' });
+}
+
+export function getMsgCountToday(userId: number): number {
+  if (!db) return 0;
+  try {
+    const row = db
+      .query<{ msg_count: number }, [string, string]>(
+        "SELECT msg_count FROM daily_counts WHERE user_id=? AND date=?"
+      )
+      .get(String(userId), todayMsk());
+    return row?.msg_count ?? 0;
+  } catch (e) {
+    console.error("[metering] getMsgCountToday failed:", e);
+    return 0;
+  }
+}
+
+export function incrementMsgCount(userId: number): void {
+  if (!db) return;
+  try {
+    db.run(
+      `INSERT INTO daily_counts (user_id, date, msg_count)
+       VALUES (?, ?, 1)
+       ON CONFLICT(user_id, date) DO UPDATE SET msg_count = msg_count + 1`,
+      [String(userId), todayMsk()]
+    );
+  } catch (e) {
+    console.error("[metering] incrementMsgCount failed:", e);
+  }
+}
+
+export function getDocCountToday(userId: number): number {
+  if (!db) return 0;
+  try {
+    const row = db
+      .query<{ doc_count: number }, [string, string]>(
+        "SELECT doc_count FROM daily_counts WHERE user_id=? AND date=?"
+      )
+      .get(String(userId), todayMsk());
+    return row?.doc_count ?? 0;
+  } catch (e) {
+    console.error("[metering] getDocCountToday failed:", e);
+    return 0;
+  }
+}
+
+export function incrementDocCount(userId: number): void {
+  if (!db) return;
+  try {
+    db.run(
+      `INSERT INTO daily_counts (user_id, date, doc_count)
+       VALUES (?, ?, 1)
+       ON CONFLICT(user_id, date) DO UPDATE SET doc_count = doc_count + 1`,
+      [String(userId), todayMsk()]
+    );
+  } catch (e) {
+    console.error("[metering] incrementDocCount failed:", e);
+  }
 }
 
 /**

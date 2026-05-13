@@ -576,8 +576,7 @@ async function processDocuments(
     const _docProfile = getUserProfile(userId);
     if (_docProfile.tier !== 'paid' && userId !== OWNER_USER_ID) {
       ctx.reply(
-        '📎 Документ обработан!\n\nНа бесплатном тарифе — 1 документ в сессию. ' +
-        'На Профи — без ограничений + код, Google Workspace, изображения и многое другое.',
+        '📎 Документ обработан!\n\nНа бесплатном тарифе — 1 документ в день (лимит обновляется в полночь по Москве).\nНа Профи — без ограничений: документы, код, Google Workspace и многое другое.',
         {
           reply_markup: new InlineKeyboard()
             .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
@@ -670,13 +669,26 @@ export async function handleDocument(ctx: Context): Promise<void> {
     }
   }
 
-  // 1c. Free doc gate — free-tier users get one document per session
+  // 1c. Free doc gate — free-tier users get one document per day.
+  // Audio and image files sent as documents bypass this gate entirely
+  // (they are routed to their own handlers later and don't consume a doc slot).
   {
+    const _gateFileName = doc.file_name || "";
+    const _gateExt = "." + (_gateFileName.split(".").pop() || "").toLowerCase();
+    const _gateIsPdf = doc.mime_type === "application/pdf" || _gateExt === ".pdf";
+    const _gateIsDocx =
+      _gateExt === ".docx" ||
+      doc.mime_type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const _gateIsText = TEXT_EXTENSIONS.includes(_gateExt) || (doc.mime_type?.startsWith("text/") ?? false);
+    const _gateIsArchive = isArchive(_gateFileName);
+    const _gateIsLas = LAS_EXTENSIONS.includes(_gateExt);
+    // Only apply the gate to actual document types — not audio or image files
+    const _isDocumentType = _gateIsPdf || _gateIsDocx || _gateIsText || _gateIsArchive || _gateIsLas;
     const _profile = getUserProfile(userId);
-    if (_profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
+    if (_isDocumentType && _profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
       if (hasFreeDocUsed(userId)) {
         await ctx.reply(
-          'Работа с документами — функция тарифа Профи.\n\nПривяжи карту и получи 5 дней бесплатно 👇',
+          'На бесплатном тарифе — 1 документ в день, и вы уже его использовали.\nЛимит обновится в полночь по Москве.\n\nПрофи — без ограничений: документы, код, Google и ещё много всего.',
           {
             reply_markup: new InlineKeyboard()
               .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
@@ -686,7 +698,7 @@ export async function handleDocument(ctx: Context): Promise<void> {
         );
         return;
       }
-      // First doc — allow but mark it so subsequent docs are gated
+      // First doc of the day — allow but mark so subsequent docs are gated
       markFreeDocUsed(userId);
     }
   }

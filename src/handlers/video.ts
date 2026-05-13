@@ -15,7 +15,7 @@ import {
   getUserProfile,
   OWNER_USER_ID,
 } from "../config";
-import { acquireUserLock, isUserBusy } from "../request-queue";
+import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
 import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import {
@@ -92,16 +92,7 @@ export async function handleVideo(ctx: Context): Promise<void> {
     return;
   }
 
-  // 4. Rate limit check
-  const [allowed, retryAfter] = rateLimiter.check(userId);
-  if (!allowed) {
-    await auditLogRateLimit(userId, username, retryAfter!);
-    const waitSec = Math.ceil(retryAfter!);
-    await ctx.reply(`⏳ Слишком много запросов. Подожди ${waitSec} сек и попробуй снова.`);
-    return;
-  }
-
-  // 5. Daily message limit — enforced only when tierConfig specifies a finite cap
+  // 4. Daily message limit — enforced only when tierConfig specifies a finite cap
   {
     const profile = getUserProfile(userId);
     const dailyLimit = profile.tierConfig.dailyMessageLimit;
@@ -126,12 +117,32 @@ export async function handleVideo(ctx: Context): Promise<void> {
     }
   }
 
+  // 5. Rate limit check
+  const [allowed, retryAfter] = rateLimiter.check(userId);
+  if (!allowed) {
+    await auditLogRateLimit(userId, username, retryAfter!);
+    const waitSec = Math.ceil(retryAfter!);
+    await ctx.reply(`⏳ Слишком много запросов. Подожди ${waitSec} сек и попробуй снова.`);
+    return;
+  }
+
   // 6. Per-user lock — prevent two parallel requests from the same user
   if (isUserBusy(userId)) {
     await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
     return;
   }
   const releaseUserLock = await acquireUserLock(userId);
+
+  // Container slot for users with containers enabled
+  const _videoContainerProfile = getUserProfile(userId);
+  let releaseContainerSlot: (() => void) | null = null;
+  if (_videoContainerProfile.containerEnabled) {
+    const { queued } = getQueueStatus();
+    if (queued > 0) {
+      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
+    }
+    releaseContainerSlot = await acquireContainerSlot();
+  }
 
   const session = getSession(userId);
   const stopProcessing = session.startProcessing();
@@ -205,6 +216,7 @@ export async function handleVideo(ctx: Context): Promise<void> {
   } finally {
     stopProcessing();
     typing.stop();
+    releaseContainerSlot?.();
     releaseUserLock();
 
     // Clean up video file

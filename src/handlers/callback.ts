@@ -348,7 +348,6 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
       settingSources: ["project"],
       rateLimitEnabled: false,
       model: "deepseek/deepseek-v4-flash",
-      containerEnabled: true,
     });
     // Also add to in-memory NEW_GUEST_USERS so getUserProfile picks it up immediately
     if (!NEW_GUEST_USERS.includes(targetUserId)) {

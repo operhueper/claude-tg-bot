@@ -1098,12 +1098,16 @@ ${dialog}
       // was aborted, treat exit-code-1 as cleanup noise instead of a real
       // failure — otherwise users see "process exited with code 1" every
       // time they hit /stop or send a follow-up message.
+      const isExitCode1 =
+        errorStr.includes("exited with code 1") ||
+        errorStr.includes("exit code 1");
       const isCleanupError =
         errorStr.includes("cancel") ||
         errorStr.includes("abort") ||
-        (isAborted &&
-          (errorStr.includes("exited with code 1") ||
-            errorStr.includes("exit code 1")));
+        (isAborted && isExitCode1) ||
+        // Subprocess exits code 1 after already delivering a result event —
+        // the query completed but the process crashed on teardown. Treat as noise.
+        (isExitCode1 && queryCompleted);
 
       if (
         isCleanupError &&

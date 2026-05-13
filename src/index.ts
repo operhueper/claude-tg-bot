@@ -49,6 +49,7 @@ import {
   GUEST_MENU_COMMANDS,
 } from "./handlers";
 import { getRecentlyActiveUsers } from "./session-registry";
+import { UserRegistry } from "./user-registry";
 import { containerManager } from "./containers/manager";
 import { startDashboardServer, registerDashboardBot } from "./dashboard-server";
 import { registerAlertBot, notifyOwnerDM } from "./owner-alerts";
@@ -241,6 +242,20 @@ console.log(`Bot started: @${botInfo.username}`);
 const containerProfiles = ALLOWED_USERS.map((id) => getUserProfile(id)).filter((p) => p.containerEnabled);
 await containerManager.init(containerProfiles);
 console.log(`Container manager initialized for ${containerProfiles.length} user(s)`);
+
+// Stop containers for users whose tier no longer includes containerEnabled.
+// This handles the case where a user was downgraded or their tier default changed.
+{
+  for (const node of UserRegistry.getAllUsers()) {
+    if (node.role === "owner") continue;
+    const profile = getUserProfile(node.userId);
+    if (!profile.containerEnabled) {
+      containerManager.stop(node.userId).catch((e: unknown) => {
+        console.log(`[startup] stop container for free-tier user ${node.userId}: ${e}`);
+      });
+    }
+  }
+}
 
 // Register side menu commands.
 // GUEST_MENU_COMMANDS is the authoritative guest list — shared with callback.ts
