@@ -590,24 +590,18 @@ ${dialog}
         return errMsg;
       }
       const msgs = this.buildConversationHistory(messageToSend, mediaHint);
-      const visionAbort = new AbortController();
-      const visionTimeout = setTimeout(() => visionAbort.abort(), 90_000);
       let response: string;
-      try {
-        response = await queryOpenRouter(
-          msgs,
-          this.profile.visionModel || "google/gemini-2.5-flash",
-          openrouterKey,
-          systemPromptWithMemory,
-          statusCallback,
-          null,
-          this.profile,
-          chatId,
-          visionAbort.signal
-        );
-      } finally {
-        clearTimeout(visionTimeout);
-      }
+      response = await queryOpenRouter(
+        msgs,
+        this.profile.visionModel || "google/gemini-2.5-flash",
+        openrouterKey,
+        systemPromptWithMemory,
+        statusCallback,
+        null,
+        this.profile,
+        chatId,
+        this.abortController?.signal
+      );
       await statusCallback("segment_end", response, 0);
       await statusCallback("done", "");
       this.lastActivity = new Date();
