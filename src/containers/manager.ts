@@ -21,7 +21,7 @@
 
 import { execFile } from "child_process";
 import { chownSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { join, resolve, dirname } from "path";
 import { promisify } from "util";
 
 import type { UserProfile } from "../config";
@@ -92,6 +92,75 @@ interface ExecResult {
 interface IdleTimers {
   pauseTimer: ReturnType<typeof setTimeout> | null;
   stopTimer: ReturnType<typeof setTimeout> | null;
+}
+
+// ---------------------------------------------------------------------------
+// Egress rate-limit helpers (FAIR-03)
+// ---------------------------------------------------------------------------
+
+const EGRESS_SET_SCRIPT = resolve(
+  dirname(dirname(import.meta.dir)),
+  "scripts/firewall/set-baseline-egress.sh"
+);
+const EGRESS_REMOVE_SCRIPT = resolve(
+  dirname(dirname(import.meta.dir)),
+  "scripts/firewall/remove-baseline-egress.sh"
+);
+
+/**
+ * Get the container's primary IP on the guest bridge.
+ * Returns empty string on failure (Docker missing, container gone, macOS dev).
+ */
+async function getContainerIp(name: string): Promise<string> {
+  try {
+    const { stdout } = await execFileAsync(
+      "docker",
+      [
+        "inspect",
+        "--format",
+        "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+        name,
+      ],
+      { timeout: 5_000 }
+    );
+    return stdout.trim();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Apply a 20 Mbit/s HTB egress cap on the guest bridge for a new container.
+ * No-op on macOS (script absent) or if IP resolution fails. Never throws.
+ */
+async function setBaselineEgress(name: string): Promise<void> {
+  if (!existsSync(EGRESS_SET_SCRIPT)) return; // macOS dev — skip silently
+  const ip = await getContainerIp(name);
+  if (!ip) return;
+  try {
+    await execFileAsync("bash", [EGRESS_SET_SCRIPT, ip], { timeout: 10_000 });
+  } catch (err) {
+    console.warn(
+      `[container:egress] set-baseline-egress warning for ${name} (${ip}): ${(err as Error).message}`
+    );
+  }
+}
+
+/**
+ * Remove the HTB egress cap for a container that is being removed.
+ * No-op on macOS (script absent) or if IP resolution fails. Never throws.
+ */
+async function removeBaselineEgress(name: string): Promise<void> {
+  if (!existsSync(EGRESS_REMOVE_SCRIPT)) return; // macOS dev — skip silently
+  const ip = await getContainerIp(name);
+  if (!ip) return;
+  try {
+    await execFileAsync("bash", [EGRESS_REMOVE_SCRIPT, ip], { timeout: 10_000 });
+  } catch (err) {
+    console.warn(
+      `[container:egress] remove-baseline-egress warning for ${name} (${ip}): ${(err as Error).message}`
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -377,6 +446,8 @@ class ContainerManager {
     await this.withLock(userId, async () => {
       const state = await this.getStateUnlocked(userId);
       if (state === "absent") return;
+      // Remove egress cap before the container disappears (IP still resolvable).
+      await removeBaselineEgress(containerName(userId));
       // -f handles paused/running; we don't need a separate stop step.
       await this.dockerArgs(["rm", "-f", containerName(userId)]);
       this.log(userId, "removed");
@@ -516,6 +587,9 @@ class ContainerManager {
       }
     }
     this.log(userId, "created & running");
+    // Apply baseline egress rate-limit on the host bridge (FAIR-03).
+    // Fire-and-forget: failure logs a warning but never blocks the container start.
+    setBaselineEgress(containerName(userId)).catch(() => {});
   }
 
   /** Caller already holds the per-user lock. */
