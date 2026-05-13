@@ -10,10 +10,21 @@
  * would require remount + tune2fs which is risky on a live server. Soft
  * quota is good enough for v1 — guests can't fill the disk maliciously
  * because container has read-only root + 128 MB tmpfs anyway.
+ *
+ * Performance: du on a 2 GB vault can take 1–5 s and blocks the event loop
+ * when called with execFileSync. We use a background-refresh pattern:
+ * - If cache is fresh (<60 s) → return immediately (no I/O).
+ * - If cache is stale or absent → return stale value (or pass if none) and
+ *   kick off an async refresh in the background. The caller never waits for
+ *   du. This creates a one-message grace window on first call, which is
+ *   acceptable (soft quota, not hard enforcement).
  */
 
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import * as fs from "fs";
+
+const execFileAsync = promisify(execFile);
 
 const DEFAULT_VAULT_QUOTA_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
 
@@ -40,41 +51,73 @@ interface QuotaResult {
 const cache = new Map<number, { result: QuotaResult; ts: number }>();
 const CACHE_TTL_MS = 60_000;
 
+// Track in-progress background refreshes to avoid concurrent du for same user.
+const inProgress = new Set<number>();
+
 export function getVaultPath(userId: number): string {
   return `/opt/vault/${userId}`;
 }
 
-export function checkVaultQuota(userId: number): QuotaResult {
+/**
+ * Run du in the background and update the cache when done.
+ * Never throws — errors are logged and silently ignored.
+ */
+function scheduleRefresh(userId: number): void {
+  if (inProgress.has(userId)) return;
+  inProgress.add(userId);
+
+  const vaultPath = getVaultPath(userId);
+
+  // Check path existence asynchronously before spawning du
+  fs.access(vaultPath, fs.constants.F_OK, (accessErr) => {
+    if (accessErr) {
+      // Vault does not exist — cache a zero result
+      const result: QuotaResult = { sizeBytes: 0, exceeded: false, vaultPath };
+      cache.set(userId, { result, ts: Date.now() });
+      inProgress.delete(userId);
+      return;
+    }
+
+    execFileAsync("du", ["-sb", vaultPath], { timeout: 10_000 })
+      .then(({ stdout }) => {
+        const sizeBytes = parseInt(stdout.split(/\s+/)[0] || "0", 10) || 0;
+        const result: QuotaResult = {
+          sizeBytes,
+          exceeded: sizeBytes > getVaultQuotaBytes(userId),
+          vaultPath,
+        };
+        cache.set(userId, { result, ts: Date.now() });
+      })
+      .catch((e) => {
+        console.warn(`[vault-quota] background du failed for user ${userId}:`, e);
+      })
+      .finally(() => {
+        inProgress.delete(userId);
+      });
+  });
+}
+
+export async function checkVaultQuota(userId: number): Promise<QuotaResult> {
   const cached = cache.get(userId);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+  const now = Date.now();
+
+  if (cached && now - cached.ts < CACHE_TTL_MS) {
+    // Cache is fresh — return immediately, no I/O.
     return cached.result;
   }
 
+  // Cache is stale or absent. Kick off a background refresh.
+  scheduleRefresh(userId);
+
+  if (cached) {
+    // Return stale value rather than blocking the event loop.
+    return cached.result;
+  }
+
+  // No cache at all — first call. Allow the request (pass) and let the
+  // background refresh populate the cache for the next call.
   const vaultPath = getVaultPath(userId);
-  if (!fs.existsSync(vaultPath)) {
-    const result = { sizeBytes: 0, exceeded: false, vaultPath };
-    cache.set(userId, { result, ts: Date.now() });
-    return result;
-  }
-
-  let sizeBytes = 0;
-  try {
-    const out = execFileSync("du", ["-sb", vaultPath], {
-      encoding: "utf8",
-      timeout: 5000,
-    });
-    sizeBytes = parseInt(out.split(/\s+/)[0] || "0", 10) || 0;
-  } catch (e) {
-    console.warn(`[vault-quota] du failed for user ${userId}:`, e);
-  }
-
-  const result: QuotaResult = {
-    sizeBytes,
-    exceeded: sizeBytes > getVaultQuotaBytes(userId),
-    vaultPath,
-  };
-  cache.set(userId, { result, ts: Date.now() });
-  return result;
+  return { sizeBytes: 0, exceeded: false, vaultPath };
 }
 
 export function invalidateQuotaCache(userId: number): void {

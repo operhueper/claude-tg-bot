@@ -462,7 +462,7 @@ ${dialog}
 
     // Vault quota check (guests only — owner vault is bot workspace, no limit needed)
     if (!this.profile.isOwner) {
-      const quota = checkVaultQuota(this.profile.userId);
+      const quota = await checkVaultQuota(this.profile.userId);
       if (quota.exceeded) {
         const msg =
           `⚠️ Превышен лимит хранилища: ${formatBytes(quota.sizeBytes)} из ${formatBytes(VAULT_QUOTA_BYTES)}.\n\n` +

@@ -31,6 +31,7 @@ import { GoalsStore } from "../memory/goals";
 import { buildMemoryContext } from "../memory/inject";
 import { graphFile, goalsFilePath, transcriptsDir } from "../memory/paths";
 import { escapeHtml } from "../formatting";
+import { acquireUserLock, isUserBusy } from "../request-queue";
 
 /** Telegram command menu shown to guests (and as global default for new users). */
 export const GUEST_MENU_COMMANDS = [
@@ -403,49 +404,60 @@ export async function handleRestart(ctx: Context): Promise<void> {
     return;
   }
 
-  const session = getSession(userId);
-  const profile = getUserProfile(userId);
-
-  // Stop any running query first so the session can be cleared cleanly.
-  if (session.isRunning) {
-    const stopped = await session.stop();
-    if (stopped) {
-      // Give the abort signal time to propagate into the SDK subprocess.
-      // 2 sec covers most graceful exits; anything still alive after gets SIGKILL'd below.
-      await Bun.sleep(2000);
-      session.clearStopRequested();
-    }
+  if (isUserBusy(userId)) {
+    await ctx.reply("Уже идёт обработка — подожди секунду и попробуй снова.");
+    return;
   }
 
-  // Hard-kill any Claude CLI subprocess still alive for THIS user only.
-  // The CLI subprocess is started with `--add-dir <workingDir>`, which uniquely
-  // identifies the user (guest vault path or owner workspace). Other users'
-  // processes won't match and stay untouched.
-  const killed = killUserClaudeProcesses(profile.workingDir);
+  const releaseUserLock = await acquireUserLock(userId);
 
-  // Flush in-flight memory before tearing the session down.
-  if (session.isActive) {
-    session
-      .forceMemoryFlush()
-      .catch((e) => console.warn("[/restart] forceMemoryFlush failed:", e));
-  }
-
-  // Clear in-memory session state.
-  await session.kill();
-
-  // Drop the on-disk session history so /resume won't pick it up.
   try {
-    if (existsSync(profile.sessionFile)) {
-      unlinkSync(profile.sessionFile);
-    }
-  } catch (e) {
-    console.warn(`[/restart] Failed to delete session file for ${userId}:`, e);
-  }
+    const session = getSession(userId);
+    const profile = getUserProfile(userId);
 
-  const reply = killed > 0
-    ? `Сессия сброшена. Прибил ${killed} зависш${killed === 1 ? "ий процесс" : "их процесса"} 🔪`
-    : "Сессия сброшена. Начинаем заново 🔄";
-  await ctx.reply(reply);
+    // Stop any running query first so the session can be cleared cleanly.
+    if (session.isRunning) {
+      const stopped = await session.stop();
+      if (stopped) {
+        // Give the abort signal time to propagate into the SDK subprocess.
+        // 2 sec covers most graceful exits; anything still alive after gets SIGKILL'd below.
+        await Bun.sleep(2000);
+        session.clearStopRequested();
+      }
+    }
+
+    // Hard-kill any Claude CLI subprocess still alive for THIS user only.
+    // The CLI subprocess is started with `--add-dir <workingDir>`, which uniquely
+    // identifies the user (guest vault path or owner workspace). Other users'
+    // processes won't match and stay untouched.
+    const killed = killUserClaudeProcesses(profile.workingDir);
+
+    // Flush in-flight memory before tearing the session down.
+    if (session.isActive) {
+      session
+        .forceMemoryFlush()
+        .catch((e) => console.warn("[/restart] forceMemoryFlush failed:", e));
+    }
+
+    // Clear in-memory session state.
+    await session.kill();
+
+    // Drop the on-disk session history so /resume won't pick it up.
+    try {
+      if (existsSync(profile.sessionFile)) {
+        unlinkSync(profile.sessionFile);
+      }
+    } catch (e) {
+      console.warn(`[/restart] Failed to delete session file for ${userId}:`, e);
+    }
+
+    const reply = killed > 0
+      ? `Сессия сброшена. Прибил ${killed} зависш${killed === 1 ? "ий процесс" : "их процесса"} 🔪`
+      : "Сессия сброшена. Начинаем заново 🔄";
+    await ctx.reply(reply);
+  } finally {
+    releaseUserLock();
+  }
 }
 
 /**
@@ -455,11 +467,14 @@ export async function handleRestart(ctx: Context): Promise<void> {
  * pgrep exits 1 with no matches and we treat that as zero.
  */
 function killUserClaudeProcesses(workingDir: string): number {
+  // Strip trailing slash so pgrep -f matches `--add-dir /path` regardless of
+  // whether workingDir was stored with or without a trailing separator.
+  const dir = workingDir.replace(/\/$/, "");
   let pids: number[] = [];
   try {
     const out = execFileSync(
       "pgrep",
-      ["-f", `--add-dir ${workingDir}/`],
+      ["-f", `--add-dir ${dir}`],
       { encoding: "utf-8" }
     );
     pids = out.trim().split("\n").filter(Boolean).map(Number).filter(n => Number.isFinite(n) && n > 0);
@@ -471,12 +486,16 @@ function killUserClaudeProcesses(workingDir: string): number {
     try {
       process.kill(pid, "SIGKILL");
       killed++;
-    } catch (e) {
-      console.warn(`[/restart] Failed to SIGKILL pid ${pid}:`, e);
+    } catch (e: unknown) {
+      // ESRCH / ENOENT — process already exited; not an error.
+      const code = (e as NodeJS.ErrnoException)?.code;
+      if (code !== "ESRCH" && code !== "ENOENT") {
+        console.warn(`[/restart] Failed to SIGKILL pid ${pid}:`, e);
+      }
     }
   }
   if (killed > 0) {
-    console.log(`[/restart] Killed ${killed} stuck Claude CLI process(es) for ${workingDir}`);
+    console.log(`[/restart] Killed ${killed} stuck Claude CLI process(es) for ${dir}`);
   }
   return killed;
 }
