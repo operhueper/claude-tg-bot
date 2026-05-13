@@ -646,12 +646,13 @@ export async function handleDocument(ctx: Context): Promise<void> {
     return;
   }
 
-  // 1b. Daily message limit for free-tier users
+  // 1b. Daily message limit — enforced only when tierConfig specifies a finite cap
   {
     const _profile = getUserProfile(userId);
-    if (_profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
-      if (isDailyLimitReached(userId)) {
-        const { limit } = getDailyUsage(userId);
+    const dailyLimit = _profile.tierConfig.dailyMessageLimit;
+    if (dailyLimit !== null && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId, dailyLimit)) {
+        const { limit } = getDailyUsage(userId, dailyLimit);
         await ctx.reply(
           `Вы использовали все ${limit} бесплатных сообщений сегодня.\n\n` +
           `На тарифе Профи — без ограничений. Плюс документы, код, Google и многое другое.\n\n` +

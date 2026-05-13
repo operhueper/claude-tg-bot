@@ -33,28 +33,27 @@ function newId(): number {
 describe('isDailyLimitReached', () => {
   test('returns false for a brand-new user (no messages yet)', () => {
     const uid = newId();
-    expect(isDailyLimitReached(uid)).toBe(false);
+    expect(isDailyLimitReached(uid, 10)).toBe(false);
   });
 
   test('returns false when count is below the limit', () => {
     const uid = newId();
-    // FREE_DAILY_LIMIT defaults to 10; increment 9 times.
     for (let i = 0; i < 9; i++) incrementDailyUsage(uid);
-    expect(isDailyLimitReached(uid)).toBe(false);
+    expect(isDailyLimitReached(uid, 10)).toBe(false);
   });
 
-  test('returns true when count equals FREE_DAILY_LIMIT', () => {
+  test('returns true when count equals the limit', () => {
     const uid = newId();
-    const { limit } = getDailyUsage(uid);
+    const limit = 10;
     for (let i = 0; i < limit; i++) incrementDailyUsage(uid);
-    expect(isDailyLimitReached(uid)).toBe(true);
+    expect(isDailyLimitReached(uid, limit)).toBe(true);
   });
 
-  test('returns true when count exceeds FREE_DAILY_LIMIT', () => {
+  test('returns true when count exceeds the limit', () => {
     const uid = newId();
-    const { limit } = getDailyUsage(uid);
+    const limit = 10;
     for (let i = 0; i <= limit; i++) incrementDailyUsage(uid);
-    expect(isDailyLimitReached(uid)).toBe(true);
+    expect(isDailyLimitReached(uid, limit)).toBe(true);
   });
 });
 
@@ -65,10 +64,10 @@ describe('isDailyLimitReached', () => {
 describe('getDailyUsage', () => {
   test('returns used=0 and remaining=limit for a fresh user', () => {
     const uid = newId();
-    const { used, limit, remaining } = getDailyUsage(uid);
+    const { used, limit, remaining } = getDailyUsage(uid, 10);
     expect(used).toBe(0);
-    expect(limit).toBeGreaterThan(0);
-    expect(remaining).toBe(limit);
+    expect(limit).toBe(10);
+    expect(remaining).toBe(10);
   });
 
   test('used reflects the number of increments', () => {
@@ -76,25 +75,23 @@ describe('getDailyUsage', () => {
     incrementDailyUsage(uid);
     incrementDailyUsage(uid);
     incrementDailyUsage(uid);
-    const { used, limit, remaining } = getDailyUsage(uid);
+    const { used, limit, remaining } = getDailyUsage(uid, 10);
     expect(used).toBe(3);
     expect(remaining).toBe(limit - 3);
   });
 
   test('remaining does not go below 0', () => {
     const uid = newId();
-    const { limit } = getDailyUsage(uid);
-    // Increment way past the limit.
+    const limit = 10;
     for (let i = 0; i < limit + 5; i++) incrementDailyUsage(uid);
-    const { remaining } = getDailyUsage(uid);
+    const { remaining } = getDailyUsage(uid, limit);
     expect(remaining).toBe(0);
   });
 
-  test('limit matches FREE_DAILY_LIMIT (default 10)', () => {
+  test('limit reflects whatever TierConfig.dailyMessageLimit is passed', () => {
     const uid = newId();
-    const { limit } = getDailyUsage(uid);
-    // Default env var is not set in tests, so should be 10.
-    expect(limit).toBe(Number(process.env.FREE_DAILY_LIMIT ?? '10'));
+    const { limit } = getDailyUsage(uid, 10);
+    expect(limit).toBe(10);
   });
 });
 

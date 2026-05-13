@@ -101,12 +101,13 @@ export async function handleVideo(ctx: Context): Promise<void> {
     return;
   }
 
-  // 5. Daily message limit for free-tier users
+  // 5. Daily message limit — enforced only when tierConfig specifies a finite cap
   {
     const profile = getUserProfile(userId);
-    if (profile.tier !== "paid" && userId !== OWNER_USER_ID) {
-      if (isDailyLimitReached(userId)) {
-        const { limit } = getDailyUsage(userId);
+    const dailyLimit = profile.tierConfig.dailyMessageLimit;
+    if (dailyLimit !== null && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId, dailyLimit)) {
+        const { limit } = getDailyUsage(userId, dailyLimit);
         await ctx.reply(
           `Вы использовали все ${limit} бесплатных сообщений сегодня.\n` +
             `Лимит обновится в полночь по Москве.\n\n` +

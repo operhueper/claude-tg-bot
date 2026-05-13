@@ -44,12 +44,13 @@ export async function handleVoice(ctx: Context): Promise<void> {
     return;
   }
 
-  // 3. Daily message limit for free-tier users (checked before lock — no serialisation needed)
+  // 3. Daily message limit — enforced only when tierConfig specifies a finite cap
   {
     const profile = getUserProfile(userId);
-    if (profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
-      if (isDailyLimitReached(userId)) {
-        const { limit } = getDailyUsage(userId);
+    const dailyLimit = profile.tierConfig.dailyMessageLimit;
+    if (dailyLimit !== null && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId, dailyLimit)) {
+        const { limit } = getDailyUsage(userId, dailyLimit);
         await ctx.reply(
           `Вы использовали все ${limit} бесплатных сообщений сегодня.\n` +
           `Лимит обновится в полночь по Москве.\n\n` +

@@ -4,8 +4,6 @@
  * Counter is lost on bot restart — acceptable for MVP.
  */
 
-// Default free tier daily message limit (overridable via env)
-const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT ?? '10');
 
 interface DayCount {
   count: number;
@@ -70,13 +68,12 @@ export function nextResetAt(): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns daily usage stats for a free-tier user.
- * Uses FREE_DAILY_LIMIT as the limit.
+ * Returns daily usage stats for a user.
+ * limit comes from the user's TierConfig.dailyMessageLimit.
  */
-export function getDailyUsage(userId: number): { used: number; limit: number; remaining: number } {
+export function getDailyUsage(userId: number, limit: number): { used: number; limit: number; remaining: number } {
   resetIfNewDay(userId);
   const used = getTodayCount(userId);
-  const limit = FREE_DAILY_LIMIT;
   return { used, limit, remaining: Math.max(0, limit - used) };
 }
 
@@ -85,10 +82,13 @@ export function incrementDailyUsage(userId: number): void {
   incrementCount(userId);
 }
 
-/** Returns true when the user has exhausted FREE_DAILY_LIMIT messages today. */
-export function isDailyLimitReached(userId: number): boolean {
+/**
+ * Returns true when the user has exhausted their daily limit.
+ * limit comes from the user's TierConfig.dailyMessageLimit.
+ */
+export function isDailyLimitReached(userId: number, limit: number): boolean {
   resetIfNewDay(userId);
-  return getTodayCount(userId) >= FREE_DAILY_LIMIT;
+  return getTodayCount(userId) >= limit;
 }
 
 // ---------------------------------------------------------------------------

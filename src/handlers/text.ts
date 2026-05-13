@@ -162,12 +162,13 @@ export async function handleText(ctx: Context): Promise<void> {
     }
   }
 
-  // Daily message limit for free-tier users
+  // Daily message limit — enforced only when tierConfig specifies a finite cap
   {
     const _profile = getUserProfile(userId);
-    if (_profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
-      if (isDailyLimitReached(userId)) {
-        const { limit } = getDailyUsage(userId);
+    const dailyLimit = _profile.tierConfig.dailyMessageLimit;
+    if (dailyLimit !== null && userId !== OWNER_USER_ID) {
+      if (isDailyLimitReached(userId, dailyLimit)) {
+        const { limit } = getDailyUsage(userId, dailyLimit);
         await ctx.reply(
           `Вы использовали все ${limit} бесплатных сообщений сегодня.\n` +
           `Лимит обновится в полночь по Москве.\n\n` +
@@ -185,7 +186,7 @@ export async function handleText(ctx: Context): Promise<void> {
       incrementDailyUsage(userId);
 
       // 80% warning: fire-and-forget when exactly 20% remain
-      const usage = getDailyUsage(userId);
+      const usage = getDailyUsage(userId, dailyLimit);
       if (usage.remaining === Math.ceil(usage.limit * 0.2) && usage.remaining > 0) {
         ctx.reply(
           `💡 Осталось ${usage.remaining} из ${usage.limit} бесплатных сообщений сегодня.\nХотите без лимитов? → /pay`
