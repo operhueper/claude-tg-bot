@@ -171,6 +171,7 @@ export async function handleVideo(ctx: Context): Promise<void> {
         statusMsg.message_id,
         "❌ Не удалось расшифровать видео. Попробуй ещё раз."
       );
+      stopProcessing();
       return;
     }
 
