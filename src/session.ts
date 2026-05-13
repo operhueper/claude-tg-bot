@@ -560,7 +560,7 @@ ${dialog}
         `[${this.profile.label}] Vision request — routing to OpenRouter Gemini`
       );
       const openrouterKey = isNewGuest(this.profile.userId)
-        ? getNewGuestOpenRouterKey(this.profile.userId)
+        ? (this.profile.openrouterKey ?? getNewGuestOpenRouterKey(this.profile.userId))
         : process.env.OPENROUTER_API_KEY;
       const msgs = this.buildConversationHistory(messageToSend, mediaHint);
       const visionAbort = new AbortController();
@@ -610,7 +610,7 @@ ${dialog}
         // Falls through to the standard query() path below with DeepSeek env injected
       } else {
         // No DeepSeek key — fall back to OpenRouter for text
-        const openrouterKey = getNewGuestOpenRouterKey(this.profile.userId);
+        const openrouterKey = this.profile.openrouterKey ?? getNewGuestOpenRouterKey(this.profile.userId);
         if (!openrouterKey) {
           const errMsg =
             "⚠️ Сервис временно недоступен. Обратись к администратору бота.";
@@ -753,6 +753,17 @@ ${dialog}
     this.stopRequested = false;
     this.queryStarted = new Date();
     this.currentTool = null;
+
+    // Hard 10-minute timeout: abort the query if it hasn't finished by then.
+    // We create a wrapper controller so the SDK receives a single AbortController
+    // while we can trigger it from either the user stop or the timeout.
+    const queryTimeoutMs = 600_000;
+    const timeoutId = setTimeout(() => {
+      if (this.abortController && !this.abortController.signal.aborted) {
+        console.warn(`[${this.profile.label}] Query hard timeout (${queryTimeoutMs / 1000}s) — aborting`);
+        this.abortController.abort();
+      }
+    }, queryTimeoutMs);
 
     const responseParts: string[] = [];
     let currentSegmentId = 0;
@@ -1093,6 +1104,7 @@ ${dialog}
         throw error;
       }
     } finally {
+      clearTimeout(timeoutId);
       // Metering — write here so tokens are accounted on every exit path:
       // normal completion, ask-user `break`, stop/abort `break`, or thrown error.
       // currentUsage is local to this call so we never double-record from a

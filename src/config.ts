@@ -903,6 +903,13 @@ export interface UserProfile {
    * Owner leaves this undefined (unlimited).
    */
   maxTurns?: number;
+  /**
+   * Personal OpenRouter subkey provisioned via the Provisioning API.
+   * When set, used instead of the shared OPENROUTER_API_KEY for this user's
+   * vision and text-fallback requests. Undefined for owner and guests without
+   * a provisioned key (falls back to the global key).
+   */
+  openrouterKey?: string;
   /** Subscription tier: 'free' | 'paid'. Owner always 'paid'. */
   tier: UserTier;
   /** Tier config with limits and feature flags. */
@@ -1020,9 +1027,13 @@ export function getUserProfile(userId: number): UserProfile {
           ANTHROPIC_MODEL: "deepseek-chat",
         }
       : undefined;
-    const model = node?.model ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
+    const model = (!dsKey && (!node?.model || node.model === "deepseek-chat"))
+      ? "deepseek/deepseek-v4-flash"
+      : (node?.model ?? "deepseek-chat");
     const complexModel = node?.complexModel ?? (dsKey ? "deepseek-reasoner" : "deepseek/deepseek-r1");
-    const lightModel = node?.lightModel ?? (dsKey ? "deepseek-chat" : "deepseek/deepseek-v4-flash");
+    const lightModel = (!dsKey && (!node?.lightModel || node.lightModel === "deepseek-chat"))
+      ? "deepseek/deepseek-v4-flash"
+      : (node?.lightModel ?? "deepseek-chat");
     const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
     const allowedPaths = [vaultDir, "/tmp/telegram-bot"];
 
@@ -1054,6 +1065,7 @@ export function getUserProfile(userId: number): UserProfile {
       deepseekApiKey,
       deepseekEnv,
       containerEnabled: node?.containerEnabled ?? tierConfig.containerEnabled,
+      openrouterKey: node?.openrouterKey,
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
       // to prevent "does not support this tool_choice" errors.
       disallowedTools: ["WebSearch"],

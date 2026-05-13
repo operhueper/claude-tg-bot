@@ -432,7 +432,7 @@ export async function executeToolAsync(
       try {
         const encodedPrompt = encodeURIComponent(prompt);
         const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true&model=flux`;
-        const resp = await fetch(url);
+        const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) });
         if (!resp.ok) return `Error: Pollinations returned ${resp.status}`;
         const buffer = await resp.arrayBuffer();
         const imgDir = "/tmp/openrouter_images";
@@ -554,6 +554,11 @@ async function openRouterRequest(
     body.tool_choice = "auto";
   }
 
+  const timeoutSignal = AbortSignal.timeout(90_000);
+  const signal = abortSignal
+    ? AbortSignal.any([abortSignal, timeoutSignal])
+    : timeoutSignal;
+
   const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -563,7 +568,7 @@ async function openRouterRequest(
       "X-Title": "Claude Telegram Bot",
     },
     body: JSON.stringify(body),
-    signal: abortSignal,
+    signal,
   });
 
   if (!resp.ok || !resp.body) {
@@ -572,10 +577,10 @@ async function openRouterRequest(
   }
 
   const reader = resp.body.getReader();
-  // Cancel the reader immediately when the abort signal fires so reader.read()
+  // Cancel the reader immediately when the abort/timeout signal fires so reader.read()
   // does not hang indefinitely waiting for the next SSE chunk.
   const onAbort = () => { reader.cancel().catch(() => {}); };
-  abortSignal?.addEventListener("abort", onAbort, { once: true });
+  signal.addEventListener("abort", onAbort, { once: true });
 
   const decoder = new TextDecoder();
   let text = "";
@@ -592,7 +597,7 @@ async function openRouterRequest(
 
   try {
   while (true) {
-    if (abortSignal?.aborted) {
+    if (signal.aborted) {
       throw new Error("AbortError: OpenRouter request aborted");
     }
     const { done, value } = await reader.read();
@@ -650,7 +655,7 @@ async function openRouterRequest(
     }
   }
   } finally {
-    abortSignal?.removeEventListener("abort", onAbort);
+    signal.removeEventListener("abort", onAbort);
   }
 
   // Parse assembled tool calls
