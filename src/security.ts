@@ -7,6 +7,7 @@
 
 import { resolve, normalize } from "path";
 import { realpathSync } from "fs";
+import { parse as shellParse } from "shell-quote";
 import type { RateLimitBucket } from "./types";
 import {
   ALLOWED_PATHS as DEFAULT_ALLOWED_PATHS,
@@ -120,34 +121,82 @@ export function isPathAllowed(path: string): boolean {
 
 // ============== Command Safety ==============
 
+/** Dangerous shell constructs to block regardless of token-level parsing. */
+const RAW_COMMAND_PATTERNS: RegExp[] = [
+  /\$\(/, // command substitution $(...)
+  /`/, // backtick substitution
+  /<\(/, // process substitution <(...)
+  />>\(/, // process substitution >(...)
+];
+
+/** Shell built-ins that execute arbitrary code and must always be blocked. */
+const DANGEROUS_BUILTINS = new Set(["eval", "exec", "source", "."]);
+
 export function checkCommandSafety(
   command: string,
   allowedPaths: string[] = DEFAULT_ALLOWED_PATHS
 ): [safe: boolean, reason: string] {
-  const lowerCommand = command.toLowerCase();
+  // 1. Raw-string canary: block shell injection constructs before tokenising
+  for (const re of RAW_COMMAND_PATTERNS) {
+    if (re.test(command)) {
+      return [false, `Blocked shell construct: ${re.source}`];
+    }
+  }
 
+  // 2. Legacy substring canary (secondary gate, kept for defence-in-depth)
+  const lowerCommand = command.toLowerCase();
   for (const pattern of BLOCKED_PATTERNS) {
     if (lowerCommand.includes(pattern.toLowerCase())) {
       return [false, `Blocked pattern: ${pattern}`];
     }
   }
 
-  if (lowerCommand.includes("rm ")) {
-    try {
-      const rmMatch = command.match(/rm\s+(.+)/i);
-      if (rmMatch) {
-        const args = rmMatch[1]!.split(/\s+/);
-        for (const arg of args) {
-          if (arg.startsWith("-") || arg.length <= 1) continue;
-          // Skip non-path arguments: must start with /, ~, or . to be considered a path
-          if (!arg.startsWith("/") && !arg.startsWith("~") && !arg.startsWith(".")) continue;
-          if (!isPathAllowedFor(arg, allowedPaths)) {
-            return [false, `rm target outside allowed paths: ${arg}`];
-          }
-        }
+  // 3. Token-level analysis via shell-quote
+  let tokens: string[];
+  try {
+    const parsed = shellParse(command);
+    // shell-quote returns strings, ops ({op: '|'}, etc.), and glob objects.
+    // Keep only string tokens; non-string entries indicate piping/redirection.
+    tokens = parsed.filter((t): t is string => typeof t === "string");
+  } catch {
+    return [false, "Could not tokenise command for safety check"];
+  }
+
+  const firstBin = tokens[0]?.toLowerCase() ?? "";
+
+  // 4. Block dangerous built-ins as first token (eval, exec, source, .)
+  if (DANGEROUS_BUILTINS.has(firstBin)) {
+    return [false, `Blocked dangerous built-in: ${firstBin}`];
+  }
+
+  // 5. Token-level BLOCKED_PATTERNS check (catches 'r''m' → reconstructed by shell-quote)
+  for (const token of tokens) {
+    const lowerToken = token.toLowerCase();
+    for (const pattern of BLOCKED_PATTERNS) {
+      if (lowerToken.includes(pattern.toLowerCase())) {
+        return [false, `Blocked token: ${token}`];
       }
-    } catch {
-      return [false, "Could not parse rm command for safety check"];
+    }
+  }
+
+  // 6. rm path validation (HIGH-06)
+  if (firstBin === "rm") {
+    // Tokens after the binary; skip flags and "--"
+    const pathTokens = tokens.slice(1).filter(t => t !== "--" && !t.startsWith("-"));
+    for (const arg of pathTokens) {
+      // Reject env-var expansion (unresolvable at check time)
+      if (arg.includes("$")) {
+        return [false, `rm target contains shell variable (unresolvable): ${arg}`];
+      }
+      // Reject glob patterns (expansion unpredictable)
+      if (/[*?[]/.test(arg)) {
+        return [false, `rm target contains glob pattern (unsafe): ${arg}`];
+      }
+      // Only validate path-like arguments (starting with /, ~, or .)
+      if (!arg.startsWith("/") && !arg.startsWith("~") && !arg.startsWith(".")) continue;
+      if (!isPathAllowedFor(arg, allowedPaths)) {
+        return [false, `rm target outside allowed paths: ${arg}`];
+      }
     }
   }
 
