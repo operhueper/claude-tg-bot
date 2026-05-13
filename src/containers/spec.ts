@@ -25,12 +25,38 @@
  */
 
 import fs from "node:fs";
+import { execSync } from "node:child_process";
 import type { UserProfile } from "../config";
 import {
   SANDBOX_IMAGE,
   containerName,
   dropboxDir,
 } from "./paths";
+
+/**
+ * Detect the block device backing /opt/vault (used for disk-IO cgroup limits).
+ * Returns undefined when detection fails (e.g. macOS dev, path missing, df error).
+ * Result is cached after first successful lookup.
+ */
+let _vaultDevice: string | undefined | null = null; // null = not yet resolved
+
+function getVaultDevice(): string | undefined {
+  if (_vaultDevice !== null) return _vaultDevice;
+  try {
+    const out = execSync("df -P /opt/vault 2>/dev/null | tail -1 | awk '{print $1}'", {
+      encoding: "utf8",
+      timeout: 5000,
+    }).trim();
+    if (out && out.startsWith("/dev/")) {
+      _vaultDevice = out;
+    } else {
+      _vaultDevice = undefined;
+    }
+  } catch {
+    _vaultDevice = undefined;
+  }
+  return _vaultDevice;
+}
 
 // Per-user memory overrides (userId → megabytes). Increase here when a user
 // needs more RAM than the default 512 MB (e.g. heavy daemons, ML workloads).
@@ -131,6 +157,22 @@ export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean 
     // Restrict file-descriptor count — limits some DoS vectors (e.g. inotify
     // exhaustion, socket floods). Soft 1024 / hard 2048.
     args.push("--ulimit=nofile=1024:2048");
+
+    // Disk-IO cgroup limits — prevent dd/yt-dlp/tar from saturating the NVMe
+    // and stalling overlay-FS for other guests and the host bot.
+    // blkio-weight sets relative IO priority (512 = half of max 1000).
+    // bps/iops caps are per-device hard limits; device path auto-detected from df.
+    // Skipped gracefully when /opt/vault is unavailable (macOS dev, CI).
+    {
+      const vaultDev = getVaultDevice();
+      if (vaultDev) {
+        args.push("--blkio-weight=500");
+        args.push("--device-write-bps", `${vaultDev}:50m`);
+        args.push("--device-read-bps", `${vaultDev}:100m`);
+        args.push("--device-write-iops", `${vaultDev}:2000`);
+        args.push("--device-read-iops", `${vaultDev}:4000`);
+      }
+    }
 
     // NOTE: --ulimit=nproc is intentionally NOT set here. nproc is a per-UID
     // limit on the HOST, so setting it 128 on each container means all containers
