@@ -2,6 +2,7 @@
  * Text message handler for Claude Telegram Bot.
  */
 
+import { randomUUID } from "node:crypto";
 import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import type { StatusCallback } from "../types";
@@ -212,7 +213,13 @@ export async function handleText(ctx: Context): Promise<void> {
     if (queued > 0) {
       await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
     }
-    releaseContainerSlot = await acquireContainerSlot();
+    try {
+      releaseContainerSlot = await acquireContainerSlot();
+    } catch {
+      releaseUserLock?.();
+      await ctx.reply("⏳ Бот сейчас перегружен, попробуй через минуту.");
+      return;
+    }
   }
 
   const session = getSession(userId);
@@ -328,6 +335,9 @@ export async function handleText(ctx: Context): Promise<void> {
 
   // 10. Send to Claude with retry logic for crashes
   const MAX_RETRIES = 1;
+  // Single requestId shared across retries so double-billing is prevented:
+  // metering uses INSERT OR REPLACE keyed on (user_id, request_id, model).
+  const meteringRequestId = randomUUID();
 
   try {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -338,7 +348,10 @@ export async function handleText(ctx: Context): Promise<void> {
           userId,
           statusCallback,
           chatId,
-          ctx
+          ctx,
+          undefined, // mediaHint
+          undefined, // systemPromptOverride
+          meteringRequestId
         );
 
         // Check for pending plan — show to user with action buttons

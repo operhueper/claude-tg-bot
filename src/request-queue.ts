@@ -45,13 +45,21 @@ export function isUserBusy(userId: number): boolean {
 
 /**
  * Acquire a global container slot. Waits if all slots are occupied.
+ * Throws if the slot is not acquired within `timeoutMs` milliseconds.
  * Returns a release function — MUST be called in a finally block.
  */
-export async function acquireContainerSlot(): Promise<() => void> {
+export async function acquireContainerSlot(timeoutMs = 60_000): Promise<() => void> {
   if (activeContainerSessions >= MAX_CONCURRENT_WITH_CONTAINER) {
-    await new Promise<void>((resolve) => {
+    const waitPromise = new Promise<void>((resolve) => {
       containerQueue.push(resolve);
     });
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("acquireContainerSlot: timeout after " + timeoutMs + "ms")),
+        timeoutMs
+      )
+    );
+    await Promise.race([waitPromise, timeoutPromise]);
   }
   activeContainerSessions++;
 

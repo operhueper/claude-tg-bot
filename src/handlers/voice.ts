@@ -84,7 +84,13 @@ export async function handleVoice(ctx: Context): Promise<void> {
     if (queued > 0) {
       await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
     }
-    releaseContainerSlot = await acquireContainerSlot();
+    try {
+      releaseContainerSlot = await acquireContainerSlot();
+    } catch {
+      releaseUserLock();
+      await ctx.reply("⏳ Бот сейчас перегружен, попробуй через минуту.");
+      return;
+    }
   }
 
   // 4. Rate limit check (after lock so two concurrent messages can't both pass)

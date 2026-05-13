@@ -141,7 +141,13 @@ export async function handleVideo(ctx: Context): Promise<void> {
     if (queued > 0) {
       await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
     }
-    releaseContainerSlot = await acquireContainerSlot();
+    try {
+      releaseContainerSlot = await acquireContainerSlot();
+    } catch {
+      releaseUserLock();
+      await ctx.reply("⏳ Бот сейчас перегружен, попробуй через минуту.");
+      return;
+    }
   }
 
   const session = getSession(userId);
