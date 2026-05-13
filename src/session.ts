@@ -914,11 +914,11 @@ ${dialog}
                   const isTmpRead =
                     toolName === "Read" &&
                     (TEMP_PATHS.some((p) => filePath.startsWith(p)) ||
-                      // Claude Code stores its own session data here — allow reads for any user.
-                      filePath.startsWith("/root/.claude/projects/") ||
-                      // Owner can still read .claude; guests cannot.
+                      // Claude Code session/state — only owner. Guests must not see
+                      // other users' transcripts via /root/.claude/projects/*.
                       (this.profile.isOwner &&
-                        filePath.includes("/.claude/")));
+                        (filePath.startsWith("/root/.claude/projects/") ||
+                          filePath.includes("/.claude/"))));
 
                   if (
                     !isTmpRead &&
