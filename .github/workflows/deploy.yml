@@ -1,0 +1,35 @@
+name: Deploy to Prod
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync files to server
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -az --delete --exclude='.git' --exclude='.env' --exclude='node_modules' --exclude='metering.sqlite*' --exclude='system/users.json' --exclude='.claude/'
+          path: ./
+          remote_path: /opt/claude-tg-bot/
+          remote_host: 89.167.125.175
+          remote_user: root
+          remote_key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Install deps and restart
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 89.167.125.175
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/claude-tg-bot
+            bun install --frozen-lockfile
+            systemctl restart claude-tg-bot
+            sleep 2
+            systemctl is-active claude-tg-bot && echo "Deploy OK"
