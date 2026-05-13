@@ -152,8 +152,7 @@ export async function addUser(user: UserNode): Promise<boolean> {
     return false;
   }
   users.push(user);
-  writeFileSync(USERS_FILE, JSON.stringify(users, null, 2) + "\n");
-  // Reset cache so next load picks up the new entry
-  UserRegistry.reload();
+  writeUsersAtomic(users);
+  _cache = users;
   return true;
 }
