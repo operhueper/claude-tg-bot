@@ -10,7 +10,7 @@ import {
   query,
   type Options,
 } from "@anthropic-ai/claude-agent-sdk";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync, renameSync } from "fs";
 import * as fs from "fs";
 import * as path from "path";
 import type { Context } from "grammy";
@@ -1298,7 +1298,10 @@ ${dialog}
 
       history.sessions = history.sessions.slice(0, MAX_SESSIONS);
 
-      Bun.write(this.profile.sessionFile, JSON.stringify(history, null, 2));
+      const sessionJson = JSON.stringify(history, null, 2);
+      const sessionTmp = this.profile.sessionFile + ".tmp";
+      writeFileSync(sessionTmp, sessionJson, "utf-8");
+      renameSync(sessionTmp, this.profile.sessionFile);
       console.log(
         `[${this.profile.label}] Session saved to ${this.profile.sessionFile}`
       );
