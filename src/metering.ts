@@ -31,10 +31,12 @@ try {
       cache_read_tokens INTEGER NOT NULL DEFAULT 0,
       cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
       cost_usd REAL NOT NULL DEFAULT 0,
-      ts INTEGER NOT NULL
+      ts INTEGER NOT NULL,
+      request_id TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_usage_user ON usage(user_id);
     CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage(ts);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_req ON usage(user_id, request_id, model);
     CREATE TABLE IF NOT EXISTS daily_counts (
       user_id TEXT NOT NULL,
       date TEXT NOT NULL,
@@ -43,6 +45,18 @@ try {
       PRIMARY KEY (user_id, date)
     );
   `);
+  // Idempotent migration: add request_id column if it was created before this version
+  try {
+    db.exec("ALTER TABLE usage ADD COLUMN request_id TEXT");
+  } catch (_e) {
+    // Column already exists — ignore
+  }
+  // Idempotent migration: add unique index for deduplication on retry
+  try {
+    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_req ON usage(user_id, request_id, model)");
+  } catch (_e) {
+    // Index already exists — ignore
+  }
 } catch (e) {
   console.error("[metering] Failed to open database:", e);
   // Assign a no-op stub so the rest of the module degrades gracefully
@@ -114,6 +128,8 @@ export interface UsageRecord {
   outputTokens: number;
   cacheReadTokens?: number;
   cacheCreationTokens?: number;
+  /** Optional deduplication key — when provided, retries overwrite the previous record. */
+  requestId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -135,23 +151,48 @@ export function recordUsage(rec: UsageRecord): void {
       cacheRead,
       cacheCreation
     );
-    db.run(
-      `INSERT INTO usage
-         (user_id, source, model, input_tokens, output_tokens,
-          cache_read_tokens, cache_creation_tokens, cost_usd, ts)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        String(rec.userId),
-        rec.source,
-        rec.model,
-        rec.inputTokens,
-        rec.outputTokens,
-        cacheRead,
-        cacheCreation,
-        cost,
-        Math.floor(Date.now() / 1000),
-      ]
-    );
+    if (rec.requestId) {
+      // INSERT OR REPLACE deduplicates retries: a second attempt with the same
+      // (user_id, request_id, model) overwrites the first, so only the final
+      // token count is billed.
+      db.run(
+        `INSERT OR REPLACE INTO usage
+           (user_id, source, model, input_tokens, output_tokens,
+            cache_read_tokens, cache_creation_tokens, cost_usd, ts, request_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          String(rec.userId),
+          rec.source,
+          rec.model,
+          rec.inputTokens,
+          rec.outputTokens,
+          cacheRead,
+          cacheCreation,
+          cost,
+          Math.floor(Date.now() / 1000),
+          rec.requestId,
+        ]
+      );
+    } else {
+      // No requestId — legacy path (vision metering, whisper, etc.)
+      db.run(
+        `INSERT INTO usage
+           (user_id, source, model, input_tokens, output_tokens,
+            cache_read_tokens, cache_creation_tokens, cost_usd, ts)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          String(rec.userId),
+          rec.source,
+          rec.model,
+          rec.inputTokens,
+          rec.outputTokens,
+          cacheRead,
+          cacheCreation,
+          cost,
+          Math.floor(Date.now() / 1000),
+        ]
+      );
+    }
   } catch (e) {
     console.error("[metering] recordUsage failed:", e);
   }

@@ -443,8 +443,13 @@ ${dialog}
     chatId?: number,
     ctx?: Context,
     mediaHint?: boolean,
-    systemPromptOverride?: string
+    systemPromptOverride?: string,
+    requestId?: string
   ): Promise<string> {
+    // Deduplication key for metering — shared across retries so only the final
+    // token count is billed (INSERT OR REPLACE keyed on user_id+request_id+model).
+    const meteringRequestId = requestId ?? crypto.randomUUID();
+
     // Track activity for restart notifications
     if (chatId) {
       persistUserActivity(userId, chatId);
@@ -1145,6 +1150,7 @@ ${dialog}
           outputTokens: currentUsage.output_tokens || 0,
           cacheReadTokens: currentUsage.cache_read_input_tokens,
           cacheCreationTokens: currentUsage.cache_creation_input_tokens,
+          requestId: meteringRequestId,
         });
         usageRecorded = true;
       }
