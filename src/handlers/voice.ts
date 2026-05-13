@@ -137,7 +137,6 @@ export async function handleVoice(ctx: Context): Promise<void> {
         statusMsg.message_id,
         "❌ Не удалось расшифровать голосовое. Попробуй ещё раз."
       );
-      stopProcessing();
       return;
     }
 
