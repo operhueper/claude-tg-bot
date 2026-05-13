@@ -13,7 +13,7 @@ jobs:
       - name: Sync files to server
         uses: burnett01/rsync-deployments@7.0.1
         with:
-          switches: -az --delete --exclude='.git' --exclude='.env' --exclude='node_modules' --exclude='metering.sqlite*' --exclude='system/users.json' --exclude='.claude/'
+          switches: -az --delete --exclude='.git' --exclude='.env' --exclude='node_modules' --exclude='metering.sqlite*' --exclude='system/users.json' --exclude='.claude/' --exclude='mcp-config.ts'
           path: ./
           remote_path: /opt/claude-tg-bot/
           remote_host: 89.167.125.175
@@ -29,6 +29,7 @@ jobs:
           script: |
             set -e
             cd /opt/claude-tg-bot
+            [ -f mcp-config.ts ] || cp mcp-config.example.ts mcp-config.ts
             bun install --frozen-lockfile
             systemctl restart claude-tg-bot
             sleep 5
