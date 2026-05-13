@@ -788,6 +788,10 @@ ${dialog}
     const timeoutId = setTimeout(() => {
       if (this.abortController && !this.abortController.signal.aborted) {
         console.warn(`[${this.profile.label}] Query hard timeout (${queryTimeoutMs / 1000}s) — aborting`);
+        this.stopRequested = true;
+        if (currentSegmentText.length > 50) {
+          this.lastPartialResponse = currentSegmentText.slice(0, 2000);
+        }
         this.abortController.abort();
       }
     }, queryTimeoutMs);
