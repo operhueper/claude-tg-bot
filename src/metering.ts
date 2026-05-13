@@ -86,6 +86,10 @@ const PRICING_PER_1M: Record<string, ModelPricing> = {
   "claude-haiku-3-5": { input: 0.8, output: 4.0 },
   "deepseek-chat": { input: 0.14, output: 0.28 },
   "deepseek-reasoner": { input: 0.55, output: 2.19 },
+  // DeepSeek via OpenRouter (guests without personal DS key — approximate, verify periodically)
+  "deepseek/deepseek-v4-flash": { input: 0.07, output: 0.28 },
+  "deepseek/deepseek-r1": { input: 0.55, output: 2.19 },
+  "deepseek/deepseek-chat": { input: 0.14, output: 0.28 },
   "google/gemini-2.5-flash": { input: 0.075, output: 0.30 },
   "gemini-2.5-flash": { input: 0.075, output: 0.30 },
   // Whisper is billed per minute, not tokens — cost stays 0
