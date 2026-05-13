@@ -95,7 +95,9 @@ export function getNewGuestOpenRouterKey(userId: number): string {
     const perUser = readFileSync(keyFile, "utf-8").trim();
     if (perUser) return perUser;
   } catch {}
-  return process.env.OPENROUTER_API_KEY || "";
+  // Do NOT fall back to the global key — prevents unprovisioned guests from
+  // spending against the shared OPENROUTER_API_KEY with no per-user cap.
+  return "";
 }
 
 /**

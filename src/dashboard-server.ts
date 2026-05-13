@@ -724,9 +724,11 @@ function startNotifyBridge(): void {
         return new Response("Not Found", { status: 404 });
       }
 
-      // Source IP validation — only accept from guest subnet
-      const sourceIp = req.headers.get("x-forwarded-for") ||
+      // Source IP validation — only accept from guest subnet.
+      // Prefer the real socket address over the spoofable x-forwarded-for header.
+      const sourceIp =
         (req as any).remoteAddress ||
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
         "";
       if (!sourceIp.startsWith(GUEST_SUBNET_PREFIX)) {
         console.warn(`[notify-bridge] rejected source IP: ${sourceIp}`);

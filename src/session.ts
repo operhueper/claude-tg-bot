@@ -571,6 +571,12 @@ ${dialog}
       const openrouterKey = isNewGuest(this.profile.userId)
         ? (this.profile.openrouterKey ?? getNewGuestOpenRouterKey(this.profile.userId))
         : process.env.OPENROUTER_API_KEY;
+      if (!openrouterKey) {
+        const errMsg = "⚠️ Личный ключ не выдан — обратись к администратору бота.";
+        await statusCallback("segment_end", errMsg, 0);
+        await statusCallback("done", "");
+        return errMsg;
+      }
       const msgs = this.buildConversationHistory(messageToSend, mediaHint);
       const visionAbort = new AbortController();
       const visionTimeout = setTimeout(() => visionAbort.abort(), 90_000);

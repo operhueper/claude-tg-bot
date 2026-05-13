@@ -25,21 +25,38 @@ if (OPENAI_API_KEY && TRANSCRIPTION_AVAILABLE) {
 
 // ============== Audit Logging ==============
 
+const SECRET_PATTERNS: RegExp[] = [
+  /\d{8,12}:[A-Za-z0-9_-]{35}/g,   // Telegram bot token
+  /sk-or-v1-[A-Za-z0-9]{40,}/g,    // OpenRouter key
+  /sk-[A-Za-z0-9]{32,}/g,          // OpenAI / generic sk- key
+];
+
+function maskSecrets(text: string): string {
+  let result = text;
+  for (const pattern of SECRET_PATTERNS) {
+    result = result.replace(pattern, "<REDACTED>");
+  }
+  return result;
+}
+
 async function writeAuditLog(event: AuditEvent): Promise<void> {
   try {
     let content: string;
     if (AUDIT_LOG_JSON) {
-      content = JSON.stringify(event) + "\n";
+      const maskedEvent: Record<string, unknown> = { ...event };
+      if (typeof maskedEvent.content === "string") maskedEvent.content = maskSecrets(maskedEvent.content);
+      if (typeof maskedEvent.response === "string") maskedEvent.response = maskSecrets(maskedEvent.response);
+      content = JSON.stringify(maskedEvent) + "\n";
     } else {
       // Plain text format for readability
       const lines = ["\n" + "=".repeat(60)];
       for (const [key, value] of Object.entries(event)) {
-        let displayValue = value;
-        if (
-          (key === "content" || key === "response") &&
-          String(value).length > 500
-        ) {
-          displayValue = String(value).slice(0, 500) + "...";
+        let displayValue = String(value);
+        if ((key === "content" || key === "response") && displayValue.length > 500) {
+          displayValue = displayValue.slice(0, 500) + "...";
+        }
+        if (key === "content" || key === "response") {
+          displayValue = maskSecrets(displayValue);
         }
         lines.push(`${key}: ${displayValue}`);
       }
@@ -205,6 +222,8 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   "обработка текста": "Не получилось обработать сообщение — попробуй ещё раз.",
   "транскрипция аудио": "Не удалось распознать аудио — попробуй ещё раз.",
   "транскрипция голоса": "Не удалось распознать голосовое сообщение — попробуй ещё раз.",
+  "обработка голоса": "Не получилось ответить на голосовое — попробуй ещё раз.",
+  "обработка аудио": "Не получилось ответить на аудио — попробуй ещё раз.",
   "обработка альбома": "Не получилось обработать фото из альбома — попробуй ещё раз.",
   "распаковка архива": "Не удалось обработать архив — проверь файл и попробуй ещё раз.",
   "обработка документа": "Не удалось обработать документ — попробуй ещё раз.",
