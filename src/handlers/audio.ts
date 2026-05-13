@@ -7,9 +7,9 @@
 
 import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
-import { unlinkSync } from "fs";
+import { unlinkSync, mkdirSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE, getUserProfile, OWNER_USER_ID } from "../config";
+import { ALLOWED_USERS, TRANSCRIPTION_AVAILABLE, getUserProfile, OWNER_USER_ID, inboxDirFor } from "../config";
 import { isAuthorized, rateLimiter } from "../security";
 import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
@@ -244,7 +244,9 @@ export async function handleAudio(ctx: Context): Promise<void> {
     const timestamp = Date.now();
     const rawExt = (audio.file_name?.split(".").pop() || "mp3").toLowerCase();
     const ext = ALLOWED_AUDIO_EXTENSIONS.has(rawExt) ? rawExt : "bin";
-    audioPath = `${TEMP_DIR}/audio_${timestamp}.${ext}`;
+    const userInboxDir = inboxDirFor(userId);
+    mkdirSync(userInboxDir, { recursive: true });
+    audioPath = `${userInboxDir}/audio_${timestamp}.${ext}`;
 
     const response = await fetch(
       `https://api.telegram.org/file/bot${ctx.api.token}/${file.file_path}`

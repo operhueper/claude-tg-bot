@@ -4,9 +4,9 @@
 
 import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
-import { unlinkSync } from "fs";
+import { unlinkSync, mkdirSync } from "fs";
 import { getSession } from "../session-registry";
-import { ALLOWED_USERS, TEMP_DIR, TRANSCRIPTION_AVAILABLE, getUserProfile, OWNER_USER_ID } from "../config";
+import { ALLOWED_USERS, TRANSCRIPTION_AVAILABLE, getUserProfile, OWNER_USER_ID, inboxDirFor } from "../config";
 import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
 import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
@@ -118,7 +118,9 @@ export async function handleVoice(ctx: Context): Promise<void> {
     // 7. Download voice file
     const file = await ctx.getFile();
     const timestamp = Date.now();
-    voicePath = `${TEMP_DIR}/voice_${timestamp}.ogg`;
+    const userInboxDir = inboxDirFor(userId);
+    mkdirSync(userInboxDir, { recursive: true });
+    voicePath = `${userInboxDir}/voice_${timestamp}.ogg`;
 
     // Download the file
     const downloadRes = await fetch(

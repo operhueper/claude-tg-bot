@@ -1049,7 +1049,7 @@ export function getUserProfile(userId: number): UserProfile {
       ? "deepseek/deepseek-v4-flash"
       : (node?.lightModel ?? "deepseek-chat");
     const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
-    const allowedPaths = [vaultDir, "/tmp/telegram-bot"];
+    const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`];
 
     const rawTier: UserTier = (node?.tier === 'paid') ? 'paid' : 'free';
     const tierConfig = TIER_CONFIGS[rawTier];
@@ -1283,10 +1283,8 @@ export const TEMP_DIR = "/tmp/telegram-bot";
 // Narrowed to specific bot-controlled subdirs to prevent cross-user access via
 // isPathAllowedFor (e.g. /tmp/claude-telegram-session-OTHER.json, /tmp/ask-user-*.json).
 export const TEMP_PATHS = [
-  "/tmp/telegram-bot/",
   "/tmp/pollinations/",
   "/tmp/openrouter_images/",
-  "/private/tmp/telegram-bot/",
   "/private/tmp/pollinations/",
   "/private/tmp/openrouter_images/",
   "/var/folders/",
@@ -1306,6 +1304,9 @@ export function inboxDirFor(userId: number): string {
   const profile = getUserProfile(userId);
   if (profile.containerEnabled && !profile.isOwner) {
     return `${profile.workingDir}/inbox`;
+  }
+  if (profile.isGuest) {
+    return `${TEMP_DIR}/${userId}`;
   }
   return TEMP_DIR;
 }
