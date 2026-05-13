@@ -13,8 +13,7 @@ import { isAuthorized } from "../security";
 import { auditLog, auditLogError, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { getPendingInvite, removePendingInvite } from "../containers/invites";
-import { addUser, setUserOpenRouterKey } from "../user-registry";
-import { createGuestSubKey } from "../openrouter-provisioning";
+import { addUser } from "../user-registry";
 import { invalidateSubscription, isSubscribed, isSubscriptionGateEnabled } from "../subscription";
 import { handleGoalCallback } from "./goals";
 import { GUEST_MENU_COMMANDS } from "./commands";
@@ -347,7 +346,10 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
       timezone: "Europe/Moscow",
       settingSources: ["project"],
       rateLimitEnabled: false,
-      model: "deepseek/deepseek-v4-flash",
+      // Текст идёт через native DeepSeek API (key pool в system/deepseek-keys.json).
+      // `deepseek-chat` — deprecated alias, сейчас он же v4-flash. Когда
+      // alias уберут, нужно будет переключить на `deepseek-v4-flash` явно.
+      model: "deepseek-chat",
     });
     // Also add to in-memory NEW_GUEST_USERS so getUserProfile picks it up immediately
     if (!NEW_GUEST_USERS.includes(targetUserId)) {
@@ -358,16 +360,9 @@ async function handleInviteCallback(ctx: Context, callbackData: string): Promise
     // only get the partial dirs that container bootstrap creates and their
     // proboi.site/u/{id}/ page 404s until the next bot restart.
     bootstrapNewGuestDir(targetUserId);
-    // Provision a personal OpenRouter subkey for this guest (best-effort —
-    // if OPENROUTER_PROVISIONING_KEY is unset or the API call fails, the
-    // guest falls back to the shared OPENROUTER_API_KEY automatically).
-    const orKey = await createGuestSubKey(
-      targetUserId,
-      invite.firstName || String(targetUserId)
-    );
-    if (orKey) {
-      setUserOpenRouterKey(targetUserId, orKey);
-    }
+    // OpenRouter sub-key provisioning отключён — гости теперь идут через
+    // native DeepSeek key pool (system/deepseek-keys.json). Vision и
+    // fallback продолжают использовать общий OPENROUTER_API_KEY.
     // CRITICAL: ALLOWED_USERS is a static const built from env at startup —
     // mutate it in-memory so isAuthorized() returns true on the user's next
     // message. Without this, an approved guest still hits the invite flow

@@ -30,6 +30,9 @@ metering.sqlite
 metering.sqlite-shm
 metering.sqlite-wal
 
+# DeepSeek API key pool (per-host, never commit)
+system/deepseek-keys.json
+
 # caches
 .eslintcache
 .cache
@@ -55,3 +58,6 @@ graphify-out/
 # Runtime / per-host data
 workspace/
 .planning/
+
+# Claude Code local state (worktrees, settings)
+.claude/

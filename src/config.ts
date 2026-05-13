@@ -14,6 +14,25 @@ import { generateGuestClaudeMd } from "./templates/guest-claude-md";
 import { generateGuestDashboard } from "./templates/guest-dashboard";
 import { renderHowToSetupGuide } from "./templates/landing";
 import { UserRegistry } from "./user-registry";
+import { hasAnyDeepSeekKey } from "./deepseek-key-pool";
+
+/**
+ * Sentinel value put into profile.deepseekApiKey / deepseekEnv.ANTHROPIC_API_KEY
+ * when a guest is routed through the DeepSeek key pool. session.ts notices this
+ * marker and calls acquireDeepSeekKey() right before the request, then release()
+ * in finally — so each request picks the currently least-busy key.
+ */
+export const DEEPSEEK_POOL_MARKER = "pool";
+
+/**
+ * Normalise a stored model name (may be OpenRouter-style `deepseek/...`) to
+ * the native DeepSeek API name when we route through the pool.
+ */
+function normaliseDeepSeekModel(model: string | undefined, fallback: string): string {
+  if (!model) return fallback;
+  if (model.startsWith("deepseek/")) return fallback;
+  return model;
+}
 
 // ============== Environment Setup ==============
 
@@ -1023,17 +1042,21 @@ export function getUserProfile(userId: number): UserProfile {
 
     const vaultDir = getNewGuestVaultDir(userId);
 
-    // DeepSeek model tiers (via Anthropic-compatible API):
-    //   model       = deepseek-chat     → V3 (fast, everyday tasks, subagents)
-    //   complexModel= deepseek-reasoner → R1 DeepThink (strategy, architecture, heavy analysis)
-    //   lightModel  = deepseek-chat     → V3 (cheap background: topic detect, memory analysis)
-    //   visionModel = google/gemini-2.5-flash via OpenRouter (DeepSeek has no vision)
-    const dsKey = getDeepSeekApiKey();
-    const deepseekApiKey = dsKey || undefined;
-    const deepseekEnv: Record<string, string> | undefined = dsKey
+    // Маршрутизация гостей.
+    //   Если есть хотя бы один ключ в DeepSeek-пуле — идём через native DS API
+    //   (`api.deepseek.com/anthropic`). Конкретный ключ выбирается на каждый
+    //   запрос модулем deepseek-key-pool по принципу least-busy. В профиле
+    //   стоит маркер `pool`; session.ts подменяет его на реальный ключ перед
+    //   отправкой запроса и release() в finally.
+    //   Если пул пуст — fallback на OpenRouter (`deepseek/deepseek-v4-flash`).
+    //   На native DS сейчас живут только deepseek-v4-flash и deepseek-v4-pro;
+    //   `deepseek-chat` — deprecated alias, который сам резолвится в v4-flash.
+    const dsPoolAvailable = hasAnyDeepSeekKey();
+    const deepseekApiKey = dsPoolAvailable ? DEEPSEEK_POOL_MARKER : undefined;
+    const deepseekEnv: Record<string, string> | undefined = dsPoolAvailable
       ? {
           ...buildGuestBaseEnv(),
-          ANTHROPIC_API_KEY: dsKey,
+          ANTHROPIC_API_KEY: DEEPSEEK_POOL_MARKER,
           ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
           ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
           ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
@@ -1041,13 +1064,15 @@ export function getUserProfile(userId: number): UserProfile {
           ANTHROPIC_MODEL: "deepseek-chat",
         }
       : undefined;
-    const model = (!dsKey && (!node?.model || node.model === "deepseek-chat"))
-      ? "deepseek/deepseek-v4-flash"
-      : (node?.model ?? "deepseek-chat");
-    const complexModel = node?.complexModel ?? (dsKey ? "deepseek-reasoner" : "deepseek/deepseek-r1");
-    const lightModel = (!dsKey && (!node?.lightModel || node.lightModel === "deepseek-chat"))
-      ? "deepseek/deepseek-v4-flash"
-      : (node?.lightModel ?? "deepseek-chat");
+    const model = dsPoolAvailable
+      ? normaliseDeepSeekModel(node?.model, "deepseek-chat")
+      : (node?.model && !node.model.includes("/") ? "deepseek/deepseek-v4-flash" : (node?.model ?? "deepseek/deepseek-v4-flash"));
+    const complexModel = dsPoolAvailable
+      ? normaliseDeepSeekModel(node?.complexModel, "deepseek-reasoner")
+      : (node?.complexModel ?? "deepseek/deepseek-r1");
+    const lightModel = dsPoolAvailable
+      ? normaliseDeepSeekModel(node?.lightModel, "deepseek-chat")
+      : (node?.lightModel && !node.lightModel.includes("/") ? "deepseek/deepseek-v4-flash" : (node?.lightModel ?? "deepseek/deepseek-v4-flash"));
     const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
     const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`];
 
@@ -1104,18 +1129,17 @@ export function getUserProfile(userId: number): UserProfile {
   let ownerMaxTurns: number | undefined;
 
   if (ownerModel.startsWith("deepseek-")) {
-    const dsKey = getDeepSeekApiKey();
-    if (!dsKey) {
+    if (!hasAnyDeepSeekKey()) {
       throw new Error(
-        `Owner ${userId} requested model "${ownerModel}" but DEEPSEEK_API_KEY is not set`
+        `Owner ${userId} requested model "${ownerModel}" but DeepSeek key pool is empty (check system/deepseek-keys.json and DEEPSEEK_API_KEY env)`
       );
     }
-    ownerDeepseekApiKey = dsKey;
+    ownerDeepseekApiKey = DEEPSEEK_POOL_MARKER;
     ownerDeepseekEnv = {
       // Owner DeepSeek env: broader than guest — owner can use all integrations.
       // Still don't blindly spread process.env; list keys explicitly.
       ...buildGuestBaseEnv(),
-      ANTHROPIC_API_KEY: dsKey,
+      ANTHROPIC_API_KEY: DEEPSEEK_POOL_MARKER,
       ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
       ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
       ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
@@ -1125,7 +1149,6 @@ export function getUserProfile(userId: number): UserProfile {
       ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}),
       ...(process.env.OPENROUTER_API_KEY ? { OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY } : {}),
       ...(process.env.COMPOSIO_API_KEY ? { COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY } : {}),
-      ...(process.env.DEEPSEEK_API_KEY ? { DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY } : {}),
     };
     // DeepSeek doesn't support Anthropic-native WebSearch.
     ownerDisallowedTools = ["WebSearch"];

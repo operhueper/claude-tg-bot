@@ -2,6 +2,159 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-13 (поздний вечер) — возврат гостей с OpenRouter на native DeepSeek + пул из 5 ключей
+
+### Симптом
+Пользователи начали жаловаться 12 мая: «бот стал значительно тупее». Деградация совпала с коммитом `05c76d6` (13 мая 04:20 МСК), где для гостей дефолт сменился с `deepseek-chat` (через api.deepseek.com/anthropic) на `deepseek/deepseek-v4-flash` (через OpenRouter), плюс автомиграция существующих гостей по факту-условию в config.ts.
+
+### Корневая причина
+Оказалось двойной: (1) пайплайн OpenRouter сам по себе ухудшает качество — конверсия Anthropic-tool-use ↔ OpenAI function-calling, провайдер-роутинг к разным quant'ам без `provider` блока, отсутствие DeepSeek prompt caching; (2) ярлык `deepseek-v4-flash` в OR указывает на ту же модель, что DeepSeek native теперь резолвит из `deepseek-chat` (по доке `api-docs.deepseek.com/quick_start/pricing`, текущие native-модели — `deepseek-v4-flash` и `deepseek-v4-pro`, `deepseek-chat` стал deprecated alias на v4-flash). То есть **модель не менялась**, ухудшил пайплайн.
+
+### Решение
+Гости возвращены на native DeepSeek API. Чтобы не нагружать один ключ одновременными запросами от нескольких пользователей, заведён пул ключей с распределением по принципу «наименее загруженный».
+
+### Что изменилось
+- **`system/deepseek-keys.json`** (gitignored, per-host) — массив из 5 ключей. На прод-сервере поднялся пул из 6 (5 файл + 1 env DEEPSEEK_API_KEY).
+- **`src/deepseek-key-pool.ts`** (новый) — модуль `acquireDeepSeekKey()` / `release()`. Считает in-flight per-key, выдаёт минимальный, tie-break по `lastUsedMs`. Очереди нет — даже если все заняты, отдаёт самый свободный. Fallback на env-key для совместимости.
+- **`src/config.ts`** — `getUserProfile()` ставит в гостевой профиль маркер `DEEPSEEK_POOL_MARKER = "pool"` вместо реального ключа; реальный выбирается на каждый запрос. `normaliseDeepSeekModel()` переводит OR-format (`deepseek/...`) в native (`deepseek-chat`/`deepseek-reasoner`). Owner-DS-режим переведён на тот же пул.
+- **`src/session.ts`** — helper `withDeepSeekPoolKey(env)` подменяет `ANTHROPIC_API_KEY: "pool"` на свежий ключ перед `query()`, release в finally. Применён в трёх местах: основной query-loop, `compactIfNeeded` (отдельный fetch на DS chat/completions), `runBackgroundAnalysis` (memory analyzer subprocess).
+- **`src/handlers/callback.ts`** — invite-approve больше не зовёт `createGuestSubKey` (OR provisioning). Дефолт модели нового гостя: `deepseek-chat`.
+- **`scripts/disable-openrouter-subkeys.ts`** — удаляет OR sub-keys (через provisioning API) и чистит `openrouterKey` из users.json. Идемпотентен. На проде нашёл 0 записей (subkeys реально проваливались — POST 4xx — и не успевали закрепиться).
+
+### Что НЕ тронуто
+- Vision (фото) продолжает идти через OpenRouter Gemini Flash — там был и остаётся общий `OPENROUTER_API_KEY`. Этот путь не деградировал.
+- `metering.sqlite` source `bot-deepseek` — без изменений, биллинг записывает per-user независимо от того, какой ключ из пула обслужил запрос.
+- `openrouter-key.txt` файлы в `/opt/vault/<id>/` (per-user OR ключи) — не чищены, не критично (текст больше не идёт через OR; на бюджет не влияют — лимит per-key).
+
+### Деплой
+PROD `proboi-bot 89.167.125.175` (@proboiAI_bot): rsync + systemctl restart + script run.
+Лог при старте: `[deepseek-pool] Loaded 6 DeepSeek key(s).` — OK.
+TEST `jinru 5.223.82.96` — не деплоилось (disabled с 2026-05-07).
+
+### Открытые хвосты
+- `/compact` срабатывает невпопад (условие смотрит на `lastUsage.input_tokens` *прошлого* запроса, а не на проектируемый размер текущего prompt'а — поэтому жмётся даже на короткое следующее сообщение после большого документа). Не правлено — обсудим отдельно.
+- Авто-`/new` через `topic-helper.ts` иногда срабатывает мимо — пользователь сказал забить, разберёмся потом.
+- Чистка `openrouter-key.txt` в vault'ах — позже отдельным проходом.
+
+---
+
+## Состояние: 2026-05-13 (вечер) — audit-fixes sprint: 25 атомарных коммитов закрыли 30 находок
+
+**Источник:** `audit-out/SPEC.md` — спека из аудита 7 параллельных агентов. Закрыта группа CRIT + критические FAIR + критические REL + все HIGH-01..19.
+
+### Этап 1 — CRITICAL (5/5 готово)
+- **CRIT-01** `ae0d652` — `/root/.claude/projects/*` теперь только для owner (`src/session.ts:914`). Гость больше не вытаскивает чужие транскрипты через `Read`.
+- **CRIT-02** `7fde99c` — `mcp__container__Bash` получил `checkContainerCommandSafety` с `BLOCKED_PATTERNS_CONTAINER` (fork-bomb, dd /dev/zero, mkfs, fdisk, swapon) в `src/security.ts` + `src/containers/bash-mcp.ts`.
+- **CRIT-03** `e60e32e` — heartbeat leak закрыт во всех 5 хендлерах (voice/audio/photo/document/video): `await state.cleanup()` в `finally` через hoisted-state pattern. Вариант А (cleanup-в-finally) выбран вместо runWithStreaming-helper — менее инвазивно, HIGH-06/07 закрываем отдельно.
+- **CRIT-04** `9f2d3b5` — double-billing на retry устранён: колонка `request_id TEXT` в `usage`, unique-индекс `(user_id, request_id, model)`, `INSERT OR REPLACE`. `requestId` генерится один раз в `text.ts` до retry-loop, прокидывается в обе попытки `sendMessageStreaming`. Миграция идемпотентна (try `ALTER TABLE ADD COLUMN`).
+- **CRIT-05** `bed5b1a` — `acquireUserLock` теперь throws-if-busy. Chain-логика выпилена. Все 6 callers уже корректные (делают `isUserBusy` first).
+
+### Критические FAIR (3/3)
+- **FAIR-01** `c47c1a1` — disk-IO лимиты для гостей: `--blkio-weight=500`, `--device-{write,read}-bps`, `--device-{write,read}-iops` (50/100 MB/s, 2000/4000 IOPS). Vault-device определяется через `df -P /opt/vault` с graceful fallback на macOS.
+- **FAIR-02** `aec5b33` — `acquireContainerSlot(timeoutMs=60000)` через `Promise.race`. Все 5 callers (text/audio/voice/video/photo) обёрнуты в try/catch с дружелюбным «бот сейчас перегружен, попробуй через минуту».
+- **FAIR-03** `71ce49b` — baseline egress 20 mbit для каждого контейнера через `tc htb`. Скрипты `scripts/firewall/{set,remove}-baseline-egress.sh`, вызываются fire-and-forget из `manager.getOrStart` и `manager.remove`. macOS graceful skip.
+
+### Критические REL (3/3)
+- **REL-01** `2193195` — `containerManager.locks` Map leak: chained promise сохраняется в `const chained`, сравнение по reference identity в `finally`.
+- **REL-02** `f7a8a93` — `uncaughtException` → `process.exit(1)`. `unhandledRejection` throttle: >10/min → `process.exit(1)`. Systemd перезапускает.
+- **REL-03** `d3b2030` — circuit-breaker для stuck container: счётчик timeout'ов per-userId, окно 5 минут, threshold 5 → `docker kill && docker start`. Сбрасывается на успешный exec. Timeout детектится по `e.killed === true || exitCode === 124`.
+
+### HIGH (19/19, частично закрыты пакетно)
+- **HIGH-01** `c815647` — `addUser` использует `writeUsersAtomic`.
+- **HIGH-02** `a9bf68e` — subscription gate на `/api/me` (dashboard). pay_upgrade gap уже закрыт middleware в `index.ts:162-163`.
+- **HIGH-03** `a521987` — rate-limit перед `addPendingContext` + size cap (5 messages / 5000 chars).
+- **HIGH-04 (+05+06)** `7abe002` — `checkCommandSafety` переписан на token-level через `shell-quote`. 6 шагов защиты: raw-canary, BLOCKED_PATTERNS, tokenisation, eval/exec/source отказ, per-token patterns, rm-валидация (`$`, glob, allowed paths).
+- **HIGH-07** `4a4bb4c` — per-user inbox `/tmp/telegram-bot/<id>/`. `audio.ts`, `voice.ts` переключены на `inboxDirFor(userId)` + `mkdirSync recursive`. `/tmp/telegram-bot/` удалён из глобального `TEMP_PATHS`.
+- **HIGH-08** `d8e1722` — `runningPromise`/`_resolveRunningPromise` поля в `ClaudeSession`. `stop()` awaits, sleep(100) в `checkInterrupt` убран.
+- **HIGH-09** `416b452` — `drainPendingContext` вынесен в отдельный helper, вызывается после outer finally → cleanup один раз.
+- **HIGH-10** `9e23128` (вместе с HIGH-11) — `/restart` защищён `isUserBusy + acquireUserLock`, pgrep без trailing slash, ESRCH silent.
+- **HIGH-11** `9e23128` — `vault-quota` async (`execFile` promisified) + background refresh с `Set<inProgress>`. Первый вызов возвращает `exceeded:false` (разрешает) и запускает refresh.
+- **HIGH-12** `e645921` — hard-timeout (10 мин) теперь ставит `stopRequested = true` + сохраняет `lastPartialResponse`.
+- **HIGH-13** `6b6f9ba` — `disallowedTools` для container-гостей содержит `Bash`, `BashOutput`, `KillShell`.
+- **HIGH-14** `71f3663` — session-file write через `writeFileSync(tmp) + renameSync` (атомарно).
+- **HIGH-15** — no-op: после CRIT-03 + FAIR-02 структура `handleAudio` уже корректна (try/finally на 263-275 обрамляет acquire + processing + release).
+- **HIGH-16** `4c8f6d7` — убран дублирующий `stopProcessing()` в voice.ts (был перед return при null-transcription).
+- **HIGH-17** `0c43098` — video.ts получил `stopProcessing()` перед ранним return → симметрия с voice.ts.
+- **HIGH-18** `21c81d1` — добавлены цены `deepseek/deepseek-v4-flash`, `deepseek/deepseek-r1`, `deepseek/deepseek-chat` в `PRICING_PER_1M`.
+- **HIGH-19** `afdc92e` — двойной 90-сек таймаут в vision убран. `session.ts` передаёт `this.abortController?.signal` в `queryOpenRouter`, внутренний `AbortSignal.timeout(90_000)` остаётся.
+
+### Не закоммичено (вне scope SPEC)
+В рабочем дереве: `src/containers/manager.ts` (`listLiveUserIds`), `src/tasks.ts` (`reclaimContainerForFreeUser` + `reapOrphanFreeContainers`), `src/index.ts` (initial sweep `chargeExpiredTrials` на startup). Это инициатива одного из агентов — реабилитация orphan-контейнеров free-пользователей. Тематически валидно, но не из SPEC.md — оставлено на решение пользователя.
+
+### Правила работы выдержаны
+- Атомарные коммиты, формат `fix(audit-<ID>): <одна строка>`
+- Без footer'ов «Generated with Claude Code» / «Co-Authored-By»
+- `bun run typecheck` зелёный между фиксами
+- Локальные изменения only — НЕ деплоено
+
+---
+
+## Состояние: 2026-05-13 — тарифное ограничение: 7 фиксов + SQLite daily counter
+
+### Что сделано за эту сессию (2026-05-13) — tier enforcement hardening
+
+**12 файлов изменены, 322 добавлено / 106 удалено, typecheck чистый**
+
+#### Аудит (4 параллельных агента-исследователя)
+
+**Найденные проблемы:**
+1. **containerEnabled (КРИТИЧНО)** — `callback.ts` при approve ВСЕГДА ставил `containerEnabled: true` в `users.json`. `config.ts` брал значение `node?.containerEnabled ?? tierConfig.containerEnabled` — node-значение перебивало tier-дефолт. Итог: 15 из 17 free-пользователей имели работающие Docker-контейнеры.
+2. **`handleAudio` — нет daily limit (HIGH)** — audio.ts не проверял дневной лимит, free-пользователи могли слать аудио-файлы без ограничений.
+3. **SQLite daily counter (MEDIUM)** — `dailyCounts` и `freeDocUsed` были `Map` в памяти, сбрасывались при каждом рестарте бота.
+4. **Free doc gate in-memory** — `hasFreeDocUsed` сбрасывалось при рестарте, "1 документ в сессию" работало как "1 документ в деплой".
+5. **Telegram 429 (Гоша, 946882308)** — `streaming.ts` удалял tool/text messages в цикле без защиты от rate limit → retry_after ~13 часов.
+6. **Container slot только в text.ts** — voice/video/photo/audio не acquireContainerSlot.
+7. **photo.ts API несовместимость** — использовал `isLimitReached`/`incrementCount` вместо `isDailyLimitReached`/`incrementDailyUsage`.
+
+**Состояние prod пользователей:**
+- Paid (tier=paid): Ксения (893951298), Гоша (946882308), 299753724 — все expire 2026-05-18
+- Free (no tier field): 15 пользователей — ВСЕ имели `containerEnabled: true` в users.json
+
+#### Реализация (7 параллельных агентов)
+
+**I1 — `src/config.ts` + `src/index.ts`:**
+- `containerEnabled` для гостей: `tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false` — free-тир ВСЕГДА false
+- `src/index.ts`: после `containerManager.init()` — cleanup loop: `stop()` всех контейнеров у free-пользователей
+
+**I2 — `src/handlers/callback.ts`:**
+- Убран `containerEnabled: true` из `addUser()` при approve — тариф управляет контейнером
+
+**I3 — `src/handlers/audio.ts`:**
+- Добавлен daily limit check (как в voice.ts)
+- Добавлен user lock + container slot
+- Сохранены uncommitted изменения (retry-once, transcriptReady)
+
+**I4 — `src/metering.ts` + `src/daily-limit.ts`:**
+- `daily_counts` таблица в metering.sqlite (user_id, date, msg_count, doc_count, PRIMARY KEY)
+- Экспортированы `getMsgCountToday`, `incrementMsgCount`, `getDocCountToday`, `incrementDocCount`
+- `daily-limit.ts` переписан на SQLite, все exported API сохранены идентичными
+- `hasFreeDocUsed`/`markFreeDocUsed` теперь per-day (не per-session)
+
+**I5 — `src/handlers/document.ts`:**
+- Сообщения исправлены: "1 документ в день (лимит в полночь по Москве)"
+- Audio-файлы как documents теперь НЕ сжигают doc slot
+
+**I6 — `src/handlers/streaming.ts`:**
+- 429 handling в `done` callback: флаг `rateLimited`, при первом 429 — break из обоих loops
+- Не retry, не delay — просто skip оставшихся удалений
+
+**I7 — `src/handlers/voice.ts` + `src/handlers/video.ts` + `src/handlers/photo.ts`:**
+- Container slot добавлен во все три
+- photo.ts: API стандартизирован (`isDailyLimitReached`/`incrementDailyUsage`), добавлен `userId !== OWNER_USER_ID`
+- video.ts: порядок проверок исправлен (daily limit ДО rate limit)
+
+#### Что НЕ трогали
+- `containerEnabled` в users.json у существующих paid-пользователей — не изменено
+- Бизнес-логика тарифов — без изменений
+- Тест-сервер (jinru) — деплой не производился
+
+#### Дополнительные находки (из логов прода)
+- `createGuestSubKey failed for 1240466087: HTTP 401` — OpenRouter management key протух, нужна ротация
+- Антон (999376990) пытался читать `/root/.claude/plans/` — security сработал
+- `python3 -c` блокируется у Гоши (946882308) 33 раза — BLOCKED_PATTERNS корректно работает
+
+---
+
 ## Состояние: 2026-05-13 — security hardening: 9 фиксов + контекст ×2
 
 ### Что сделано за эту сессию (2026-05-13) — security audit + reliability

@@ -24,7 +24,38 @@ import {
   type UserProfile,
   isNewGuest,
   getNewGuestOpenRouterKey,
+  DEEPSEEK_POOL_MARKER,
 } from "./config";
+import { acquireDeepSeekKey } from "./deepseek-key-pool";
+
+/**
+ * Если в `env.ANTHROPIC_API_KEY` стоит маркер пула (`pool`), захватывает
+ * свежий ключ DeepSeek (наименее загруженный сейчас) и возвращает копию
+ * env с подменённым ключом. release() обязателен в finally — иначе счётчик
+ * in-flight не упадёт.
+ *
+ * Если маркера нет — возвращает env как есть и noop-release.
+ * Если маркер есть, но пул внезапно пуст — оставляет маркер (DS ответит 401,
+ * caller получит ошибку и сможет показать дружелюбное сообщение).
+ */
+type EnvDict = { [k: string]: string | undefined };
+
+function withDeepSeekPoolKey(
+  env: EnvDict | undefined
+): { env: EnvDict | undefined; release: () => void } {
+  if (!env || env.ANTHROPIC_API_KEY !== DEEPSEEK_POOL_MARKER) {
+    return { env, release: () => {} };
+  }
+  const acquired = acquireDeepSeekKey();
+  if (!acquired) {
+    console.warn("[deepseek-pool] No keys in pool but profile has pool marker — request will fail");
+    return { env, release: () => {} };
+  }
+  return {
+    env: { ...env, ANTHROPIC_API_KEY: acquired.key },
+    release: acquired.release,
+  };
+}
 import { formatToolStatus, escapeHtml } from "./formatting";
 import {
   checkPendingAskUserRequests,
@@ -391,12 +422,20 @@ ${dialog}
 
 Резюме:`;
 
-    try {
-      const apiKey =
-        this.profile.deepseekEnv?.ANTHROPIC_API_KEY ??
-        process.env.DEEPSEEK_API_KEY;
-      if (!apiKey) return false;
+    // Захватываем ключ из пула (или fallback на env). release() в finally,
+    // иначе in-flight счётчик ключа не упадёт.
+    const acquired = acquireDeepSeekKey();
+    const apiKey = acquired?.key
+      ?? (this.profile.deepseekEnv?.ANTHROPIC_API_KEY !== DEEPSEEK_POOL_MARKER
+          ? this.profile.deepseekEnv?.ANTHROPIC_API_KEY
+          : undefined)
+      ?? process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) {
+      acquired?.release();
+      return false;
+    }
 
+    try {
       const res = await fetch("https://api.deepseek.com/chat/completions", {
         method: "POST",
         headers: {
@@ -442,6 +481,8 @@ ${dialog}
         err
       );
       return false;
+    } finally {
+      acquired?.release();
     }
   }
 
@@ -780,6 +821,12 @@ ${dialog}
     this.runningPromise = new Promise<void>((resolve) => {
       this._resolveRunningPromise = resolve;
     });
+
+    // Если профиль маркирован как «через DS пул» — выбираем least-busy ключ
+    // прямо сейчас. release() обязателен в finally ниже, иначе счётчик
+    // in-flight не упадёт и ключ застрянет «занятым».
+    const dsPool = withDeepSeekPoolKey(options.env);
+    options.env = dsPool.env;
 
     // Hard 10-minute timeout: abort the query if it hasn't finished by then.
     // We create a wrapper controller so the SDK receives a single AbortController
@@ -1140,6 +1187,9 @@ ${dialog}
       }
     } finally {
       clearTimeout(timeoutId);
+      // Вернуть DeepSeek-ключ в пул (in-flight счётчик упадёт, ключ снова
+      // доступен другим пользователям). noop если запрос шёл не через пул.
+      dsPool.release();
       // Metering — write here so tokens are accounted on every exit path:
       // normal completion, ask-user `break`, stop/abort `break`, or thrown error.
       // currentUsage is local to this call so we never double-record from a
@@ -1423,13 +1473,21 @@ async function runBackgroundAnalysis(
     : "bot-anthropic";
   const analyzerModel = profile.lightModel ?? "claude-haiku-4-5";
 
-  const result = await analyzeSession(transcript, graph, {
-    model: analyzerModel,
-    cwd: profile.workingDir,
-    env: profile.deepseekEnv,
-    userId: profile.userId,
-    source: analyzerSource,
-  });
+  // Подменяем pool-маркер на свежий ключ из пула. release() в finally.
+  const dsPool = withDeepSeekPoolKey(profile.deepseekEnv);
+
+  let result;
+  try {
+    result = await analyzeSession(transcript, graph, {
+      model: analyzerModel,
+      cwd: profile.workingDir,
+      env: dsPool.env as Record<string, string> | undefined,
+      userId: profile.userId,
+      source: analyzerSource,
+    });
+  } finally {
+    dsPool.release();
+  }
 
   store.applyAnalysisPatch(graph, result.patch, transcript.session_id);
   store.save(graph);
