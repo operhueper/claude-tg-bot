@@ -98,12 +98,24 @@ interface IdleTimers {
 // ContainerManager
 // ---------------------------------------------------------------------------
 
+// Circuit-breaker tunables.
+const CB_THRESHOLD = 5; // consecutive timeouts before forced kill+start
+const CB_WINDOW_MS = 5 * 60 * 1000; // 5-minute rolling window
+
+interface TimeoutCounter {
+  count: number;
+  windowStart: number;
+}
+
 class ContainerManager {
   /** Per-user lifecycle serialiser: getOrStart/pause/stop/remove queue here. */
   private locks = new Map<number, Promise<void>>();
 
   /** Idle watchdog timers. */
   private idle = new Map<number, IdleTimers>();
+
+  /** Circuit-breaker: consecutive exec-timeout counters per user. */
+  private timeoutCounters = new Map<number, TimeoutCounter>();
 
   /**
    * Result of last `docker --version` probe. `null` = not yet probed.
@@ -260,6 +272,8 @@ class ContainerManager {
         timeout,
         maxBuffer: 8 * 1024 * 1024,
       });
+      // Successful exec — reset the circuit-breaker for this user.
+      this.timeoutCounters.delete(userId);
       return { stdout, stderr, exitCode: 0 };
     } catch (err) {
       // execFile rejects on non-zero exit OR timeout. Both look like
@@ -285,6 +299,38 @@ class ContainerManager {
           : e.killed
             ? 124 // standard "timeout" exit code
             : 1;
+
+      // Circuit-breaker: track consecutive timeouts and force-restart on threshold.
+      // A timeout is identified by e.killed === true (Node kills the child on
+      // timeout and sets killed=true before rejecting) or exit code 124.
+      if (e.killed === true || exitCode === 124) {
+        const now = Date.now();
+        const cb = this.timeoutCounters.get(userId) ?? { count: 0, windowStart: now };
+        // Reset window if it expired.
+        if (now - cb.windowStart > CB_WINDOW_MS) {
+          cb.count = 0;
+          cb.windowStart = now;
+        }
+        cb.count += 1;
+        this.timeoutCounters.set(userId, cb);
+
+        this.log(userId, `exec timeout (${cb.count}/${CB_THRESHOLD} in window)`);
+
+        if (cb.count >= CB_THRESHOLD) {
+          const name = containerName(userId);
+          this.log(userId, `circuit-breaker tripped — force kill+start ${name}`);
+          try {
+            await execFileAsync("docker", ["kill", name]).catch(() => {});
+            await execFileAsync("docker", ["start", name]).catch(() => {});
+            this.log(userId, "container revived after circuit-breaker");
+          } catch {
+            // Best-effort; ignore errors — the next exec attempt will retry.
+          }
+          // Reset counter after recovery attempt.
+          this.timeoutCounters.delete(userId);
+        }
+      }
+
       return { stdout, stderr, exitCode };
     }
   }
