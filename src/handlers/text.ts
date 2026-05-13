@@ -256,6 +256,20 @@ export async function handleText(ctx: Context): Promise<void> {
     return;
   }
 
+  // 3. Rate limit check — must happen before we decide to queue as pending context,
+  // so an attacker cannot bypass the limiter by sending while a query is running.
+  const [allowed, retryAfter] = rateLimiter.check(userId);
+  if (!allowed) {
+    releaseContainerSlot?.();
+    releaseUserLock?.();
+    await auditLogRateLimit(userId, username, retryAfter!);
+    const waitSec = Math.ceil(retryAfter!);
+    await ctx.reply(
+      `⏳ Слишком много запросов подряд. Подожди ${waitSec} сек и попробуй снова.`
+    );
+    return;
+  }
+
   // 2b. If generation is running and message is NOT an interrupt (already handled above),
   // queue it as pending context and acknowledge with a reaction.
   if (session.isRunning) {
@@ -267,19 +281,6 @@ export async function handleText(ctx: Context): Promise<void> {
     } catch {
       // Reaction may fail (e.g. old clients) — ignore silently
     }
-    return;
-  }
-
-  // 3. Rate limit check
-  const [allowed, retryAfter] = rateLimiter.check(userId);
-  if (!allowed) {
-    releaseContainerSlot?.();
-    releaseUserLock?.();
-    await auditLogRateLimit(userId, username, retryAfter!);
-    const waitSec = Math.ceil(retryAfter!);
-    await ctx.reply(
-      `⏳ Слишком много запросов подряд. Подожди ${waitSec} сек и попробуй снова.`
-    );
     return;
   }
 

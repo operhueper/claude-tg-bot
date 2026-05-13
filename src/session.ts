@@ -288,6 +288,13 @@ export class ClaudeSession {
   }
 
   addPendingContext(msg: string): void {
+    const MAX_PENDING_MESSAGES = 5;
+    const MAX_PENDING_CHARS = 5000;
+    const totalChars = this.pendingContextMessages.reduce((sum, m) => sum + m.length, 0);
+    if (this.pendingContextMessages.length >= MAX_PENDING_MESSAGES || totalChars + msg.length > MAX_PENDING_CHARS) {
+      // Queue full — drop silently to prevent unbounded growth
+      return;
+    }
     this.pendingContextMessages.push(msg);
   }
 
