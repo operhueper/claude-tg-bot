@@ -154,6 +154,41 @@ export function checkCommandSafety(
   return [true, ""];
 }
 
+// ============== Container Command Safety ==============
+
+/**
+ * Patterns that are dangerous inside a guest Docker container.
+ * Unlike BLOCKED_PATTERNS (host-level), these focus on resource-exhaustion
+ * and device-level destruction that bypass container resource limits.
+ */
+export const BLOCKED_PATTERNS_CONTAINER: RegExp[] = [
+  // fork-bomb in its canonical form and common variants
+  /:\s*\(\s*\)\s*\{[^}]*:\s*\|\s*:\s*&\s*\}\s*;\s*:/,
+  // dd writing from entropy/zero sources (disk fill / device wipe)
+  /\bdd\s+if=\/dev\/(zero|urandom|random|null)\b/i,
+  // filesystem formatting
+  /\bmkfs(\.\w+)?\b/i,
+  // partition table manipulation
+  /\b(fdisk|parted|sfdisk|gdisk)\b/i,
+  // swap manipulation (can lock up the container)
+  /\bswap(on|off)\b/i,
+];
+
+/**
+ * Check whether a shell command is safe to run inside a guest container.
+ * Returns `{ safe: false, reason }` if blocked, `{ safe: true }` otherwise.
+ */
+export function checkContainerCommandSafety(
+  cmd: string
+): { safe: boolean; reason?: string } {
+  for (const pattern of BLOCKED_PATTERNS_CONTAINER) {
+    if (pattern.test(cmd)) {
+      return { safe: false, reason: `Blocked pattern: ${pattern.source}` };
+    }
+  }
+  return { safe: true };
+}
+
 // ============== Authorization ==============
 
 export function isAuthorized(

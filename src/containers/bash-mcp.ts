@@ -19,6 +19,7 @@ import {
 
 import type { UserProfile } from "../config";
 import { containerManager } from "./manager";
+import { checkContainerCommandSafety } from "../security";
 
 const DEFAULT_TIMEOUT_MS = 120_000; // 2 min — covers most pip/npm installs
 
@@ -48,6 +49,14 @@ export function buildContainerBashMcp(
             ),
         },
         async ({ command, timeout }) => {
+          const safety = checkContainerCommandSafety(command);
+          if (!safety.safe) {
+            return {
+              content: [{ type: "text", text: `Blocked: ${safety.reason}` }],
+              isError: true,
+            };
+          }
+
           const result = await containerManager.exec(userId, command, {
             timeout: timeout ?? DEFAULT_TIMEOUT_MS,
             cwd,
