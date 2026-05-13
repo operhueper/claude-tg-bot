@@ -2,6 +2,46 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-13 — Reliability hardening задеплоен на PROD
+
+### Что сделано за эту сессию (2026-05-13) — таймауты, OR субключи, memory cap
+
+**Коммит 05c76d6** — fix: reliability — request timeouts, per-user OR keys, DeepSeek V4 Flash
+
+**Причина:** 12 мая бот дважды падал с OOM (1.3 ГБ и 1.6 ГБ RAM). Один зависший DeepSeek-запрос (Гоша, Google Sheets) блокировал всех пользователей.
+
+**Что сделано:**
+
+1. **Таймаут OpenRouter/DeepSeek fetch** (`src/engines/openrouter.ts`):
+   - `AbortSignal.any([userAbort, AbortSignal.timeout(90_000)])` на основной fetch
+   - 30с на Pollinations и служебные fetch
+
+2. **Таймаут Claude Code subprocess** (`src/session.ts`):
+   - `setTimeout(600_000)` → `abortController.abort()` — 10 минут максимум на query
+   - `clearTimeout` в finally, существующий catch обрабатывает как чистый abort
+
+3. **Per-user OpenRouter субключи** (новый `src/openrouter-provisioning.ts`):
+   - `createGuestSubKey(userId, label)` → `POST https://openrouter.ai/api/v1/keys`
+   - При approve гостя — автоматом создаётся ключ с лимитом $2
+   - Ключ хранится в `users.json`, гость использует свой ключ (fallback на общий OR key)
+   - Env vars: `OPENROUTER_PROVISIONING_KEY`, `OPENROUTER_GUEST_LIMIT_USD=2.0`
+
+4. **Модель: deepseek/deepseek-v4-flash** (OpenRouter формат, 1M контекст):
+   - Новые гости создаются сразу с этой моделью (`callback.ts`)
+   - Существующие гости с `model: "deepseek-chat"` мигрируют автоматически при OR-роутинге (`config.ts`)
+
+5. **Memory cap 1024 МБ** (на сервере):
+   - `/etc/systemd/system/claude-tg-bot.service.d/memory.conf`
+   - `Environment=NODE_OPTIONS=--max-old-space-size=1024`
+   - Применено на проде без рестарта — активно с текущего запуска
+
+**На проде (89.167.125.175):**
+- OPENROUTER_API_KEY обновлён на новый ключ
+- OPENROUTER_PROVISIONING_KEY = тот же ключ
+- Бот перезапущен, статус active
+
+---
+
 ## Состояние: 2026-05-12 — containerEnabled bugfix задеплоен на PROD
 
 ### Что сделано за эту сессию (2026-05-12) — hotfix контейнеров

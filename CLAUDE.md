@@ -250,17 +250,19 @@ Deploy after local edits:
 
 ```bash
 # PROD (proboi-bot, @proboiAI_bot) — real users
-rsync -az --exclude node_modules --exclude .git --exclude .env --exclude 'metering.sqlite*' \
+rsync -az --exclude node_modules --exclude .git --exclude .env --exclude 'metering.sqlite*' --exclude 'system/users.json' \
   ./ root@89.167.125.175:/opt/claude-tg-bot/
 ssh root@89.167.125.175 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
 
 # TEST (jinru, @ORCH7_bot) — staging, token configured on the server, never sync .env
-rsync -az --exclude node_modules --exclude .git --exclude .env --exclude 'metering.sqlite*' \
+rsync -az --exclude node_modules --exclude .git --exclude .env --exclude 'metering.sqlite*' --exclude 'system/users.json' \
   ./ root@5.223.82.96:/opt/claude-tg-bot/
 ssh root@5.223.82.96 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
 ```
 
 ⚠️ **Never rsync `.env`** — each server has its own token. Syncing `.env` overwrites the test server token with the prod token, causing 409 Conflict crash-loop on prod and restart-notification spam to all users.
+
+⚠️ **Never rsync `system/users.json`** — this file is the live user database, written by the bot on the server (invite approvals, payment webhooks, subscription state). Overwriting it from a local copy erases users and wipes paid subscriptions. It is excluded from rsync above. To inspect or restore it, access it directly on the server via `ssh root@89.167.125.175 'cat /opt/claude-tg-bot/system/users.json'`.
 
 > **Historical note (resolved):** earlier versions of this bot relied on a manual musl→glibc binary swap inside `node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/claude`. The current SDK (`@anthropic-ai/claude-agent-sdk` 0.2.x+) bundles the binary in the main package and does NOT use an architecture-specific subpackage — `find /opt/claude-tg-bot/node_modules/@anthropic-ai/` shows only `claude-agent-sdk`. No swap needed. If you see this error path mentioned in old logs or memory, ignore it.
 
