@@ -17,6 +17,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { getUserProfile, ALLOWED_USERS, OWNER_USER_ID as OWNER_ID } from "./config";
+import { isSubscribed, isSubscriptionGateEnabled } from "./subscription";
 
 const execFileAsync = promisify(execFile);
 import {
@@ -287,6 +288,15 @@ async function handleApiMe(req: Request): Promise<Response> {
   }
 
   const profile = getUserProfile(userId);
+
+  // Subscription gate: non-owner guests must be members of REQUIRED_CHANNEL_ID.
+  if (!profile.isOwner && isSubscriptionGateEnabled() && _bot) {
+    const subscribed = await isSubscribed(_bot.api, userId);
+    if (!subscribed) {
+      return jsonErr("subscription_required", 403);
+    }
+  }
+
   const today = getUserTotals(userId, moscowDayStartUtcSeconds());
   const container = await getContainerMetrics(userId);
 
