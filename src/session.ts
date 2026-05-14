@@ -554,6 +554,10 @@ ${dialog}
     // Container-sandboxed guests: append the mcp__container__Bash usage hint.
     // Without this the model would try to call the (disabled) built-in Bash
     // tool and confuse itself.
+    // V-01: free-tier guests have containerEnabled=false (TIER_CONFIGS.free) so
+    // useContainer=false here. Their Bash/Read/Write/MCP file tools are blocked
+    // via profile.disallowedTools (FREE_DISALLOWED_TOOLS in config.ts), not via
+    // container isolation. This is intentional — free = text-only chat.
     const useContainer =
       this.profile.containerEnabled && !this.profile.isOwner;
     if (useContainer) {
