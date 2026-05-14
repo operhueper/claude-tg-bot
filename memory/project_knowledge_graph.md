@@ -2,6 +2,50 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-14 — Pre-rotation security hardening (ветка feature/legal-docs-consent-gate)
+
+### Что сделано за сессию 2026-05-14 — пакет security-фиксов перед ротацией ключей
+
+**Триггер:** утечка `TELEGRAM_BOT_TOKEN` через free-гостя Артём (5615267984) — `cat /opt/claude-tg-bot/.env` под root на хосте. 14 из 18 пользователей могли повторить. См. `audit/2026-05-14-pre-rotation/`.
+
+**Стратегия:** закрыть все известные дыры со старыми ключами одним пакетом, ротация — в самом конце. Без деплоя до явного подтверждения. См. `memory/security_audit_2026_05_14.md`.
+
+**23 атомарных коммита (3e0b1d6..b30fba9), все в `feature/legal-docs-consent-gate`:**
+
+| Зона | Уязвимости | Файлы |
+|---|---|---|
+| Git history | V--1 untrack users.json | `.gitignore`, `system/users.json` |
+| Notify-bridge / Webhook | V--2 source IP, V-00 IP-bypass, V-1A retry-dedup | `src/dashboard-server.ts`, `src/payments.ts`, `src/metering.ts` |
+| Free-tier модель | V-01 disallowedTools, V-05 pdftotext в контейнере | `src/config.ts`, `src/session.ts`, `src/handlers/document.ts` |
+| Nginx | V-04 X-Frame, V-30A CSP `/u/`, V-30B TLS 1.2+, V-30C rate-limit | `scripts/nginx/snippets/`, `sites-available/*.conf` |
+| Memory injection | V-02 zod+escape, V-1J reply-to sanitize | `src/memory/inject.ts`, `src/memory/graph.ts`, `src/handlers/text.ts` |
+| Path/Shell hardening | V-06 execFile, V-1G path traversal, V-25 daemon-runner cmd | `src/handlers/document.ts`, `scripts/daemon-runner/main.go` |
+| Resource limits | V-1C voice duration, V-23 parallel maxItems, V-1I cwd allowlist, V-20 cgroup slice, V-24 quota TTL+storage | `src/handlers/voice.ts`, `parallel_mcp/server.ts`, `src/containers/spec.ts`, `vault-quota.ts`, `scripts/systemd/claude-guests.slice` |
+| Network isolation | V-1D Bun bind 127.0.0.1, V-21 inter-container DROP, V-22 metadata DROP | `src/dashboard-server.ts`, `src/index.ts`, `scripts/firewall/docker-user-rules.sh` |
+| Cross-user storage | V-1H pollinations per-user | `pollinations_mcp/server.ts`, `src/config.ts` |
+| State cleanup / DoS | V-32 deleteUser cleanup, V-33 session.kill, V-34 /api rate-limit + docker stats cache | `src/user-registry.ts`, `src/handlers/commands.ts`, `src/session.ts`, `src/dashboard-server.ts` |
+| Supply chain | V-30G Bun pin, V-30H sandbox digest TODO | `Dockerfile.user`, `src/containers/paths.ts` |
+| Dashboard frontend | V-30I CSP meta, V-30J href scheme, V-30K caption truncate, V-30L editMessage catch | `src/templates/user-dashboard.ts`, `src/handlers/streaming.ts`, `src/handlers/voice.ts` |
+| Metering / Logs / Alerts | V-30M OR request-id dedup, V-30N audit-log warn, V-30O suspicious-cmd alerts, V-30P watchdog docs | `src/engines/openrouter.ts`, `src/config.ts`, `src/owner-alerts.ts`, `CLAUDE.md` |
+| Privilege gates | V-31 closed by V-01 (free=без Bash) | — |
+
+**ОСТАЛОСЬ ВРУЧНУЮ (требует подтверждения деплоя):**
+
+- `git filter-repo --path system/users.json --invert-paths` + force-push (V--1, переписать историю)
+- На проде: `chmod 600 system/users.json metering.sqlite* .env` (V-1B)
+- В прод-`.env`: `AUDIT_LOG_JSON=true`, `GUEST_BRIDGE_IP=172.18.0.1`, опционально `DOCKER_STORAGE_OPT=size=3G`
+- Systemd: `sudo cp scripts/systemd/claude-guests.slice /etc/systemd/system/ && systemctl daemon-reload`
+- ExecStartPre: добавить chmod 600 для `users.json`/`metering.sqlite` в systemd-юнит
+- Применить iptables правила (через `ExecStartPre=-/opt/claude-tg-bot/scripts/firewall/docker-user-rules.sh` уже настроено)
+- `nginx -T` сверить с репо, скопировать `ssl-params.conf` в `/etc/nginx/snippets/`, reload nginx
+- Получить и применить sha256 digest для `claude-user-sandbox` (V-30H)
+- V-26 (userns-remap) — отложено, требует отдельного согласования (пересоздание всех контейнеров)
+- Ротация: TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY (пул), COMPOSIO_API_KEY — только после smoke-теста пакета
+
+**P2 (~35 пунктов) — V-07..V-39: reliability и мелочи, отдельная сессия.**
+
+---
+
 ## Состояние: 2026-05-13 — Reliability hardening задеплоен на PROD
 
 ### Что сделано за эту сессию (2026-05-13) — таймауты, OR субключи, memory cap
