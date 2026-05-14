@@ -44,6 +44,13 @@ try {
       doc_count INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (user_id, date)
     );
+    CREATE TABLE IF NOT EXISTS processed_payments (
+      payment_id TEXT NOT NULL,
+      event TEXT NOT NULL,
+      user_id INTEGER,
+      processed_at INTEGER NOT NULL,
+      PRIMARY KEY (payment_id, event)
+    );
   `);
   // Idempotent migration: add request_id column if it was created before this version
   try {
@@ -367,6 +374,41 @@ export function incrementDocCount(userId: number): void {
     );
   } catch (e) {
     console.error("[metering] incrementDocCount failed:", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Payment deduplication (V-1A: YooKassa webhook idempotency)
+// ---------------------------------------------------------------------------
+
+/**
+ * Mark a YooKassa webhook event as processed.
+ * Keyed on (payment_id, event) so that distinct events for the same payment
+ * (e.g. payment.succeeded + refund.succeeded) are each processed once, but
+ * retried deliveries of the same event are silently dropped.
+ *
+ * Returns true  → first time we see this (payment_id, event) pair — process it.
+ * Returns false → duplicate delivery — skip and return 200 to YooKassa.
+ *
+ * On SQL error: fail-open (returns true) so a DB blip never blocks a real payment.
+ */
+export function markPaymentProcessed(
+  paymentId: string,
+  event: string,
+  userId: number | null
+): boolean {
+  if (!db) return true; // DB unavailable — fail-open, do not block payment
+  try {
+    db.run(
+      `INSERT OR IGNORE INTO processed_payments (payment_id, event, user_id, processed_at)
+       VALUES (?, ?, ?, ?)`,
+      [paymentId, event, userId, Math.floor(Date.now() / 1000)]
+    );
+    // changes() returns 1 if the row was inserted (new), 0 if it was ignored (duplicate)
+    return (db.query<{ c: number }, []>("SELECT changes() AS c").get()?.c ?? 0) > 0;
+  } catch (e) {
+    console.error("[metering] markPaymentProcessed failed:", e);
+    return true; // fail-open: let the payment through rather than silently lose it
   }
 }
 

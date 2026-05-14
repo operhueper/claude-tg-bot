@@ -13,6 +13,7 @@ import { UserRegistry } from "./user-registry.js";
 import { alertNewSubscriber } from "./alerts.js";
 import { createBindingPayment, chargeRecurring, getPayment } from "./engines/yukassa.js";
 import type { YuKassaWebhookEvent, YuKassaPayment } from "./types.js";
+import { markPaymentProcessed } from "./metering.js";
 
 export const SUBSCRIPTION_PRICE = '499.00';
 export const SUBSCRIPTION_DAYS = 30;
@@ -105,6 +106,15 @@ export async function handleYuKassaWebhook(event: YuKassaWebhookEvent, bot: any)
   if (!userIdStr) return;
   const userId = Number(userIdStr);
   if (isNaN(userId)) return;
+
+  // Idempotency guard (V-1A): deduplicate retried webhook deliveries.
+  // YooKassa retries on 5xx/timeout with the same payment.id + event pair.
+  // We insert (payment_id, event) atomically; if already present, skip.
+  const isNew = markPaymentProcessed(payment.id, event.event, userId);
+  if (!isNew) {
+    console.log(`[webhook] duplicate event for payment ${payment.id} (event=${event.event}), skipping`);
+    return; // Return successfully — YooKassa sees 200 and stops retrying
+  }
 
   // Cross-verify against YuKassa API before acting on webhook.
   // Retry up to 3 times with 2s delay — YuKassa may send the webhook
