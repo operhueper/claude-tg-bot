@@ -2,7 +2,45 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
-## Состояние: 2026-05-14 — Pre-rotation security hardening (ветка feature/legal-docs-consent-gate)
+## Состояние: 2026-05-14 — Pre-rotation security pack ЗАДЕПЛОЕН на PROD + jinru
+
+### Деплой
+
+Пакет 25 коммитов (3e0b1d6..fc6edb8) ветка `feature/legal-docs-consent-gate`.
+
+**jinru (5.223.82.96, @ORCH7_bot):** code + image rebuild + V-26 migration + smoke V-01 ОК. Контейнеры пересозданы лениво. Storage driver на jinru сменился с **overlayfs → overlay2** автоматически после `systemctl restart docker` в рамках V-26.
+
+**prod (89.167.125.175, @proboiAI_bot):** те же шаги. Vault 3.9G (19 юзеров, 3 paid). Backup: `.env.bak-20260514-074918`, `users.json.bak-…`, `metering.sqlite.bak-…`, `/opt/vault.bak-20260514-074918`. 3 paid контейнера были удалены и пересоздаются при следующем сообщении каждого юзера.
+
+### Verify-snapshot обоих серверов
+
+| Свойство | jinru | proboi-bot |
+|---|---|---|
+| Storage driver | overlay2 (после рестарта) | overlay2 |
+| userns-remap | enabled, dockremap uid=111 | enabled, dockremap uid=108 |
+| Vault ownership | 101000:101000 | 101000:101000 |
+| Bun 3847 (health) | n/a (HEALTH_SECRET не задан) | 127.0.0.1 |
+| Bun 3848 (dashboard) | 127.0.0.1 | 127.0.0.1 |
+| Bun 3849 (notify) | 172.18.0.1 | 172.18.0.1 |
+| iptables V-22 packets | 3 (metadata access blocked) | 0 |
+| Sandbox digest | sha256:5ebde1979… | sha256:f6d97dca… |
+
+### Что осталось (НЕ закрыто в этом пакете)
+
+- **V--1 filter-repo**: владелец отказался от переписывания истории (после ротации ключей сами по себе токены в коммитах станут бесполезны).
+- **P2 (~35 пунктов V-07..V-39)**: reliability и мелочи, отдельная сессия.
+- **Ротация ключей** (всё ещё впереди): TELEGRAM_BOT_TOKEN на @BotFather, OPENAI_API_KEY, OPENROUTER_API_KEY + OPENROUTER_PROVISIONING_KEY, DEEPSEEK_API_KEY (5-key pool в system/deepseek-keys.json), COMPOSIO_API_KEY.
+
+### Защитный посох на ходу
+
+- 1 сторонний эксфильт-тест на jinru от Артёма дал отказ (V-01 работает).
+- 0 утечек /etc/, /opt/ — Bash/Read/Write/Edit заблокированы для free.
+- Контейнеры свежие (новый sandbox image со всеми security-патчами в Dockerfile.user).
+- На случай регрессии — backup vault и .env существуют на обоих хостах.
+
+---
+
+## Состояние: 2026-05-14 — Pre-rotation security hardening (ветка feature/legal-docs-consent-gate) — HISTORY
 
 ### Что сделано за сессию 2026-05-14 — пакет security-фиксов перед ротацией ключей
 
