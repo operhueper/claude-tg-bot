@@ -163,6 +163,22 @@ export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean 
     // blkio-weight sets relative IO priority (512 = half of max 1000).
     // bps/iops caps are per-device hard limits; device path auto-detected from df.
     // Skipped gracefully when /opt/vault is unavailable (macOS dev, CI).
+    //
+    // NOTE: on Linux with cgroup v2 (all modern kernels / systemd 240+) the
+    // --blkio-weight / --device-write-bps / --device-read-bps / --device-write-iops /
+    // --device-read-iops Docker flags are silent no-ops because they rely on the
+    // cgroup v1 blkio controller which is absent on unified-hierarchy hosts.
+    // The real IO limits are enforced by the systemd slice below via the cgroup v2
+    // io controller.  The blkio flags below are kept as a best-effort fallback for
+    // cgroup v1 environments (e.g. older kernels, cgroupfs driver).
+    //
+    // To activate the systemd slice on a new host:
+    //   sudo cp scripts/systemd/claude-guests.slice /etc/systemd/system/
+    //   sudo systemctl daemon-reload
+    //   sudo systemctl restart claude-tg-bot
+    // Verify with: systemd-cgls | grep claude-guests
+    // !! Before deploying: check the disk path in claude-guests.slice matches
+    //    the actual block device: df -P /opt/vault | tail -1 | awk '{print $1}'
     {
       const vaultDev = getVaultDevice();
       if (vaultDev) {
@@ -173,6 +189,14 @@ export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean 
         args.push("--device-read-iops", `${vaultDev}:4000`);
       }
     }
+
+    // Attach all guest containers to the claude-guests.slice systemd slice.
+    // This activates the cgroup v2 io controller (IOWriteBandwidthMax /
+    // IOReadBandwidthMax) defined in scripts/systemd/claude-guests.slice,
+    // enforcing 50 MB/s write / 100 MB/s read limits per-slice.
+    // Safe to include even when the slice is not yet installed — Docker silently
+    // creates a transient cgroup under the system.slice in that case (no error).
+    args.push("--cgroup-parent=claude-guests.slice");
 
     // NOTE: --ulimit=nproc is intentionally NOT set here. nproc is a per-UID
     // limit on the HOST, so setting it 128 on each container means all containers
