@@ -173,7 +173,26 @@ export async function handleAudio(ctx: Context): Promise<void> {
     return;
   }
 
-  // 2. Daily message limit
+  // 2. Duration limit per tier (checked before download to avoid wasted bandwidth)
+  {
+    const profile = getUserProfile(userId);
+    if (!profile.isOwner) {
+      const maxDuration = profile.tierConfig.tier === 'paid' ? 1800 : 300;
+      const duration = audio.duration ?? 999_999;
+      if (duration > maxDuration) {
+        const durationMin = Math.ceil(duration / 60);
+        const limitMin = maxDuration / 60;
+        await ctx.reply(
+          `Аудио (${durationMin} мин) слишком длинное.\n` +
+          `На вашем тарифе можно до ${limitMin} минут.\n\n` +
+          `Разбейте на части или перейдите на Профи /pay.`
+        );
+        return;
+      }
+    }
+  }
+
+  // 2b. Daily message limit
   {
     const profile = getUserProfile(userId);
     const dailyLimit = profile.tierConfig.dailyMessageLimit;
