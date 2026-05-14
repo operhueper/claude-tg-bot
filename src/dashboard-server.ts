@@ -265,6 +265,62 @@ async function assetResponse(filename: string): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Per-userId rate limiter for /api/* endpoints (V-34)
+// Simple token-bucket: 10 requests per 60 seconds per userId.
+// ---------------------------------------------------------------------------
+
+interface RateLimitBucket {
+  tokens: number;
+  lastRefill: number; // Date.now() ms
+}
+
+const API_RL_LIMIT = 10;       // max requests per window
+const API_RL_WINDOW_MS = 60_000; // 60 seconds
+
+const _apiRateLimitMap = new Map<number, RateLimitBucket>();
+
+function checkApiRateLimit(userId: number): boolean {
+  const now = Date.now();
+  let bucket = _apiRateLimitMap.get(userId);
+  if (!bucket) {
+    bucket = { tokens: API_RL_LIMIT, lastRefill: now };
+    _apiRateLimitMap.set(userId, bucket);
+  }
+  const elapsed = now - bucket.lastRefill;
+  if (elapsed >= API_RL_WINDOW_MS) {
+    bucket.tokens = API_RL_LIMIT;
+    bucket.lastRefill = now;
+  }
+  if (bucket.tokens <= 0) return false;
+  bucket.tokens -= 1;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Cached docker stats for container metrics (V-34)
+// A single 30-second cache shared across all /api/* callers prevents
+// fork-bombing docker stats on every dashboard poll.
+// ---------------------------------------------------------------------------
+
+interface CachedAllContainerMetrics {
+  data: Awaited<ReturnType<typeof getAllContainerMetrics>>;
+  fetchedAt: number; // Date.now() ms
+}
+
+const CONTAINER_METRICS_TTL_MS = 30_000;
+let _cachedAllContainerMetrics: CachedAllContainerMetrics | null = null;
+
+async function getAllContainerMetricsCached(): Promise<Awaited<ReturnType<typeof getAllContainerMetrics>>> {
+  const now = Date.now();
+  if (_cachedAllContainerMetrics && now - _cachedAllContainerMetrics.fetchedAt < CONTAINER_METRICS_TTL_MS) {
+    return _cachedAllContainerMetrics.data;
+  }
+  const data = await getAllContainerMetrics();
+  _cachedAllContainerMetrics = { data, fetchedAt: Date.now() };
+  return data;
+}
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 
@@ -295,6 +351,10 @@ async function handleApiMe(req: Request): Promise<Response> {
     return jsonErr("forbidden", 403);
   }
 
+  if (!checkApiRateLimit(userId)) {
+    return jsonErr("rate_limited", 429);
+  }
+
   const profile = getUserProfile(userId);
 
   // Subscription gate: non-owner guests must be members of REQUIRED_CHANNEL_ID.
@@ -306,7 +366,10 @@ async function handleApiMe(req: Request): Promise<Response> {
   }
 
   const today = getUserTotals(userId, moscowDayStartUtcSeconds());
-  const container = await getContainerMetrics(userId);
+  // Use cached metrics to avoid forking docker stats on every poll (V-34)
+  const allMetrics = await getAllContainerMetricsCached();
+  const container = allMetrics.find((m) => String(m.userId) === String(userId)) ??
+    await getContainerMetrics(userId);
 
   const role: "owner" | "guest" =
     profile.isOwner ? "owner" : "guest";
@@ -376,9 +439,13 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
     return jsonErr("forbidden", 403);
   }
 
+  if (!checkApiRateLimit(validated.user.id)) {
+    return jsonErr("rate_limited", 429);
+  }
+
   const allTotals = getAllUsersTotals();
   const [allContainers, host] = await Promise.all([
-    getAllContainerMetrics(),
+    getAllContainerMetricsCached(),
     getHostMetrics(),
   ]);
   const aggregate = getGuestsAggregate(allContainers);
