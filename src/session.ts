@@ -1332,6 +1332,8 @@ ${dialog}
     this.sessionId = null;
     this.lastActivity = null;
     this.conversationTitle = null;
+    this.pendingPlan = null;
+    this.pendingContextMessages = [];
     console.log(`[${this.profile.label}] Session cleared`);
   }
 
