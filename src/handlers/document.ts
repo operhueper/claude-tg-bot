@@ -8,6 +8,8 @@
 import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { readdirSync, realpathSync, rmSync } from "fs";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import path from "path";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR, inboxDirFor, getUserProfile, OWNER_USER_ID } from "../config";
@@ -19,6 +21,8 @@ import { StreamingState, createStatusCallback } from "./streaming";
 import { createMediaGroupBuffer, handleProcessingError } from "./media-group";
 import { isAudioFile, processAudioFile } from "./audio";
 import { processImageDocument } from "./photo";
+
+const execFileAsync = promisify(execFile);
 
 // LAS/LAZ point cloud extensions
 const LAS_EXTENSIONS = [".las", ".laz"];
@@ -151,10 +155,21 @@ async function downloadDocument(ctx: Context, userId: number): Promise<string> {
   }
 
   const file = await ctx.getFile();
-  const fileName = doc.file_name || `doc_${Date.now()}`;
+  const rawFileName = doc.file_name || `doc_${Date.now()}`;
 
-  // Sanitize filename
-  const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  // V-1G: hard path-traversal guard — reject before any disk I/O
+  if (
+    rawFileName.includes("..") ||
+    rawFileName.startsWith("/") ||
+    rawFileName.includes("\0")
+  ) {
+    throw new Error("Небезопасное имя файла. Загрузка отклонена.");
+  }
+
+  // Sanitize filename: strip non-safe chars, then take basename to cut any dir/ prefix
+  const sanitized = rawFileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const fileName = path.basename(sanitized);
+  const safeName = fileName || `doc_${Date.now()}`;
   const docPath = `${inboxDirFor(userId)}/${safeName}`;
 
   // Download
@@ -198,9 +213,9 @@ if hasattr(h, 'vlrs'):
   info["vlr_count"] = len(h.vlrs)
 print(json.dumps(info, indent=2))
 `;
-      // SECURITY: использовать только Bun.$`...` с фиксированными аргументами; НЕ заменять на execSync — shell injection
-      const result = await Bun.$`python3 -c ${script} ${filePath}`.quiet();
-      const info = JSON.parse(result.text());
+      // V-06 fix: execFile (array args) — no shell, no injection risk regardless of filePath content
+      const { stdout } = await execFileAsync("python3", ["-c", script, filePath]);
+      const info = JSON.parse(stdout);
       const bounds = info.mins && info.maxs
         ? `X: ${info.mins[0].toFixed(2)}–${info.maxs[0].toFixed(2)}, Y: ${info.mins[1].toFixed(2)}–${info.maxs[1].toFixed(2)}, Z: ${info.mins[2].toFixed(2)}–${info.maxs[2].toFixed(2)}`
         : "unknown";
@@ -223,13 +238,13 @@ print(json.dumps(info, indent=2))
   // PDF extraction using pdftotext CLI (install: brew install poppler)
   if (mimeType === "application/pdf" || extension === ".pdf") {
     try {
-      // SECURITY: использовать только Bun.$`...` с фиксированными аргументами; НЕ заменять на execSync — shell injection
-      const pdfPromise = Bun.$`pdftotext -layout ${filePath} -`.quiet();
+      // V-06 fix: execFile (array args) — no shell, no injection risk regardless of filePath content
+      const pdfPromise = execFileAsync("pdftotext", ["-layout", filePath, "-"], { maxBuffer: 50 * 1024 * 1024 });
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("PDF processing timeout")), 30_000)
       );
-      const result = await Promise.race([pdfPromise, timeoutPromise]);
-      return result.text();
+      const { stdout } = await Promise.race([pdfPromise, timeoutPromise]);
+      return stdout;
     } catch (error) {
       console.error("PDF parsing failed:", error);
       const isTimeout = String(error).includes("timeout");
