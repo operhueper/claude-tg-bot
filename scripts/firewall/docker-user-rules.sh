@@ -24,7 +24,7 @@ ensure_rule() {
 
 # V-22: block Hetzner metadata endpoint from guest containers
 ensure_rule DOCKER-USER \
-    -s 172.18.0.0/16 \
+    -s 10.89.0.0/24 \
     -d 169.254.169.254 \
     -j DROP
 

@@ -84,6 +84,13 @@ const FOOTER_HTML = `
       <a href="/how-to-setup.html">как настроить</a>
     </div>
   </div>
+  <div class="footer__row footer__row--legal">
+    <div class="footer__links">
+      <a href="/oferta">Публичная оферта</a>
+      <a href="/privacy">Политика конфиденциальности</a>
+      <a href="/terms">Пользовательское соглашение</a>
+    </div>
+  </div>
   <div class="footer__small">
     Этот сайт собрал сам бот за&nbsp;один вечер. <span>© <span id="year">2026</span></span>
   </div>

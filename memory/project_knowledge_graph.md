@@ -2,6 +2,40 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-14 — Consent Gate + DeepSeek Pool + Legal Docs (всё в проде)
+
+### Новые фичи в этом пакете (ветка feature/legal-docs-consent-gate, задеплоена на prod)
+
+#### 1. Consent Gate (commit 8c62b1d)
+- **`src/consent.ts`**: SQLite-хранилище согласий в `metering.sqlite`, `DOC_VERSION="2026-05-14"`. При смене версии все старые согласия инвалидируются.
+- **`src/handlers/consent-gate.ts`**: gate-сообщение с 3 ссылками (Оферта, Политика, Соглашение) + кнопка «✅ Принимаю условия».
+- **`src/index.ts`**: middleware блокирует ВСЁ (кроме `/start` и callback `consent_accept`) до получения согласия. Это первый барьер перед авторизацией.
+- **`src/handlers/callback.ts`**: обработчик `consent_accept` записывает согласие, удаляет gate-сообщение, пробрасывает в `handleStart`.
+- **`/forget`**: дополнительно вызывает `revokeConsent(userId)`.
+
+#### 2. DeepSeek Key Pool (commit 12233f2)
+- **`src/deepseek-key-pool.ts`**: least-busy pool selector — выбирает ключ с наименьшим in-flight count (tie-break по `lastUsedMs`). Lazy load из `system/deepseek-keys.json`, fallback на `DEEPSEEK_API_KEY` env.
+- **`system/deepseek-keys.json`**: 5-6 DS ключей, gitignored, per-host.
+- **`src/session.ts`**: `withDeepSeekPoolKey()` обёрнут вокруг main query loop, compactIfNeeded и runBackgroundAnalysis; release в finally на каждом пути.
+- **Routing**: гости снова через native DeepSeek API (`api.deepseek.com/anthropic`), НЕ через OpenRouter. OR sub-keys provisioning удалён из `callback.ts`.
+- На проде при старте: `[deepseek-pool] Loaded 6 DeepSeek key(s)`.
+
+#### 3. Юридические документы (commit 8c62b1d)
+- **`src/templates/oferta.ts`**: 16 разделов, лимит ответственности 2000 ₽, рекуррент с notice-box, ЗоЗПП ст. 32, AI-disclaimer, претензионный порядок 30 дней.
+- **`src/templates/privacy.ts`**: 14 разделов, 152-ФЗ, 5 категорий данных с правовыми основаниями, явное согласие на трансграничную передачу (ст. 12 ч. 4 п. 1).
+- **`src/templates/terms.ts`** (новый): 10 разделов, 5 подразделов запретов, жёсткий блок ответственности за контейнер.
+- **Реквизиты**: ИП Энбом Ксения Игоревна, ИНН 631609033320, ОГРНИП 324632700187012, Самара. АО «ТБанк».
+- **`legal/`**: внутренние документы ПДН (`polozhenie_pdn.md`, `prikaz_otvetstvennyy_pdn.md`).
+
+#### 4. Что ОСТАЛОСЬ (не закрыто)
+- **Ротация ключей**: TELEGRAM_BOT_TOKEN (BotFather), OPENAI_API_KEY, OPENROUTER_API_KEY + PROVISIONING_KEY, DEEPSEEK keys (пул), COMPOSIO_API_KEY.
+- **P2 (~35 пунктов V-07..V-39)**: reliability и мелочи — отдельная сессия.
+- **V--1 filter-repo**: владелец отказался от переписывания истории (после ротации токены станут бесполезны).
+- **YuKassa IP whitelist**: расширение диапазона — нет reconciliation job и `/check`.
+- **Consent gate ещё не тестировался с новыми пользователями** — при первом реальном onboarding после деплоя убедиться, что gate работает корректно.
+
+---
+
 ## Состояние: 2026-05-14 — Pre-rotation security pack ЗАДЕПЛОЕН на PROD + jinru
 
 ### Деплой

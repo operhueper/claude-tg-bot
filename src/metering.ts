@@ -36,7 +36,6 @@ try {
     );
     CREATE INDEX IF NOT EXISTS idx_usage_user ON usage(user_id);
     CREATE INDEX IF NOT EXISTS idx_usage_ts ON usage(ts);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_req ON usage(user_id, request_id, model);
     CREATE TABLE IF NOT EXISTS daily_counts (
       user_id TEXT NOT NULL,
       date TEXT NOT NULL,

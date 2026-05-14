@@ -158,37 +158,11 @@ export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean 
     // exhaustion, socket floods). Soft 1024 / hard 2048.
     args.push("--ulimit=nofile=1024:2048");
 
-    // Disk-IO cgroup limits — prevent dd/yt-dlp/tar from saturating the NVMe
-    // and stalling overlay-FS for other guests and the host bot.
-    // blkio-weight sets relative IO priority (512 = half of max 1000).
-    // bps/iops caps are per-device hard limits; device path auto-detected from df.
-    // Skipped gracefully when /opt/vault is unavailable (macOS dev, CI).
-    //
-    // NOTE: on Linux with cgroup v2 (all modern kernels / systemd 240+) the
-    // --blkio-weight / --device-write-bps / --device-read-bps / --device-write-iops /
-    // --device-read-iops Docker flags are silent no-ops because they rely on the
-    // cgroup v1 blkio controller which is absent on unified-hierarchy hosts.
-    // The real IO limits are enforced by the systemd slice below via the cgroup v2
-    // io controller.  The blkio flags below are kept as a best-effort fallback for
-    // cgroup v1 environments (e.g. older kernels, cgroupfs driver).
-    //
-    // To activate the systemd slice on a new host:
-    //   sudo cp scripts/systemd/claude-guests.slice /etc/systemd/system/
-    //   sudo systemctl daemon-reload
-    //   sudo systemctl restart claude-tg-bot
-    // Verify with: systemd-cgls | grep claude-guests
-    // !! Before deploying: check the disk path in claude-guests.slice matches
-    //    the actual block device: df -P /opt/vault | tail -1 | awk '{print $1}'
-    {
-      const vaultDev = getVaultDevice();
-      if (vaultDev) {
-        args.push("--blkio-weight=500");
-        args.push("--device-write-bps", `${vaultDev}:50m`);
-        args.push("--device-read-bps", `${vaultDev}:100m`);
-        args.push("--device-write-iops", `${vaultDev}:2000`);
-        args.push("--device-read-iops", `${vaultDev}:4000`);
-      }
-    }
+    // Disk-IO cgroup limits are enforced by --cgroup-parent=claude-guests.slice
+    // (systemd slice with IOWriteBandwidthMax / IOReadBandwidthMax via cgroup v2).
+    // Docker blkio flags (--blkio-weight, --device-write-bps, etc.) are intentionally
+    // omitted: on Docker 27+ with cgroup v2 they fail with "no such device" instead of
+    // being silent no-ops, breaking container startup.
 
     // Attach all guest containers to the claude-guests.slice systemd slice.
     // This activates the cgroup v2 io controller (IOWriteBandwidthMax /
