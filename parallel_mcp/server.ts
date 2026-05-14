@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import path from "node:path";
 /**
  * Parallel MCP Server — runs independent subtasks in parallel via Claude Agent SDK.
  *
@@ -99,12 +100,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   };
 
   const tasks = args.tasks;
-  if (!tasks || tasks.length < 2) {
+  if (!Array.isArray(tasks) || tasks.length < 2 || tasks.length > 10) {
     return {
       content: [
         {
           type: "text" as const,
-          text: "Error: tasks array with at least 2 items is required",
+          text: "Error: tasks: array of 2..10 items required",
         },
       ],
       isError: true,
@@ -155,11 +156,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     `[parallel] Running ${tasks.length} tasks in parallel (model=${model}, rootCwd=${rootCwd}, isGuest=${isGuest})`
   );
 
+  // V-1I: build allowedPaths set for cwd validation.
+  // TELEGRAM_PARALLEL_ALLOWED_PATHS is injected by session.ts for every guest session.
+  // When absent (dev/owner) we skip validation and fall through to rootCwd.
+  const cwdAllowedPaths = process.env.TELEGRAM_PARALLEL_ALLOWED_PATHS
+    ? process.env.TELEGRAM_PARALLEL_ALLOWED_PATHS.split(",").filter(Boolean)
+    : null;
+
+  function isCwdAllowed(cwd: string): boolean {
+    if (!cwdAllowedPaths) return true; // no restriction configured — allow
+    const resolved = path.resolve(cwd);
+    return cwdAllowedPaths.some((allowed) =>
+      resolved === path.resolve(allowed) ||
+      resolved.startsWith(path.resolve(allowed) + path.sep)
+    );
+  }
+
   // Run all tasks concurrently. Each gets an isolated query() session.
   // mcp__parallel__run is excluded from child sessions to prevent recursion.
   const results = await Promise.all(
     tasks.map(async (task) => {
       const taskCwd = task.cwd ?? rootCwd;
+
+      // V-1I: reject subtask if model-supplied cwd is outside the user's allowedPaths
+      if (task.cwd !== undefined && !isCwdAllowed(task.cwd)) {
+        console.error(
+          `[parallel] Subtask rejected (cwd outside allowed paths): ${task.name} (cwd=${task.cwd})`
+        );
+        return {
+          name: task.name,
+          output: "",
+          error: `cwd outside allowed paths: ${task.cwd}`,
+        };
+      }
+
       console.error(
         `[parallel] Starting subtask: ${task.name} (cwd=${taskCwd})`
       );
