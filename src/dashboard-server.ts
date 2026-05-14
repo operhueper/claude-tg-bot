@@ -38,6 +38,7 @@ import { renderLanding, renderHowToSetup } from "./templates/landing";
 import { renderDashboard } from "./templates/user-dashboard";
 import { renderOferta } from "./templates/oferta";
 import { renderPrivacy } from "./templates/privacy";
+import { renderTerms } from "./templates/terms";
 import type { YuKassaWebhookEvent } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -662,6 +663,12 @@ export function startDashboardServer(): void {
 
         if (method === "GET" && pathname === "/privacy") {
           return new Response(renderPrivacy(), {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        }
+
+        if (method === "GET" && pathname === "/terms") {
+          return new Response(renderTerms(), {
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });
         }

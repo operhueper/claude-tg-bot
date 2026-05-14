@@ -1941,6 +1941,11 @@ ${SHARED_LOGO_SVG}
 <!-- ── Footer ────────────────────────────────────────── -->
 <footer class="g-footer">
   <span>© 2026 · Proboi · <a href="https://proboi.site/">proboi.site</a></span>
+  <span style="margin-left: 12px;">
+    <a href="/oferta">Публичная оферта</a> ·
+    <a href="/privacy">Политика конфиденциальности</a> ·
+    <a href="/terms">Пользовательское соглашение</a>
+  </span>
 </footer>
 
 </body>

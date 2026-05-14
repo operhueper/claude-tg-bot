@@ -33,6 +33,10 @@ metering.sqlite-wal
 # DeepSeek API key pool (per-host, never commit)
 system/deepseek-keys.json
 
+# Confidential business documents (bank requisites, contracts, etc.) — never commit
+COMREQ-*
+*.pdf
+
 # caches
 .eslintcache
 .cache
