@@ -450,13 +450,18 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
 
 async function handleYuKassaWebhookRoute(req: Request): Promise<Response> {
   // IP check (enabled by default; disable with YUKASSA_IP_CHECK=false in env)
+  // V-00: при пустом clientIp раньше проверка пропускалась → любой мог
+  // POST'ом активировать подписку без оплаты. Теперь пустой IP = отказ.
+  // Источник IP — X-Real-IP, который nginx ставит из реального сокета.
+  // X-Forwarded-For читаем как fallback на случай нескольких прокси,
+  // но nginx-конфиг должен гарантировать X-Real-IP всегда.
   if (process.env.YUKASSA_IP_CHECK !== "false") {
     const clientIp =
+      req.headers.get("x-real-ip")?.trim() ||
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
       "";
-    if (clientIp && !isYuKassaIp(clientIp)) {
-      console.warn(`[yukassa-webhook] rejected IP: ${clientIp}`);
+    if (!clientIp || !isYuKassaIp(clientIp)) {
+      console.warn(`[yukassa-webhook] rejected IP: ${clientIp || "<empty>"}`);
       return new Response("Forbidden", { status: 403 });
     }
   }
