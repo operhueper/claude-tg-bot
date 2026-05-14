@@ -195,7 +195,7 @@ function validateInitData(initData: string): ValidatedInitData | null {
 
 const JSON_HEADERS_BASE = {
   "Content-Type": "application/json",
-  "Access-Control-Allow-Origin": "https://web.telegram.org",
+  "Access-Control-Allow-Origin": "https://proboi.site",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };

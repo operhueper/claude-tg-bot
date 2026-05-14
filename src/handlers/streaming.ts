@@ -293,18 +293,27 @@ export class StreamingState {
 
 /**
  * Sends idle heartbeat phrases while the model is silent for >15 seconds.
- * Rotates the phrase every 3 seconds by editing the same message.
- * Stopped (and message deleted) as soon as the model produces any output.
+ * Rotates the phrase every 10 seconds by editing the same message.
+ * When the model invokes a tool, the heartbeat can be told (via setContext)
+ * what's actually happening — a short, serious phrase that replaces the
+ * random idle phrase. While a fresh context phrase exists (<15s old), it is
+ * preferred over the random idle phrases.
+ * Stopped (and message deleted) as soon as the model produces user-visible text.
  */
 class IdleHeartbeat {
   private silenceTimer: ReturnType<typeof setTimeout> | null = null;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
   private idleMessage: Message | null = null;
   private currentPhrase: string | null = null;
+  private contextPhrase: string | null = null;
+  private contextPhraseAt = 0;
+  private lastContextUpdate = 0;
   private stopped = false;
 
   private static readonly INITIAL_DELAY = 15_000;
   private static readonly TICK_INTERVAL = 10_000;
+  private static readonly CONTEXT_FRESHNESS_MS = 15_000;
+  private static readonly CONTEXT_THROTTLE_MS = 5_000;
 
   constructor(private ctx: Context) {}
 
@@ -316,6 +325,57 @@ class IdleHeartbeat {
     if (this.stopped) return;
     void this.removeIdleMessage();
     this.armSilenceTimer();
+  }
+
+  /**
+   * Inform the heartbeat that the model started a concrete action.
+   * Replaces the current idle phrase (or kicks off the heartbeat early)
+   * with a short, serious description. Throttled to one update per 5s so
+   * rapid tool storms don't make the message flicker.
+   */
+  async setContext(phrase: string | null): Promise<void> {
+    if (this.stopped || !phrase) return;
+    const now = Date.now();
+    if (now - this.lastContextUpdate < IdleHeartbeat.CONTEXT_THROTTLE_MS) return;
+    this.lastContextUpdate = now;
+    this.contextPhrase = phrase;
+    this.contextPhraseAt = now;
+
+    if (this.idleMessage) {
+      if (this.currentPhrase === phrase) return;
+      this.currentPhrase = phrase;
+      try {
+        await this.ctx.api.editMessageText(
+          this.idleMessage.chat.id,
+          this.idleMessage.message_id,
+          phrase
+        );
+      } catch (err) {
+        const s = String(err);
+        if (!s.includes("not modified")) {
+          console.debug("IdleHeartbeat: context edit failed:", err);
+        }
+      }
+      return;
+    }
+
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    try {
+      this.idleMessage = await this.ctx.reply(phrase);
+      this.currentPhrase = phrase;
+    } catch (err) {
+      console.debug("IdleHeartbeat: context initial reply failed:", err);
+      return;
+    }
+    if (!this.tickTimer) {
+      this.tickTimer = setInterval(
+        () => void this.rotatePhrase(),
+        IdleHeartbeat.TICK_INTERVAL
+      );
+    }
   }
 
   async stop(): Promise<void> {
@@ -343,10 +403,10 @@ class IdleHeartbeat {
 
   private async beginTicking(): Promise<void> {
     if (this.stopped) return;
-    const phrase = pickRandomPhrase();
+    const phrase = this.pickPhrase();
     this.currentPhrase = phrase;
     try {
-      this.idleMessage = await this.ctx.reply(`✨ ${phrase}…`);
+      this.idleMessage = await this.ctx.reply(phrase);
     } catch (err) {
       console.debug("IdleHeartbeat: failed to send initial phrase:", err);
       return;
@@ -357,15 +417,25 @@ class IdleHeartbeat {
     );
   }
 
+  private pickPhrase(): string {
+    const now = Date.now();
+    const isContextFresh =
+      this.contextPhrase !== null &&
+      now - this.contextPhraseAt < IdleHeartbeat.CONTEXT_FRESHNESS_MS;
+    if (isContextFresh) return this.contextPhrase!;
+    return pickRandomPhrase(this.currentPhrase ?? undefined);
+  }
+
   private async rotatePhrase(): Promise<void> {
     if (this.stopped || !this.idleMessage) return;
-    const next = pickRandomPhrase(this.currentPhrase ?? undefined);
+    const next = this.pickPhrase();
+    if (next === this.currentPhrase) return;
     this.currentPhrase = next;
     try {
       await this.ctx.api.editMessageText(
         this.idleMessage.chat.id,
         this.idleMessage.message_id,
-        `✨ ${next}…`
+        next
       );
     } catch (err) {
       const s = String(err);
@@ -459,6 +529,17 @@ export function createStatusCallback(
   state.heartbeat = heartbeat;
 
   return async (statusType: string, content: string, segmentId?: number) => {
+    // "context" is a hint about what tool is running right now. It should
+    // surface the heartbeat (or update its phrase), NOT reset it like real
+    // model output does.
+    if (statusType === "context") {
+      try {
+        await heartbeat.setContext(content || null);
+      } catch (err) {
+        console.debug("heartbeat.setContext failed:", err);
+      }
+      return;
+    }
     heartbeat.tick();
     try {
       if (statusType === "todo_init" || statusType === "todo_update") {

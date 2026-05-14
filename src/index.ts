@@ -41,6 +41,7 @@ import {
   handleInfo,
   handleMemory,
   handleForget,
+  handleKeypool,
   handleText,
   handleVoice,
   handlePhoto,
@@ -236,6 +237,7 @@ bot.command("resume", handleResume);
 bot.command("restart", handleRestart);
 bot.command("reloadbot", handleReloadBot);
 bot.command("retry", handleRetry);
+bot.command("keypool", handleKeypool);
 bot.command("dashboard", handleDashboard);
 bot.command("pay", handlePay);
 bot.command("cancel", handleCancel);
@@ -286,6 +288,16 @@ console.log("Starting bot...");
 // Get bot info first
 const botInfo = await bot.api.getMe();
 console.log(`Bot started: @${botInfo.username}`);
+
+// Startup health-check для DeepSeek пула: пингаем все ключи параллельно,
+// битые сразу уходят в long-quarantine. Не блокирует старт если DeepSeek
+// недоступен (сетевая ошибка → ключи остаются здоровыми, fail-open поведение).
+// Fire-and-forget — не задерживаем старт бота больше чем на ~10 сек.
+import("./deepseek-key-pool").then(({ healthCheckDeepSeekPool }) =>
+  healthCheckDeepSeekPool().catch((err) =>
+    console.warn(`[deepseek-pool] health-check failed: ${err}`)
+  )
+);
 
 // Init container manager for all known users
 const containerProfiles = ALLOWED_USERS.map((id) => getUserProfile(id)).filter((p) => p.containerEnabled);

@@ -18,6 +18,7 @@ import {
   startTypingIndicator,
 } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
+import { enqueueDebounced } from "./message-buffer";
 
 /**
  * Handle incoming voice messages.
@@ -63,7 +64,7 @@ export async function handleVoice(ctx: Context): Promise<void> {
     }
   }
 
-  // 3. Daily message limit — enforced only when tierConfig specifies a finite cap
+  // 3. Daily message limit — check only (no increment here); increment happens in flush
   {
     const profile = getUserProfile(userId);
     const dailyLimit = profile.tierConfig.dailyMessageLimit;
@@ -84,76 +85,31 @@ export async function handleVoice(ctx: Context): Promise<void> {
         );
         return;
       }
-      incrementDailyUsage(userId);
     }
   }
 
-  // Per-user lock — prevent two parallel requests from the same user
-  if (isUserBusy(userId)) {
-    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
-    return;
-  }
-  const releaseUserLock = await acquireUserLock(userId);
-
-  // Container slot for users with containers enabled
-  const _voiceContainerProfile = getUserProfile(userId);
-  let releaseContainerSlot: (() => void) | null = null;
-  if (_voiceContainerProfile.containerEnabled) {
-    const { queued } = getQueueStatus();
-    if (queued > 0) {
-      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
-    }
-    try {
-      releaseContainerSlot = await acquireContainerSlot();
-    } catch {
-      releaseUserLock();
-      await ctx.reply("⏳ Бот сейчас перегружен, попробуй через минуту.");
-      return;
-    }
-  }
-
-  // 4. Rate limit check (after lock so two concurrent messages can't both pass)
-  const [allowed, retryAfter] = rateLimiter.check(userId);
-  if (!allowed) {
-    releaseUserLock();
-    await auditLogRateLimit(userId, username, retryAfter!);
-    const waitSec = Math.ceil(retryAfter!);
-    await ctx.reply(`⏳ Слишком много запросов. Подожди ${waitSec} сек и попробуй снова.`);
-    return;
-  }
-
-  const session = getSession(userId);
-
-  // 5. Mark processing started (allows /stop to work during transcription/classification)
-  const stopProcessing = session.startProcessing();
-
-  // 6. Start typing indicator for transcription
+  // 4. Download and transcribe — happens before lock/queue decisions
   const typing = startTypingIndicator(ctx);
-
   let voicePath: string | null = null;
-  let state = new StreamingState();
+  let transcript: string | null = null;
 
   try {
-    // 7. Download voice file
     const file = await ctx.getFile();
     const timestamp = Date.now();
     const userInboxDir = inboxDirFor(userId);
     mkdirSync(userInboxDir, { recursive: true });
     voicePath = `${userInboxDir}/voice_${timestamp}.ogg`;
 
-    // Download the file
     const downloadRes = await fetch(
       `https://api.telegram.org/file/bot${ctx.api.token}/${file.file_path}`
     );
     const buffer = await downloadRes.arrayBuffer();
     await Bun.write(voicePath, buffer);
 
-    // 8. Transcribe
     const statusMsg = await ctx.reply("🎤 Расшифровываю...");
+    transcript = await transcribeVoice(voicePath);
 
-    const transcript = await transcribeVoice(voicePath);
     if (!transcript) {
-      // V-30L: editMessageText may throw if user blocked the bot — ignore
       await ctx.api.editMessageText(
         chatId,
         statusMsg.message_id,
@@ -162,46 +118,145 @@ export async function handleVoice(ctx: Context): Promise<void> {
       return;
     }
 
-    // 9. Show transcript (truncate display if needed - full transcript still sent to Claude)
-    const maxDisplay = 4000; // Leave room for 🎤 "" wrapper within 4096 limit
+    const maxDisplay = 4000;
     const displayTranscript =
       transcript.length > maxDisplay
         ? transcript.slice(0, maxDisplay) + "…"
         : transcript;
-    // V-30L: editMessageText may throw if user blocked the bot — ignore
     await ctx.api.editMessageText(
       chatId,
       statusMsg.message_id,
       `🎤 "${displayTranscript}"`
     ).catch(() => {});
-
-    // 10. Set conversation title from transcript (if new session)
-    if (!session.isActive) {
-      const title =
-        transcript.length > 50 ? transcript.slice(0, 47) + "..." : transcript;
-      session.conversationTitle = title;
+  } catch (error) {
+    await replyFriendly(ctx, error, "транскрипция голоса");
+    return;
+  } finally {
+    typing.stop();
+    if (voicePath) {
+      try {
+        unlinkSync(voicePath);
+      } catch (err) {
+        console.debug("Failed to delete voice file:", err);
+      }
     }
+  }
 
-    // 11. Create streaming state and callback
-    state = new StreamingState();
-    const statusCallback = createStatusCallback(ctx, state);
+  // transcript is guaranteed non-null here
+  const finalTranscript = transcript;
 
-    // 12. Send to Claude
+  const session = getSession(userId);
+
+  // If session is running, queue transcript as pending context
+  if (session.isRunning) {
+    session.addPendingContext(finalTranscript);
+    try {
+      await ctx.react("👌");
+    } catch {
+      // ignore
+    }
+    return;
+  }
+
+  // Route through debounce buffer — flush callback handles lock + rate-limit + send
+  enqueueDebounced(userId, finalTranscript, ctx, async (combined, latestCtx) => {
+    await processVoiceMessage(combined, latestCtx, userId, username, chatId);
+  });
+  try {
+    await ctx.react("👌");
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Core voice query executor — owns lock, rate-limit, container-slot, and the full
+ * try/finally lifecycle. Called from the debounce flush callback.
+ */
+async function processVoiceMessage(
+  combined: string,
+  ctx: Context,
+  userId: number,
+  username: string,
+  chatId: number
+): Promise<void> {
+  let releaseUserLock: (() => void) | null = null;
+  let releaseContainerSlot: (() => void) | null = null;
+
+  if (isUserBusy(userId)) {
+    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
+    return;
+  }
+  releaseUserLock = await acquireUserLock(userId);
+
+  const _voiceContainerProfile = getUserProfile(userId);
+  if (_voiceContainerProfile.containerEnabled) {
+    const { queued } = getQueueStatus();
+    if (queued > 0) {
+      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
+    }
+    try {
+      releaseContainerSlot = await acquireContainerSlot();
+    } catch {
+      releaseUserLock?.();
+      await ctx.reply("⏳ Бот сейчас перегружен, попробуй через минуту.");
+      return;
+    }
+  }
+
+  // Rate limit — one unit per flush
+  const [allowed, retryAfter] = rateLimiter.check(userId);
+  if (!allowed) {
+    releaseContainerSlot?.();
+    releaseUserLock?.();
+    await auditLogRateLimit(userId, username, retryAfter!);
+    const waitSec = Math.ceil(retryAfter!);
+    await ctx.reply(`⏳ Слишком много запросов. Подожди ${waitSec} сек и попробуй снова.`);
+    return;
+  }
+
+  // Daily-limit increment — one unit per flush
+  {
+    const profile = getUserProfile(userId);
+    const dailyLimit = profile.tierConfig.dailyMessageLimit;
+    if (dailyLimit !== null && userId !== OWNER_USER_ID) {
+      incrementDailyUsage(userId);
+
+      const usage = getDailyUsage(userId, dailyLimit);
+      if (usage.remaining === Math.ceil(usage.limit * 0.2) && usage.remaining > 0) {
+        ctx.reply(
+          `💡 Осталось ${usage.remaining} из ${usage.limit} бесплатных сообщений сегодня.\nХотите без лимитов? → /pay`
+        ).catch(() => {});
+      }
+    }
+  }
+
+  const session = getSession(userId);
+
+  if (!session.isActive) {
+    const title =
+      combined.length > 50 ? combined.slice(0, 47) + "..." : combined;
+    session.conversationTitle = title;
+  }
+
+  const stopProcessing = session.startProcessing();
+  const typing = startTypingIndicator(ctx);
+  let state = new StreamingState();
+  const statusCallback = createStatusCallback(ctx, state);
+
+  try {
     const claudeResponse = await session.sendMessageStreaming(
-      transcript,
+      combined,
       username,
       userId,
       statusCallback,
       chatId,
       ctx,
-      false // mediaHint: transcript is plain text, not a binary media file
+      false
     );
-
-    // 13. Audit log
-    await auditLog(userId, username, "VOICE", transcript, claudeResponse);
+    await auditLog(userId, username, "VOICE", combined, claudeResponse);
   } catch (error) {
     if (String(error).includes("abort") || String(error).includes("cancel")) {
-      // Only show "Query stopped" if it was an explicit stop, not an interrupt from a new message
       const wasInterrupt = session.consumeInterruptFlag();
       if (!wasInterrupt) {
         await ctx.reply("🛑 Query stopped.");
@@ -214,15 +269,6 @@ export async function handleVoice(ctx: Context): Promise<void> {
     stopProcessing();
     typing.stop();
     releaseContainerSlot?.();
-    releaseUserLock();
-
-    // Clean up voice file
-    if (voicePath) {
-      try {
-        unlinkSync(voicePath);
-      } catch (error) {
-        console.debug("Failed to delete voice file:", error);
-      }
-    }
+    releaseUserLock?.();
   }
 }

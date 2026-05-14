@@ -829,3 +829,63 @@ export async function handleCancel(ctx: Context): Promise<void> {
     { reply_markup: kb }
   );
 }
+
+/**
+ * /keypool — диагностика DeepSeek-пула: число ключей, статус каждого
+ * (живой/карантин), число активных запросов и причина последней ошибки.
+ * Owner-only. Ключи всегда маскируются (sk-xxxx…last4).
+ */
+export async function handleKeypool(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
+    await ctx.reply("Unauthorized.");
+    return;
+  }
+  if (!commandAllowed(userId, "keypool")) {
+    await ctx.reply("🚫 Эта команда тебе недоступна.");
+    return;
+  }
+
+  const { deepseekPoolSnapshot, reloadDeepSeekPool } = await import("../deepseek-key-pool");
+
+  // Поддержка `/keypool reload` — пересоздать пул из файла без рестарта бота.
+  const text = ctx.message?.text ?? "";
+  if (/^\/keypool\s+reload/i.test(text)) {
+    const count = reloadDeepSeekPool();
+    await ctx.reply(`🔄 Пул пересобран из system/deepseek-keys.json: ${count} ключей.`);
+    return;
+  }
+
+  const snapshot = deepseekPoolSnapshot();
+  if (snapshot.length === 0) {
+    await ctx.reply("⚠️ Пул пуст — нет ключей в system/deepseek-keys.json.");
+    return;
+  }
+
+  const now = Date.now();
+  const healthy = snapshot.filter((s) => s.healthy);
+  const quarantined = snapshot.filter((s) => !s.healthy);
+
+  const lines: string[] = [];
+  lines.push(`<b>DeepSeek key pool</b>`);
+  lines.push(`Всего: ${snapshot.length} · живых: ${healthy.length} · в карантине: ${quarantined.length}`);
+  lines.push("");
+
+  for (const s of snapshot) {
+    const status = s.healthy ? "✅" : "❌";
+    let line = `${status} <code>${escapeHtml(s.key)}</code> · in-flight=${s.inFlight}`;
+    if (!s.healthy) {
+      const minLeft = Math.max(0, Math.round((s.quarantinedUntilMs - now) / 60000));
+      line += ` · карантин ${minLeft} мин · ${escapeHtml(s.lastFailReason || "?")}`;
+    } else if (s.failCount > 0) {
+      line += ` · был битый (failCount=${s.failCount})`;
+    }
+    lines.push(line);
+  }
+
+  lines.push("");
+  lines.push("<i>Команды:</i>");
+  lines.push("<code>/keypool reload</code> — пересобрать пул из файла");
+
+  await ctx.reply(lines.join("\n"), { parse_mode: "HTML" });
+}

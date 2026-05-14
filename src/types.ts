@@ -7,7 +7,7 @@ import type { Message } from "grammy/types";
 
 // Status callback for streaming updates
 export type StatusCallback = (
-  type: "thinking" | "tool" | "text" | "segment_end" | "done" | "todo_init" | "todo_update",
+  type: "thinking" | "tool" | "text" | "segment_end" | "done" | "todo_init" | "todo_update" | "context",
   content: string,
   segmentId?: number
 ) => Promise<void>;

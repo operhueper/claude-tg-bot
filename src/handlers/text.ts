@@ -24,6 +24,7 @@ import { escapeHtml } from "../formatting";
 import { sanitizeForPrompt } from "../memory/inject";
 import { maybeAutoNew } from "./topic-helper";
 import { maybeWarmInfrastructure } from "../infrastructure-warmer";
+import { enqueueDebounced } from "./message-buffer";
 
 /**
  * Detect messages that contain multiple independent subtasks and prepend an
@@ -154,6 +155,200 @@ async function drainPendingContext(
 }
 
 /**
+ * Core query executor — owns lock, rate-limit, container-slot, and the full
+ * try/finally lifecycle. Called from the debounce flush callback.
+ *
+ * `combined` is the final user text (already merged by the buffer or interrupt
+ * redirect logic). `checkInterrupt` has already run in the outer handler.
+ */
+async function processCombinedMessage(
+  combined: string,
+  ctx: Context,
+  userId: number,
+  username: string,
+  chatId: number
+): Promise<void> {
+  let releaseUserLock: (() => void) | null = null;
+  let releaseContainerSlot: (() => void) | null = null;
+
+  if (isUserBusy(userId)) {
+    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
+    return;
+  }
+  releaseUserLock = await acquireUserLock(userId);
+
+  const _containerProfile = getUserProfile(userId);
+  if (_containerProfile.containerEnabled) {
+    const { queued } = getQueueStatus();
+    if (queued > 0) {
+      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
+    }
+    try {
+      releaseContainerSlot = await acquireContainerSlot();
+    } catch {
+      releaseUserLock?.();
+      await ctx.reply("⏳ Бот сейчас перегружен, попробуй через минуту.");
+      return;
+    }
+  }
+
+  // Rate limit — one unit per flush, not per raw message
+  const [allowed, retryAfter] = rateLimiter.check(userId);
+  if (!allowed) {
+    releaseContainerSlot?.();
+    releaseUserLock?.();
+    await auditLogRateLimit(userId, username, retryAfter!);
+    const waitSec = Math.ceil(retryAfter!);
+    await ctx.reply(
+      `⏳ Слишком много запросов подряд. Подожди ${waitSec} сек и попробуй снова.`
+    );
+    return;
+  }
+
+  // Daily-limit increment — one unit per flush
+  {
+    const _profile = getUserProfile(userId);
+    const dailyLimit = _profile.tierConfig.dailyMessageLimit;
+    if (dailyLimit !== null && userId !== OWNER_USER_ID) {
+      incrementDailyUsage(userId);
+
+      // 80% warning: fire-and-forget when exactly 20% remain
+      const usage = getDailyUsage(userId, dailyLimit);
+      if (usage.remaining === Math.ceil(usage.limit * 0.2) && usage.remaining > 0) {
+        ctx.reply(
+          `💡 Осталось ${usage.remaining} из ${usage.limit} бесплатных сообщений сегодня.\nХотите без лимитов? → /pay`
+        ).catch(() => {});
+      }
+    }
+  }
+
+  const session = getSession(userId);
+
+  let message = combined;
+
+  // Store message for retry
+  session.lastMessage = message;
+
+  // Auto-reset on topic change (active sessions)
+  if (session.isActive && !session.isRunning) {
+    const topicChanged = await maybeAutoNew(session, message, ctx);
+    if (topicChanged) {
+      const title = message.length > 50 ? message.slice(0, 47) + "..." : message;
+      session.conversationTitle = title;
+    }
+  }
+
+  // Set conversation title from first message (if new session)
+  if (!session.isActive) {
+    const title =
+      message.length > 50 ? message.slice(0, 47) + "..." : message;
+    session.conversationTitle = title;
+  }
+
+  const stopProcessing = session.startProcessing();
+  const typing = startTypingIndicator(ctx);
+  let state = new StreamingState();
+  let statusCallback: StatusCallback = createStatusCallback(ctx, state);
+
+  // Orchestration hint for DeepSeek-routed sessions
+  const profile = session.profile;
+  if (profile.deepseekEnv) {
+    message = maybePrependOrchestrationHint(message, userId);
+  }
+
+  // Reattach pending plan clarification context
+  if (session.pendingClarification && session.pendingPlan) {
+    session.pendingClarification = false;
+    const originalMsg = session.pendingPlan.originalMessage;
+    session.clearPendingPlan();
+    message = `Пользователь уточнил план: ${message}\n\nИсходная задача была: ${originalMsg}\n\nПересмотри план с учётом уточнения и снова выведи PLAN_START/PLAN_END.`;
+  } else if (session.pendingClarification) {
+    session.pendingClarification = false;
+  }
+
+  const MAX_RETRIES = 1;
+  const meteringRequestId = randomUUID();
+
+  try {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await session.sendMessageStreaming(
+          message,
+          username,
+          userId,
+          statusCallback,
+          chatId,
+          ctx,
+          undefined,
+          undefined,
+          meteringRequestId
+        );
+
+        if (session.pendingPlan) {
+          const planText = session.pendingPlan.planText;
+          const planHtml = `📋 <b>План выполнения:</b>\n${escapeHtml(planText)}`;
+          const keyboard = new InlineKeyboard()
+            .text('✅ Выполнить', `plan_confirm:${userId}`)
+            .text('❌ Отменить', `plan_cancel:${userId}`)
+            .row()
+            .text('✏️ Уточнить', `plan_clarify:${userId}`);
+          await ctx.reply(planHtml, { parse_mode: 'HTML', reply_markup: keyboard });
+          break;
+        }
+
+        await auditLog(userId, username, "TEXT", message, response);
+        break;
+      } catch (error) {
+        const errorStr = String(error);
+        const isClaudeCodeCrash = errorStr.includes("exited with code");
+
+        for (const toolMsg of state.toolMessages) {
+          try {
+            await ctx.api.deleteMessage(toolMsg.chat.id, toolMsg.message_id);
+          } catch {
+            // ignore
+          }
+        }
+
+        if (isClaudeCodeCrash && attempt < MAX_RETRIES) {
+          console.log(
+            `Claude Code crashed, retrying (attempt ${attempt + 2}/${MAX_RETRIES + 1})...`
+          );
+          await state.cleanup();
+          await session.kill();
+          await ctx.reply(`⚠️ Claude crashed, retrying...`);
+          state = new StreamingState();
+          statusCallback = createStatusCallback(ctx, state);
+          continue;
+        }
+
+        console.error("Error processing message:", error);
+
+        if (errorStr.includes("abort") || errorStr.includes("cancel")) {
+          const wasInterrupt = session.consumeInterruptFlag();
+          if (!wasInterrupt) {
+            await ctx.reply("🛑 Query stopped.");
+          }
+        } else {
+          await replyFriendly(ctx, error, "обработка текста");
+        }
+        break;
+      }
+    }
+  } finally {
+    await state.cleanup();
+    stopProcessing();
+    typing.stop();
+    releaseContainerSlot?.();
+    releaseUserLock?.();
+  }
+
+  await drainPendingContext(session, ctx, username, userId, chatId);
+
+  maybeWarmInfrastructure(userId).catch(() => {});
+}
+
+/**
  * Handle incoming text messages.
  */
 export async function handleText(ctx: Context): Promise<void> {
@@ -189,8 +384,6 @@ export async function handleText(ctx: Context): Promise<void> {
   }
 
   // Prepend replied-to message context if user is replying to something.
-  // Both first_name and message text are sanitized to prevent prompt injection
-  // (first_name is user-controlled; quoted text may contain adversarial content).
   const replyMsg = ctx.message?.reply_to_message;
   if (replyMsg) {
     const rawReplyText =
@@ -208,7 +401,7 @@ export async function handleText(ctx: Context): Promise<void> {
     }
   }
 
-  // Daily message limit — enforced only when tierConfig specifies a finite cap
+  // Daily message limit — check only (no increment here); increment happens in processCombinedMessage
   {
     const _profile = getUserProfile(userId);
     const dailyLimit = _profile.tierConfig.dailyMessageLimit;
@@ -229,54 +422,16 @@ export async function handleText(ctx: Context): Promise<void> {
         );
         return;
       }
-      incrementDailyUsage(userId);
-
-      // 80% warning: fire-and-forget when exactly 20% remain
-      const usage = getDailyUsage(userId, dailyLimit);
-      if (usage.remaining === Math.ceil(usage.limit * 0.2) && usage.remaining > 0) {
-        ctx.reply(
-          `💡 Осталось ${usage.remaining} из ${usage.limit} бесплатных сообщений сегодня.\nХотите без лимитов? → /pay`
-        ).catch(() => {});
-      }
     }
   }
 
-  // Per-user lock — prevent two parallel requests from the same user.
-  let releaseUserLock: (() => void) | null = null;
-  let releaseContainerSlot: (() => void) | null = null;
-
-  if (isUserBusy(userId)) {
-    await ctx.reply("⏳ Подожди — обрабатываю предыдущее сообщение.");
-    return;
-  }
-  releaseUserLock = await acquireUserLock(userId);
-
-  // Container slot for users with containers enabled
-  const _containerProfile = getUserProfile(userId);
-  if (_containerProfile.containerEnabled) {
-    const { queued } = getQueueStatus();
-    if (queued > 0) {
-      await ctx.reply(`⏳ В очереди (${queued + 1}-й). Подождём немного...`);
-    }
-    try {
-      releaseContainerSlot = await acquireContainerSlot();
-    } catch {
-      releaseUserLock?.();
-      await ctx.reply("⏳ Бот сейчас перегружен, попробуй через минуту.");
-      return;
-    }
-  }
-
+  // Interrupt check — must run before queueing so !-messages interrupt instead of queue
   const session = getSession(userId);
-
-  // 2. Check for interrupt prefix
   const interruptResult = await checkInterrupt(message, userId);
   if (interruptResult.isInterrupt) {
     if (interruptResult.isRedirect && interruptResult.redirectMessage) {
-      // Stop was already called inside checkInterrupt; wait a bit for abort to settle
       await new Promise((r) => setTimeout(r, 600));
 
-      // Build redirect message with optional partial context
       const partial = session.lastPartialResponse;
       session.lastPartialResponse = null;
 
@@ -284,11 +439,11 @@ export async function handleText(ctx: Context): Promise<void> {
         ? `[Контекст: предыдущее выполнение прервано. Вот что было выведено до прерывания: "${sanitizePartial(partial)}"]\n\n`
         : "";
       message = contextNote + interruptResult.redirectMessage;
-      // Fall through to send the redirect message as a new query
+      // Fall through to send the redirect message — skip debounce, process immediately
+      await processCombinedMessage(message, ctx, userId, username, chatId);
+      return;
     } else {
       // Pure stop — return early
-      releaseContainerSlot?.();
-      releaseUserLock?.();
       return;
     }
   } else {
@@ -296,185 +451,27 @@ export async function handleText(ctx: Context): Promise<void> {
   }
 
   if (!message.trim()) {
-    releaseContainerSlot?.();
-    releaseUserLock?.();
     return;
   }
 
-  // 3. Rate limit check — must happen before we decide to queue as pending context,
-  // so an attacker cannot bypass the limiter by sending while a query is running.
-  const [allowed, retryAfter] = rateLimiter.check(userId);
-  if (!allowed) {
-    releaseContainerSlot?.();
-    releaseUserLock?.();
-    await auditLogRateLimit(userId, username, retryAfter!);
-    const waitSec = Math.ceil(retryAfter!);
-    await ctx.reply(
-      `⏳ Слишком много запросов подряд. Подожди ${waitSec} сек и попробуй снова.`
-    );
-    return;
-  }
-
-  // 2b. If generation is running and message is NOT an interrupt (already handled above),
-  // queue it as pending context and acknowledge with a reaction.
+  // If session is already running, queue message as pending context (in-flight queue)
   if (session.isRunning) {
     session.addPendingContext(message);
-    releaseContainerSlot?.();
-    releaseUserLock?.();
     try {
       await ctx.react("👌");
     } catch {
-      // Reaction may fail (e.g. old clients) — ignore silently
+      // Reaction may fail on old clients — ignore
     }
     return;
   }
 
-  // 4. Store message for retry
-  session.lastMessage = message;
-
-  // Auto-reset on topic change (active sessions)
-  if (session.isActive && !session.isRunning) {
-    const topicChanged = await maybeAutoNew(session, message, ctx);
-    if (topicChanged) {
-      const title = message.length > 50 ? message.slice(0, 47) + "..." : message;
-      session.conversationTitle = title;
-    }
-  }
-
-  // 5. Set conversation title from first message (if new session)
-  if (!session.isActive) {
-    // Truncate title to ~50 chars
-    const title =
-      message.length > 50 ? message.slice(0, 47) + "..." : message;
-    session.conversationTitle = title;
-  }
-
-  // 6. Mark processing started
-  const stopProcessing = session.startProcessing();
-
-  // 7. Start typing indicator
-  const typing = startTypingIndicator(ctx);
-
-  // 8. Create streaming state and callback
-  let state = new StreamingState();
-  let statusCallback: StatusCallback = createStatusCallback(ctx, state);
-
-  // 9. Prepend orchestration hint for any DeepSeek-routed session (owner or guest).
-  // DeepSeek-chat ignores Task even when it announces parallelism in thinking,
-  // so we route both profiles through mcp__parallel__run via this detector.
-  // Native Anthropic models (Sonnet) skip the hint and use Task directly.
-  const profile = session.profile;
-  if (profile.deepseekEnv) {
-    message = maybePrependOrchestrationHint(message, userId);
-  }
-
-  // If user is clarifying a pending plan, reattach the original message context
-  if (session.pendingClarification && session.pendingPlan) {
-    session.pendingClarification = false;
-    const originalMsg = session.pendingPlan.originalMessage;
-    session.clearPendingPlan();
-    message = `Пользователь уточнил план: ${message}\n\nИсходная задача была: ${originalMsg}\n\nПересмотри план с учётом уточнения и снова выведи PLAN_START/PLAN_END.`;
-  } else if (session.pendingClarification) {
-    // No plan to attach — just clear the flag
-    session.pendingClarification = false;
-  }
-
-  // 10. Send to Claude with retry logic for crashes
-  const MAX_RETRIES = 1;
-  // Single requestId shared across retries so double-billing is prevented:
-  // metering uses INSERT OR REPLACE keyed on (user_id, request_id, model).
-  const meteringRequestId = randomUUID();
-
+  // Route through debounce buffer — flush callback handles all processing
+  enqueueDebounced(userId, message, ctx, async (combined, latestCtx) => {
+    await processCombinedMessage(combined, latestCtx, userId, username, chatId);
+  });
   try {
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const response = await session.sendMessageStreaming(
-          message,
-          username,
-          userId,
-          statusCallback,
-          chatId,
-          ctx,
-          undefined, // mediaHint
-          undefined, // systemPromptOverride
-          meteringRequestId
-        );
-
-        // Check for pending plan — show to user with action buttons
-        if (session.pendingPlan) {
-          const planText = session.pendingPlan.planText;
-          // Keep pendingPlan on session so callback handlers can read originalMessage
-          const planHtml = `📋 <b>План выполнения:</b>\n${escapeHtml(planText)}`;
-          const keyboard = new InlineKeyboard()
-            .text('✅ Выполнить', `plan_confirm:${userId}`)
-            .text('❌ Отменить', `plan_cancel:${userId}`)
-            .row()
-            .text('✏️ Уточнить', `plan_clarify:${userId}`);
-          await ctx.reply(planHtml, { parse_mode: 'HTML', reply_markup: keyboard });
-          break; // exit retry loop — waiting for user decision
-        }
-
-        // 11. Audit log
-        await auditLog(userId, username, "TEXT", message, response);
-
-        break; // Success - exit retry loop
-      } catch (error) {
-        const errorStr = String(error);
-        const isClaudeCodeCrash = errorStr.includes("exited with code");
-
-        // Clean up any partial messages from this attempt
-        for (const toolMsg of state.toolMessages) {
-          try {
-            await ctx.api.deleteMessage(toolMsg.chat.id, toolMsg.message_id);
-          } catch {
-            // Ignore cleanup errors
-          }
-        }
-
-        // Retry on Claude Code crash (not user cancellation)
-        if (isClaudeCodeCrash && attempt < MAX_RETRIES) {
-          console.log(
-            `Claude Code crashed, retrying (attempt ${attempt + 2}/${MAX_RETRIES + 1})...`
-          );
-          await state.cleanup(); // stop heartbeat before creating new state
-          await session.kill(); // Clear corrupted session
-          await ctx.reply(`⚠️ Claude crashed, retrying...`);
-          // Reset state for retry
-          state = new StreamingState();
-          statusCallback = createStatusCallback(ctx, state);
-          continue;
-        }
-
-        // Final attempt failed or non-retryable error
-        console.error("Error processing message:", error);
-
-        // Check if it was a cancellation
-        if (errorStr.includes("abort") || errorStr.includes("cancel")) {
-          // Only show "Query stopped" if it was an explicit stop, not an interrupt from a new message
-          const wasInterrupt = session.consumeInterruptFlag();
-          if (!wasInterrupt) {
-            await ctx.reply("🛑 Query stopped.");
-          }
-        } else {
-          await replyFriendly(ctx, error, "обработка текста");
-        }
-        break; // Exit loop after handling error
-      }
-    }
-  } finally {
-    // 12. Cleanup — always runs even on abort/cancel/crash
-    await state.cleanup();
-    stopProcessing();
-    typing.stop();
-    releaseContainerSlot?.();
-    releaseUserLock?.();
+    await ctx.react("👌");
+  } catch {
+    // ignore
   }
-
-  // 13. Drain pending context accumulated while the main query was running.
-  // Runs AFTER outer finally so stopProcessing/typing are guaranteed to have
-  // been called exactly once above. Each drain iteration owns its own state.
-  await drainPendingContext(session, ctx, username, userId, chatId);
-
-  // Fire-and-forget infrastructure warming for free-tier users approaching limit
-  maybeWarmInfrastructure(userId).catch(() => {});
 }

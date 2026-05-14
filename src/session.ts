@@ -41,21 +41,28 @@ type EnvDict = { [k: string]: string | undefined };
 
 function withDeepSeekPoolKey(
   env: EnvDict | undefined
-): { env: EnvDict | undefined; release: () => void } {
+): {
+  env: EnvDict | undefined;
+  release: () => void;
+  reportFailure: (reason: string) => void;
+} {
   if (!env || env.ANTHROPIC_API_KEY !== DEEPSEEK_POOL_MARKER) {
-    return { env, release: () => {} };
+    return { env, release: () => {}, reportFailure: () => {} };
   }
   const acquired = acquireDeepSeekKey();
   if (!acquired) {
     console.warn("[deepseek-pool] No keys in pool but profile has pool marker — request will fail");
-    return { env, release: () => {} };
+    return { env, release: () => {}, reportFailure: () => {} };
   }
   return {
     env: { ...env, ANTHROPIC_API_KEY: acquired.key },
     release: acquired.release,
+    reportFailure: acquired.reportFailure,
   };
 }
 import { formatToolStatus, escapeHtml } from "./formatting";
+import { humanizeToolCall, FALLBACK_PLAN_ANNOUNCEMENT } from "./announce";
+import { redactSecrets } from "./utils";
 import {
   checkPendingAskUserRequests,
   checkPendingSendFileRequests,
@@ -310,8 +317,8 @@ export class ClaudeSession {
   }
 
   addPendingContext(msg: string): void {
-    const MAX_PENDING_MESSAGES = 5;
-    const MAX_PENDING_CHARS = 5000;
+    const MAX_PENDING_MESSAGES = 10;
+    const MAX_PENDING_CHARS = 10000;
     const totalChars = this.pendingContextMessages.reduce((sum, m) => sum + m.length, 0);
     if (this.pendingContextMessages.length >= MAX_PENDING_MESSAGES || totalChars + msg.length > MAX_PENDING_CHARS) {
       // Queue full — drop silently to prevent unbounded growth
@@ -863,6 +870,12 @@ export class ClaudeSession {
                 }
               }
 
+              // Если модель уже что-то написала перед tool_use — закрываем
+              // этот текстовый сегмент как «анонс плана» (sid=0 сохранится
+              // в `done` по существующей логике streaming.ts).
+              // Fallback: если первый tool_use, а текста нет — синтезируем
+              // generic-анонс, чтобы пользователь не сидел в тишине, пока
+              // DeepSeek проигнорировал инструкцию из системного промпта.
               if (currentSegmentText) {
                 await statusCallback(
                   "segment_end",
@@ -871,6 +884,21 @@ export class ClaudeSession {
                 );
                 currentSegmentId++;
                 currentSegmentText = "";
+              } else if (toolsInSession.length === 0) {
+                await statusCallback(
+                  "segment_end",
+                  FALLBACK_PLAN_ANNOUNCEMENT,
+                  currentSegmentId
+                );
+                currentSegmentId++;
+              }
+
+              // Контекст для idle-heartbeat: короткая серьёзная фраза о том,
+              // что бот реально сейчас делает. Throttle (5с) и фильтрация
+              // null'ов выполняются внутри IdleHeartbeat.setContext.
+              const contextPhrase = humanizeToolCall(toolName, toolInput);
+              if (contextPhrase) {
+                await statusCallback("context", contextPhrase);
               }
 
               const toolDisplay = formatToolStatus(toolName, toolInput);
@@ -977,11 +1005,15 @@ export class ClaudeSession {
               if (cleanChunk) {
                 // Detect API auth errors surfaced as assistant text (e.g. DeepSeek 401).
                 // Throw immediately so replyFriendly can handle it instead of showing raw API errors.
+                // ВАЖНО: redactSecrets ДО throw — сообщение ошибки не должно содержать
+                // остаток ключа («api key: **xxxx») ни в логах сервера, ни в audit.
                 if (
                   /Failed to authenticate|Authentication Fails|api key.*invalid|invalid api key/i.test(cleanChunk) &&
                   /API Error:\s*40[13]/i.test(cleanChunk)
                 ) {
-                  throw new Error(`API authentication failed: ${cleanChunk.slice(0, 120)}`);
+                  throw new Error(
+                    `API authentication failed: ${redactSecrets(cleanChunk.slice(0, 120))}`
+                  );
                 }
 
                 responseParts.push(cleanChunk);
@@ -1057,8 +1089,19 @@ export class ClaudeSession {
           `[${this.profile.label}] Suppressed post-completion error: ${error}`
         );
       } else {
-        console.error(`[${this.profile.label}] Error in query: ${error}`);
-        this.lastError = String(error).slice(0, 100);
+        // Если упало с auth-ошибкой DeepSeek — пометить активный ключ битым,
+        // чтобы он ушёл из ротации до восстановления. reportFailure noop если
+        // запрос шёл не через pool-маркер.
+        const errStr = String(error);
+        if (
+          /Failed to authenticate|Authentication Fails|api key.*invalid|invalid api key|API Error:\s*40[13]/i.test(errStr)
+        ) {
+          dsPool.reportFailure(redactSecrets(errStr.slice(0, 80)));
+        }
+        console.error(
+          `[${this.profile.label}] Error in query: ${redactSecrets(errStr)}`
+        );
+        this.lastError = redactSecrets(errStr).slice(0, 100);
         this.lastErrorTime = new Date();
         throw error;
       }

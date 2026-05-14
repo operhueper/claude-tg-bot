@@ -26,18 +26,40 @@ if (OPENAI_API_KEY && TRANSCRIPTION_AVAILABLE) {
 // ============== Audit Logging ==============
 
 const SECRET_PATTERNS: RegExp[] = [
-  /\d{8,12}:[A-Za-z0-9_-]{35}/g,   // Telegram bot token
+  /\d{8,12}:[A-Za-z0-9_-]{35,}/g,  // Telegram bot token (≥35 chars after colon)
   /sk-or-v1-[A-Za-z0-9]{40,}/g,    // OpenRouter key
   /sk-[A-Za-z0-9]{32,}/g,          // OpenAI / generic sk- key
+  // DeepSeek и Anthropic в текстах ошибок маскируют ключ как **xxxx (последние 4):
+  // "your api key: **0eb8 is invalid". Замаскируем и эту форму, чтобы остаток
+  // не утекал в логи/чат/audit.
+  /(api[\s_-]?key[^A-Za-z0-9]{0,8})\*{2}[A-Za-z0-9]{4,8}/gi,
 ];
 
-function maskSecrets(text: string): string {
+/**
+ * Удаляет потенциальные секреты из текста (Telegram-токен, sk-ключи,
+ * замаскированные «**xxxx» формы из API-ошибок). Применять перед записью
+ * в audit log, console.error, ctx.reply — везде где текст может содержать
+ * стек/тело ответа от API.
+ */
+export function redactSecrets(text: string): string {
   let result = text;
   for (const pattern of SECRET_PATTERNS) {
-    result = result.replace(pattern, "<REDACTED>");
+    result = result.replace(pattern, (...args: unknown[]) => {
+      // Без capture group: args = [match, offset, string].
+      // С capture group: args = [match, group1, offset, string].
+      // Только в случае capture-group args[1] будет строкой (prefix).
+      const group1 = args[1];
+      if (typeof group1 === "string") {
+        return `${group1}<REDACTED>`;
+      }
+      return "<REDACTED>";
+    });
   }
   return result;
 }
+
+// Внутренний алиас для обратной совместимости со старыми вызовами в этом файле.
+const maskSecrets = redactSecrets;
 
 async function writeAuditLog(event: AuditEvent): Promise<void> {
   try {
@@ -235,9 +257,14 @@ export async function replyFriendly(
   error: unknown,
   context: string
 ): Promise<void> {
-  const errorStr = error instanceof Error
+  const rawErrorStr = error instanceof Error
     ? `${error.message}\n${error.stack ?? ""}`
     : String(error);
+  // ВАЖНО: маскируем секреты ДО console.error и auditLog. Ошибки от
+  // DeepSeek/Anthropic могут содержать «api key: **xxxx» (последние 4
+  // символа) — это не должно попадать ни в логи, ни в audit, ни тем более
+  // в чат (хотя в чат уходит только FRIENDLY_MESSAGES).
+  const errorStr = redactSecrets(rawErrorStr);
   console.error(`[${context}] ${errorStr}`);
   await auditLogError(
     ctx.from?.id ?? 0,
