@@ -70,6 +70,7 @@ import { buildMemoryContext } from "./memory/inject";
 import { summaryFile, rebuildTopicsIndex } from "./memory/paths";
 import { heuristicTopicCheck } from "./memory/topic-detector";
 import { checkCommandSafety, isPathAllowedFor } from "./security";
+import { alertSuspiciousCommand } from "./owner-alerts";
 import type {
   SavedSession,
   SessionHistory,
@@ -972,6 +973,8 @@ ${dialog}
                   );
                   throw new Error(`Unsafe command blocked: ${reason}`);
                 }
+                // V-30O: alert owner on suspicious-but-allowed commands
+                alertSuspiciousCommand(this.profile.userId, command);
               }
 
               // File-op path safety

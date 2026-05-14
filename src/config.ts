@@ -1312,6 +1312,13 @@ export const BUTTON_LABEL_MAX_LENGTH = 30;
 
 export const AUDIT_LOG_PATH =
   process.env.AUDIT_LOG_PATH || "/tmp/claude-telegram-audit.log";
+// V-30N: warn if audit log is in /tmp (volatile — wiped on reboot, tamperable by root-attacker)
+if (AUDIT_LOG_PATH.startsWith("/tmp")) {
+  console.warn(
+    `[audit] AUDIT_LOG_PATH="${AUDIT_LOG_PATH}" is inside /tmp — logs are lost on reboot. ` +
+    `Set AUDIT_LOG_PATH=/var/log/claude-tg-bot.audit.log in .env for a persistent location.`
+  );
+}
 export const AUDIT_LOG_JSON =
   (process.env.AUDIT_LOG_JSON || "false").toLowerCase() === "true";
 

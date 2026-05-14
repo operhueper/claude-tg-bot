@@ -131,7 +131,11 @@ export async function checkPendingSendFileRequests(
       }
 
       const filePath: string = data.file_path || "";
-      const caption: string | undefined = data.caption || undefined;
+      const rawCaption: string | undefined = data.caption || undefined;
+      // Telegram rejects captions longer than 1024 characters (V-30K)
+      const caption: string | undefined = rawCaption !== undefined
+        ? (rawCaption.length > 1024 ? rawCaption.slice(0, 1021) + "…" : rawCaption)
+        : undefined;
       const asDocument: boolean = data.as_document === true;
 
       if (!filePath) {

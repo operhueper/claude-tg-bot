@@ -153,11 +153,12 @@ export async function handleVoice(ctx: Context): Promise<void> {
 
     const transcript = await transcribeVoice(voicePath);
     if (!transcript) {
+      // V-30L: editMessageText may throw if user blocked the bot — ignore
       await ctx.api.editMessageText(
         chatId,
         statusMsg.message_id,
         "❌ Не удалось расшифровать голосовое. Попробуй ещё раз."
-      );
+      ).catch(() => {});
       return;
     }
 
@@ -167,11 +168,12 @@ export async function handleVoice(ctx: Context): Promise<void> {
       transcript.length > maxDisplay
         ? transcript.slice(0, maxDisplay) + "…"
         : transcript;
+    // V-30L: editMessageText may throw if user blocked the bot — ignore
     await ctx.api.editMessageText(
       chatId,
       statusMsg.message_id,
       `🎤 "${displayTranscript}"`
-    );
+    ).catch(() => {});
 
     // 10. Set conversation title from transcript (if new session)
     if (!session.isActive) {

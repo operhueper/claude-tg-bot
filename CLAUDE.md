@@ -282,6 +282,27 @@ tail -f /tmp/claude-telegram-bot-ts.log
 tail -f /tmp/claude-telegram-bot-ts.err
 ```
 
+## External Watchdog (V-30P)
+
+The bot exposes a health endpoint at `GET /healthz` (port 3847, proxied through nginx as `https://proboi.site/healthz`). Configure an **external uptime monitor** to detect deadlocks and silent crashes that internal checks cannot catch:
+
+1. Go to [UptimeRobot](https://uptimerobot.com) (free tier: 50 monitors, 5-min interval).
+2. Create a new monitor:
+   - **Type:** HTTP(S)
+   - **URL:** `https://proboi.site/healthz`
+   - **Interval:** 5 minutes
+   - **Alert contacts:** owner Telegram or email
+3. Alternatively use [Healthchecks.io](https://healthchecks.io) — bot pings it on each successful startup; silence = alert.
+
+Note: nginx must proxy `/healthz` to `127.0.0.1:3847`. If the vhost does not have this location block, add it:
+
+```nginx
+location /healthz {
+    proxy_pass http://127.0.0.1:3847/healthz;
+    proxy_read_timeout 5s;
+}
+```
+
 ## Sibling Files
 
 - `AGENTS.md` is a symlink to `CLAUDE.md` for tools that look for that filename (Codex, etc.). Edit `CLAUDE.md` only.
