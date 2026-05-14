@@ -12573,9 +12573,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_consent_ts",
       "community": 13,
-      "norm_label": "src/consent.ts"
+      "norm_label": "src/consent.ts",
+      "id": "pkg_consent_ts"
     },
     {
       "label": "src/handlers/consent-gate.ts",
@@ -12586,9 +12586,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_consent_gate_ts",
       "community": 13,
-      "norm_label": "src/handlers/consent-gate.ts"
+      "norm_label": "src/handlers/consent-gate.ts",
+      "id": "pkg_consent_gate_ts"
     },
     {
       "label": "src/index.ts",
@@ -12599,9 +12599,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_index_ts",
       "community": 13,
-      "norm_label": "src/index.ts"
+      "norm_label": "src/index.ts",
+      "id": "pkg_index_ts"
     },
     {
       "label": "DOC_VERSION=2026-05-14",
@@ -12612,9 +12612,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_doc_version",
       "community": 13,
-      "norm_label": "doc_version=2026-05-14"
+      "norm_label": "doc_version=2026-05-14",
+      "id": "pkg_doc_version"
     },
     {
       "label": "metering.sqlite (SQLite DB)",
@@ -12625,9 +12625,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_metering_sqlite",
       "community": 13,
-      "norm_label": "metering.sqlite (sqlite db)"
+      "norm_label": "metering.sqlite (sqlite db)",
+      "id": "pkg_metering_sqlite"
     },
     {
       "label": "Consent Gate (commit 8c62b1d)",
@@ -12638,9 +12638,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_consent_gate_feature",
       "community": 13,
-      "norm_label": "consent gate (commit 8c62b1d)"
+      "norm_label": "consent gate (commit 8c62b1d)",
+      "id": "pkg_consent_gate_feature"
     },
     {
       "label": "src/deepseek-key-pool.ts",
@@ -12651,9 +12651,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_key_pool_ts",
       "community": 7,
-      "norm_label": "src/deepseek-key-pool.ts"
+      "norm_label": "src/deepseek-key-pool.ts",
+      "id": "pkg_deepseek_key_pool_ts"
     },
     {
       "label": "system/deepseek-keys.json",
@@ -12664,9 +12664,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_keys_json",
       "community": 7,
-      "norm_label": "system/deepseek-keys.json"
+      "norm_label": "system/deepseek-keys.json",
+      "id": "pkg_deepseek_keys_json"
     },
     {
       "label": "DeepSeek Key Pool (commit 12233f2)",
@@ -12677,9 +12677,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_key_pool_feature",
       "community": 7,
-      "norm_label": "deepseek key pool (commit 12233f2)"
+      "norm_label": "deepseek key pool (commit 12233f2)",
+      "id": "pkg_deepseek_key_pool_feature"
     },
     {
       "label": "src/templates/oferta.ts",
@@ -12690,9 +12690,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_oferta_ts",
       "community": 13,
-      "norm_label": "src/templates/oferta.ts"
+      "norm_label": "src/templates/oferta.ts",
+      "id": "pkg_oferta_ts"
     },
     {
       "label": "src/templates/privacy.ts",
@@ -12703,9 +12703,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_privacy_ts",
       "community": 13,
-      "norm_label": "src/templates/privacy.ts"
+      "norm_label": "src/templates/privacy.ts",
+      "id": "pkg_privacy_ts"
     },
     {
       "label": "src/templates/terms.ts",
@@ -12716,9 +12716,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_terms_ts",
       "community": 13,
-      "norm_label": "src/templates/terms.ts"
+      "norm_label": "src/templates/terms.ts",
+      "id": "pkg_terms_ts"
     },
     {
       "label": "legal/ (internal PDN docs)",
@@ -12729,9 +12729,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_legal_dir",
       "community": 13,
-      "norm_label": "legal/ (internal pdn docs)"
+      "norm_label": "legal/ (internal pdn docs)",
+      "id": "pkg_legal_dir"
     },
     {
       "label": "Legal Documents (commit 8c62b1d)",
@@ -12742,9 +12742,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_legal_docs_feature",
       "community": 13,
-      "norm_label": "legal documents (commit 8c62b1d)"
+      "norm_label": "legal documents (commit 8c62b1d)",
+      "id": "pkg_legal_docs_feature"
     },
     {
       "label": "\u0418\u041f \u042d\u043d\u0431\u043e\u043c \u041a\u0441\u0435\u043d\u0438\u044f \u0418\u0433\u043e\u0440\u0435\u0432\u043d\u0430 (\u0418\u041d\u041d 631609033320)",
@@ -12755,9 +12755,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_ip_enbom",
       "community": 13,
-      "norm_label": "\u0438\u043f \u044d\u043d\u0431\u043e\u043c \u043a\u0441\u0435\u043d\u0438\u044f \u0438\u0433\u043e\u0440\u0435\u0432\u043d\u0430 (\u0438\u043d\u043d 631609033320)"
+      "norm_label": "\u0438\u043f \u044d\u043d\u0431\u043e\u043c \u043a\u0441\u0435\u043d\u0438\u044f \u0438\u0433\u043e\u0440\u0435\u0432\u043d\u0430 (\u0438\u043d\u043d 631609033320)",
+      "id": "pkg_ip_enbom"
     },
     {
       "label": "Security Hardening Pack (25 commits 3e0b1d6..fc6edb8)",
@@ -12768,9 +12768,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_security_hardening_pack",
       "community": 26,
-      "norm_label": "security hardening pack (25 commits 3e0b1d6..fc6edb8)"
+      "norm_label": "security hardening pack (25 commits 3e0b1d6..fc6edb8)",
+      "id": "pkg_security_hardening_pack"
     },
     {
       "label": "V-01 free-tier: text only (no Bash/Read/Write/MCP)",
@@ -12781,9 +12781,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_v01_free_tier",
       "community": 26,
-      "norm_label": "v-01 free-tier: text only (no bash/read/write/mcp)"
+      "norm_label": "v-01 free-tier: text only (no bash/read/write/mcp)",
+      "id": "pkg_v01_free_tier"
     },
     {
       "label": "V-02 memory injection: zod+escape, reply_to sanitize",
@@ -12794,9 +12794,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_v02_memory_injection",
       "community": 26,
-      "norm_label": "v-02 memory injection: zod+escape, reply_to sanitize"
+      "norm_label": "v-02 memory injection: zod+escape, reply_to sanitize",
+      "id": "pkg_v02_memory_injection"
     },
     {
       "label": "V-26 userns-remap (uid 101000 on vault)",
@@ -12807,9 +12807,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_v26_userns_remap",
       "community": 26,
-      "norm_label": "v-26 userns-remap (uid 101000 on vault)"
+      "norm_label": "v-26 userns-remap (uid 101000 on vault)",
+      "id": "pkg_v26_userns_remap"
     },
     {
       "label": "audit/2026-05-14-pre-rotation/ (23 docs + FIX_PLAN + VULNERABILITIES)",
@@ -12820,9 +12820,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_audit_dir",
       "community": 26,
-      "norm_label": "audit/2026-05-14-pre-rotation/ (23 docs + fix_plan + vulnerabilities)"
+      "norm_label": "audit/2026-05-14-pre-rotation/ (23 docs + fix_plan + vulnerabilities)",
+      "id": "pkg_audit_dir"
     },
     {
       "label": "Key Rotation TODO (TG/OPENAI/OPENROUTER/DEEPSEEK/COMPOSIO)",
@@ -12833,9 +12833,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_key_rotation_todo",
       "community": 26,
-      "norm_label": "key rotation todo (tg/openai/openrouter/deepseek/composio)"
+      "norm_label": "key rotation todo (tg/openai/openrouter/deepseek/composio)",
+      "id": "pkg_key_rotation_todo"
     },
     {
       "label": "DeepSeek regression: OR pipeline quality degradation (2026-05-13)",
@@ -12846,9 +12846,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_regression",
       "community": 7,
-      "norm_label": "deepseek regression: or pipeline quality degradation (2026-05-13)"
+      "norm_label": "deepseek regression: or pipeline quality degradation (2026-05-13)",
+      "id": "pkg_deepseek_regression"
     },
     {
       "label": "acquireDeepSeekKey() / release()",
@@ -12859,9 +12859,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_acquire_deepseek_key",
       "community": 7,
-      "norm_label": "acquiredeepseekkey() / release()"
+      "norm_label": "acquiredeepseekkey() / release()",
+      "id": "pkg_acquire_deepseek_key"
     },
     {
       "label": "src/config.ts",
@@ -12872,9 +12872,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_config_ts",
       "community": 7,
-      "norm_label": "src/config.ts"
+      "norm_label": "src/config.ts",
+      "id": "pkg_config_ts"
     },
     {
       "label": "src/session.ts",
@@ -12885,9 +12885,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_session_ts",
       "community": 7,
-      "norm_label": "src/session.ts"
+      "norm_label": "src/session.ts",
+      "id": "pkg_session_ts"
     },
     {
       "label": "src/handlers/callback.ts",
@@ -12898,9 +12898,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_callback_ts",
       "community": 7,
-      "norm_label": "src/handlers/callback.ts"
+      "norm_label": "src/handlers/callback.ts",
+      "id": "pkg_callback_ts"
     },
     {
       "label": "scripts/disable-openrouter-subkeys.ts",
@@ -12911,9 +12911,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_disable_or_subkeys_ts",
       "community": 7,
-      "norm_label": "scripts/disable-openrouter-subkeys.ts"
+      "norm_label": "scripts/disable-openrouter-subkeys.ts",
+      "id": "pkg_disable_or_subkeys_ts"
     },
     {
       "label": "Vision pipeline (OpenRouter Gemini Flash)",
@@ -12924,9 +12924,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_vision_pipeline",
       "community": 45,
-      "norm_label": "vision pipeline (openrouter gemini flash)"
+      "norm_label": "vision pipeline (openrouter gemini flash)",
+      "id": "pkg_vision_pipeline"
     },
     {
       "label": "OPENROUTER_API_KEY (env)",
@@ -12937,9 +12937,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_openrouter_api_key",
       "community": 45,
-      "norm_label": "openrouter_api_key (env)"
+      "norm_label": "openrouter_api_key (env)",
+      "id": "pkg_openrouter_api_key"
     },
     {
       "label": "Audit-fixes sprint: 25 atomic commits (2026-05-13 evening)",
@@ -12950,9 +12950,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_audit_sprint_25_commits",
       "community": 13,
-      "norm_label": "audit-fixes sprint: 25 atomic commits (2026-05-13 evening)"
+      "norm_label": "audit-fixes sprint: 25 atomic commits (2026-05-13 evening)",
+      "id": "pkg_audit_sprint_25_commits"
     },
     {
       "label": "CRIT-01: /root/.claude/projects/* owner-only (ae0d652)",
@@ -12963,9 +12963,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_crit01",
       "community": 13,
-      "norm_label": "crit-01: /root/.claude/projects/* owner-only (ae0d652)"
+      "norm_label": "crit-01: /root/.claude/projects/* owner-only (ae0d652)",
+      "id": "pkg_crit01"
     },
     {
       "label": "CRIT-02: mcp__container__Bash BLOCKED_PATTERNS_CONTAINER (7fde99c)",
@@ -12976,9 +12976,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_crit02",
       "community": 13,
-      "norm_label": "crit-02: mcp__container__bash blocked_patterns_container (7fde99c)"
+      "norm_label": "crit-02: mcp__container__bash blocked_patterns_container (7fde99c)",
+      "id": "pkg_crit02"
     },
     {
       "label": "CRIT-03: heartbeat leak closed all 5 handlers (e60e32e)",
@@ -12989,9 +12989,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_crit03",
       "community": 13,
-      "norm_label": "crit-03: heartbeat leak closed all 5 handlers (e60e32e)"
+      "norm_label": "crit-03: heartbeat leak closed all 5 handlers (e60e32e)",
+      "id": "pkg_crit03"
     },
     {
       "label": "CRIT-04: double-billing on retry fixed, request_id unique index (9f2d3b5)",
@@ -13002,9 +13002,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_crit04",
       "community": 13,
-      "norm_label": "crit-04: double-billing on retry fixed, request_id unique index (9f2d3b5)"
+      "norm_label": "crit-04: double-billing on retry fixed, request_id unique index (9f2d3b5)",
+      "id": "pkg_crit04"
     },
     {
       "label": "CRIT-05: acquireUserLock throws-if-busy (bed5b1a)",
@@ -13015,9 +13015,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_crit05",
       "community": 13,
-      "norm_label": "crit-05: acquireuserlock throws-if-busy (bed5b1a)"
+      "norm_label": "crit-05: acquireuserlock throws-if-busy (bed5b1a)",
+      "id": "pkg_crit05"
     },
     {
       "label": "FAIR-01: disk-IO limits blkio-weight+device-bps (c47c1a1)",
@@ -13028,9 +13028,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_fair01",
       "community": 13,
-      "norm_label": "fair-01: disk-io limits blkio-weight+device-bps (c47c1a1)"
+      "norm_label": "fair-01: disk-io limits blkio-weight+device-bps (c47c1a1)",
+      "id": "pkg_fair01"
     },
     {
       "label": "FAIR-02: acquireContainerSlot timeout 60s Promise.race (aec5b33)",
@@ -13041,9 +13041,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_fair02",
       "community": 7,
-      "norm_label": "fair-02: acquirecontainerslot timeout 60s promise.race (aec5b33)"
+      "norm_label": "fair-02: acquirecontainerslot timeout 60s promise.race (aec5b33)",
+      "id": "pkg_fair02"
     },
     {
       "label": "FAIR-03: baseline egress 20mbit tc htb (71ce49b)",
@@ -13054,9 +13054,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_fair03",
       "community": 13,
-      "norm_label": "fair-03: baseline egress 20mbit tc htb (71ce49b)"
+      "norm_label": "fair-03: baseline egress 20mbit tc htb (71ce49b)",
+      "id": "pkg_fair03"
     },
     {
       "label": "REL-01: containerManager.locks Map leak fixed (2193195)",
@@ -13067,9 +13067,9 @@
       "captured_at": null,
       "author": null,
       "competitor": null,
-      "id": "pkg_rel01",
       "community": 13,
-      "norm_label": "rel-01: containermanager.locks map leak fixed (2193195)"
+      "norm_label": "rel-01: containermanager.locks map leak fixed (2193195)",
+      "id": "pkg_rel01"
     },
     {
       "label": "REL-02: uncaughtException \u2192 process.exit(1) (f7a8a93)",
@@ -13080,9 +13080,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rel02",
       "community": 13,
-      "norm_label": "rel-02: uncaughtexception \u2192 process.exit(1) (f7a8a93)"
+      "norm_label": "rel-02: uncaughtexception \u2192 process.exit(1) (f7a8a93)",
+      "id": "pkg_rel02"
     },
     {
       "label": "REL-03: circuit-breaker stuck container (d3b2030)",
@@ -13093,9 +13093,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rel03",
       "community": 13,
-      "norm_label": "rel-03: circuit-breaker stuck container (d3b2030)"
+      "norm_label": "rel-03: circuit-breaker stuck container (d3b2030)",
+      "id": "pkg_rel03"
     },
     {
       "label": "Tier enforcement hardening (2026-05-13) \u2014 SQLite daily counter",
@@ -13106,9 +13106,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_tier_enforcement",
       "community": 7,
-      "norm_label": "tier enforcement hardening (2026-05-13) \u2014 sqlite daily counter"
+      "norm_label": "tier enforcement hardening (2026-05-13) \u2014 sqlite daily counter",
+      "id": "pkg_tier_enforcement"
     },
     {
       "label": "daily_counts table (metering.sqlite)",
@@ -13119,9 +13119,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_daily_counts_table",
       "community": 13,
-      "norm_label": "daily_counts table (metering.sqlite)"
+      "norm_label": "daily_counts table (metering.sqlite)",
+      "id": "pkg_daily_counts_table"
     },
     {
       "label": "src/daily-limit.ts",
@@ -13132,9 +13132,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_daily_limit_ts",
       "community": 7,
-      "norm_label": "src/daily-limit.ts"
+      "norm_label": "src/daily-limit.ts",
+      "id": "pkg_daily_limit_ts"
     },
     {
       "label": "src/metering.ts",
@@ -13145,9 +13145,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_metering_ts",
       "community": 7,
-      "norm_label": "src/metering.ts"
+      "norm_label": "src/metering.ts",
+      "id": "pkg_metering_ts"
     },
     {
       "label": "containerEnabled bugfix: per-user > tier-default (10c83d0)",
@@ -13158,9 +13158,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_container_enabled_bug",
       "community": 7,
-      "norm_label": "containerenabled bugfix: per-user > tier-default (10c83d0)"
+      "norm_label": "containerenabled bugfix: per-user > tier-default (10c83d0)",
+      "id": "pkg_container_enabled_bug"
     },
     {
       "label": "system/users.json (live user DB)",
@@ -13171,9 +13171,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_users_json",
       "community": 7,
-      "norm_label": "system/users.json (live user db)"
+      "norm_label": "system/users.json (live user db)",
+      "id": "pkg_users_json"
     },
     {
       "label": "Security hardening: 9 targeted fixes (commit 39be7ab, 2026-05-13)",
@@ -13184,9 +13184,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_security_hardening_9_fixes",
       "community": 7,
-      "norm_label": "security hardening: 9 targeted fixes (commit 39be7ab, 2026-05-13)"
+      "norm_label": "security hardening: 9 targeted fixes (commit 39be7ab, 2026-05-13)",
+      "id": "pkg_security_hardening_9_fixes"
     },
     {
       "label": "plan_confirm userId ownership fix (callback.ts)",
@@ -13197,9 +13197,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_plan_confirm_ownership",
       "community": 7,
-      "norm_label": "plan_confirm userid ownership fix (callback.ts)"
+      "norm_label": "plan_confirm userid ownership fix (callback.ts)",
+      "id": "pkg_plan_confirm_ownership"
     },
     {
       "label": "notify-bridge container ownership fix (dashboard-server.ts)",
@@ -13210,9 +13210,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_notify_bridge_container_ownership",
       "community": 7,
-      "norm_label": "notify-bridge container ownership fix (dashboard-server.ts)"
+      "norm_label": "notify-bridge container ownership fix (dashboard-server.ts)",
+      "id": "pkg_notify_bridge_container_ownership"
     },
     {
       "label": "D-1: zip/tar bomb: checkArchiveSize() 500MB pre-flight (document.ts)",
@@ -13223,9 +13223,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_zip_tar_bomb",
       "community": 7,
-      "norm_label": "d-1: zip/tar bomb: checkarchivesize() 500mb pre-flight (document.ts)"
+      "norm_label": "d-1: zip/tar bomb: checkarchivesize() 500mb pre-flight (document.ts)",
+      "id": "pkg_zip_tar_bomb"
     },
     {
       "label": "D-2: symlink TOCTOU in tar: preScanTar() before extraction (document.ts)",
@@ -13236,9 +13236,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_symlink_toctou",
       "community": 7,
-      "norm_label": "d-2: symlink toctou in tar: prescantar() before extraction (document.ts)"
+      "norm_label": "d-2: symlink toctou in tar: prescantar() before extraction (document.ts)",
+      "id": "pkg_symlink_toctou"
     },
     {
       "label": "D-3: PDF hang: pdftotext 30s timeout (document.ts)",
@@ -13249,9 +13249,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_pdf_hang",
       "community": 7,
-      "norm_label": "d-3: pdf hang: pdftotext 30s timeout (document.ts)"
+      "norm_label": "d-3: pdf hang: pdftotext 30s timeout (document.ts)",
+      "id": "pkg_pdf_hang"
     },
     {
       "label": "D-4: prompt injection via file content: wrapAsFileData() (document.ts)",
@@ -13262,9 +13262,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_prompt_injection_file",
       "community": 7,
-      "norm_label": "d-4: prompt injection via file content: wrapasfiledata() (document.ts)"
+      "norm_label": "d-4: prompt injection via file content: wrapasfiledata() (document.ts)",
+      "id": "pkg_prompt_injection_file"
     },
     {
       "label": "src/handlers/document.ts",
@@ -13275,9 +13275,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_document_ts",
       "community": 7,
-      "norm_label": "src/handlers/document.ts"
+      "norm_label": "src/handlers/document.ts",
+      "id": "pkg_document_ts"
     },
     {
       "label": "src/handlers/voice.ts",
@@ -13288,9 +13288,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_voice_ts",
       "community": 7,
-      "norm_label": "src/handlers/voice.ts"
+      "norm_label": "src/handlers/voice.ts",
+      "id": "pkg_voice_ts"
     },
     {
       "label": "C-1: voice.ts rate limit moved after acquireUserLock",
@@ -13301,9 +13301,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_c1_rate_limit_lock",
       "community": 7,
-      "norm_label": "c-1: voice.ts rate limit moved after acquireuserlock"
+      "norm_label": "c-1: voice.ts rate limit moved after acquireuserlock",
+      "id": "pkg_c1_rate_limit_lock"
     },
     {
       "label": "C-2: profile.md prompt injection: wrapAsProfileData() (session.ts)",
@@ -13314,9 +13314,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_c2_profile_md_injection",
       "community": 7,
-      "norm_label": "c-2: profile.md prompt injection: wrapasprofiledata() (session.ts)"
+      "norm_label": "c-2: profile.md prompt injection: wrapasprofiledata() (session.ts)",
+      "id": "pkg_c2_profile_md_injection"
     },
     {
       "label": "PlanMarkerParser.flush() fix: trailing line buffer (session.ts)",
@@ -13327,9 +13327,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_plan_marker_parser_flush",
       "community": 7,
-      "norm_label": "planmarkerparser.flush() fix: trailing line buffer (session.ts)"
+      "norm_label": "planmarkerparser.flush() fix: trailing line buffer (session.ts)",
+      "id": "pkg_plan_marker_parser_flush"
     },
     {
       "label": "Compact thresholds \u00d72: guest 100k, owner 320k (DeepSeek V4 1M ctx)",
@@ -13340,9 +13340,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_compact_thresholds",
       "community": 7,
-      "norm_label": "compact thresholds \u00d72: guest 100k, owner 320k (deepseek v4 1m ctx)"
+      "norm_label": "compact thresholds \u00d72: guest 100k, owner 320k (deepseek v4 1m ctx)",
+      "id": "pkg_compact_thresholds"
     },
     {
       "label": "UX hardening (commit e562cb0, 2026-05-12)",
@@ -13353,9 +13353,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_ux_hardening_2026_05_12",
       "community": 7,
-      "norm_label": "ux hardening (commit e562cb0, 2026-05-12)"
+      "norm_label": "ux hardening (commit e562cb0, 2026-05-12)",
+      "id": "pkg_ux_hardening_2026_05_12"
     },
     {
       "label": "Tier awareness + guest menu + simplified /status (commit fb4a117)",
@@ -13366,9 +13366,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_tier_awareness_feature",
       "community": 7,
-      "norm_label": "tier awareness + guest menu + simplified /status (commit fb4a117)"
+      "norm_label": "tier awareness + guest menu + simplified /status (commit fb4a117)",
+      "id": "pkg_tier_awareness_feature"
     },
     {
       "label": "GUEST_MENU_COMMANDS export (handlers/commands.ts)",
@@ -13379,9 +13379,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_guest_menu_commands",
       "community": 7,
-      "norm_label": "guest_menu_commands export (handlers/commands.ts)"
+      "norm_label": "guest_menu_commands export (handlers/commands.ts)",
+      "id": "pkg_guest_menu_commands"
     },
     {
       "label": "src/handlers/commands.ts",
@@ -13392,9 +13392,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_commands_ts",
       "community": 7,
-      "norm_label": "src/handlers/commands.ts"
+      "norm_label": "src/handlers/commands.ts",
+      "id": "pkg_commands_ts"
     },
     {
       "label": "YuKassa payment flow (src/payments.ts, 2026-05-11)",
@@ -13405,9 +13405,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_yukassa_payment_flow",
       "community": 7,
-      "norm_label": "yukassa payment flow (src/payments.ts, 2026-05-11)"
+      "norm_label": "yukassa payment flow (src/payments.ts, 2026-05-11)",
+      "id": "pkg_yukassa_payment_flow"
     },
     {
       "label": "src/payments.ts",
@@ -13418,9 +13418,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_payments_ts",
       "community": 7,
-      "norm_label": "src/payments.ts"
+      "norm_label": "src/payments.ts",
+      "id": "pkg_payments_ts"
     },
     {
       "label": "src/tasks.ts",
@@ -13431,9 +13431,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_tasks_ts",
       "community": 7,
-      "norm_label": "src/tasks.ts"
+      "norm_label": "src/tasks.ts",
+      "id": "pkg_tasks_ts"
     },
     {
       "label": "src/dashboard-server.ts",
@@ -13444,9 +13444,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_dashboard_server_ts",
       "community": 7,
-      "norm_label": "src/dashboard-server.ts"
+      "norm_label": "src/dashboard-server.ts",
+      "id": "pkg_dashboard_server_ts"
     },
     {
       "label": "src/user-registry.ts (UserNode, addUser)",
@@ -13457,9 +13457,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_user_registry_ts",
       "community": 7,
-      "norm_label": "src/user-registry.ts (usernode, adduser)"
+      "norm_label": "src/user-registry.ts (usernode, adduser)",
+      "id": "pkg_user_registry_ts"
     },
     {
       "label": "TodoMarkerParser + PlanMarkerParser (session.ts)",
@@ -13470,9 +13470,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_todo_marker_parser",
       "community": 7,
-      "norm_label": "todomarkerparser + planmarkerparser (session.ts)"
+      "norm_label": "todomarkerparser + planmarkerparser (session.ts)",
+      "id": "pkg_todo_marker_parser"
     },
     {
       "label": "src/handlers/streaming.ts",
@@ -13483,9 +13483,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_streaming_ts",
       "community": 7,
-      "norm_label": "src/handlers/streaming.ts"
+      "norm_label": "src/handlers/streaming.ts",
+      "id": "pkg_streaming_ts"
     },
     {
       "label": "compactIfNeeded() (session.ts)",
@@ -13496,9 +13496,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_compact_if_needed",
       "community": 7,
-      "norm_label": "compactifneeded() (session.ts)"
+      "norm_label": "compactifneeded() (session.ts)",
+      "id": "pkg_compact_if_needed"
     },
     {
       "label": "/memory and /forget commands (commands.ts)",
@@ -13509,9 +13509,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_memory_commands",
       "community": 7,
-      "norm_label": "/memory and /forget commands (commands.ts)"
+      "norm_label": "/memory and /forget commands (commands.ts)",
+      "id": "pkg_memory_commands"
     },
     {
       "label": "src/composio.ts",
@@ -13522,9 +13522,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_composio_ts",
       "community": 46,
-      "norm_label": "src/composio.ts"
+      "norm_label": "src/composio.ts",
+      "id": "pkg_composio_ts"
     },
     {
       "label": "src/mcp-filter.ts",
@@ -13535,9 +13535,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_mcp_filter_ts",
       "community": 46,
-      "norm_label": "src/mcp-filter.ts"
+      "norm_label": "src/mcp-filter.ts",
+      "id": "pkg_mcp_filter_ts"
     },
     {
       "label": "src/subscription.ts",
@@ -13548,9 +13548,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_subscription_ts",
       "community": 13,
-      "norm_label": "src/subscription.ts"
+      "norm_label": "src/subscription.ts",
+      "id": "pkg_subscription_ts"
     },
     {
       "label": "src/fast-path.ts (uncommitted)",
@@ -13561,9 +13561,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_fast_path_ts",
       "community": 47,
-      "norm_label": "src/fast-path.ts (uncommitted)"
+      "norm_label": "src/fast-path.ts (uncommitted)",
+      "id": "pkg_fast_path_ts"
     },
     {
       "label": "src/engines/deepseek-fast.ts (uncommitted)",
@@ -13574,9 +13574,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_fast_ts",
       "community": 47,
-      "norm_label": "src/engines/deepseek-fast.ts (uncommitted)"
+      "norm_label": "src/engines/deepseek-fast.ts (uncommitted)",
+      "id": "pkg_deepseek_fast_ts"
     },
     {
       "label": "src/idle-phrases.ts (130 heartbeat phrases)",
@@ -13587,9 +13587,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_idle_phrases_ts",
       "community": 73,
-      "norm_label": "src/idle-phrases.ts (130 heartbeat phrases)"
+      "norm_label": "src/idle-phrases.ts (130 heartbeat phrases)",
+      "id": "pkg_idle_phrases_ts"
     },
     {
       "label": "connect_google_mcp/server.ts (OAuth drop-box MCP)",
@@ -13600,9 +13600,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_connect_google_mcp",
       "community": 74,
-      "norm_label": "connect_google_mcp/server.ts (oauth drop-box mcp)"
+      "norm_label": "connect_google_mcp/server.ts (oauth drop-box mcp)",
+      "id": "pkg_connect_google_mcp"
     },
     {
       "label": "parallel_mcp/server.ts (mcp__parallel__run)",
@@ -13613,9 +13613,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_parallel_mcp",
       "community": 7,
-      "norm_label": "parallel_mcp/server.ts (mcp__parallel__run)"
+      "norm_label": "parallel_mcp/server.ts (mcp__parallel__run)",
+      "id": "pkg_parallel_mcp"
     },
     {
       "label": "src/templates/landing.ts (proboi.site landing, 1188 lines)",
@@ -13626,9 +13626,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_landing_ts",
       "community": 36,
-      "norm_label": "src/templates/landing.ts (proboi.site landing, 1188 lines)"
+      "norm_label": "src/templates/landing.ts (proboi.site landing, 1188 lines)",
+      "id": "pkg_landing_ts"
     },
     {
       "label": "src/templates/assets/ (CSS/JS, 3 files, 1975 lines)",
@@ -13639,9 +13639,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_landing_assets",
       "community": 75,
-      "norm_label": "src/templates/assets/ (css/js, 3 files, 1975 lines)"
+      "norm_label": "src/templates/assets/ (css/js, 3 files, 1975 lines)",
+      "id": "pkg_landing_assets"
     },
     {
       "label": "proboi.site (89.167.125.175, prod domain)",
@@ -13652,9 +13652,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_proboi_site",
       "community": 36,
-      "norm_label": "proboi.site (89.167.125.175, prod domain)"
+      "norm_label": "proboi.site (89.167.125.175, prod domain)",
+      "id": "pkg_proboi_site"
     },
     {
       "label": "proboi-bot (89.167.125.175, @proboiAI_bot)",
@@ -13665,9 +13665,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_prod_server",
       "community": 36,
-      "norm_label": "proboi-bot (89.167.125.175, @proboiai_bot)"
+      "norm_label": "proboi-bot (89.167.125.175, @proboiai_bot)",
+      "id": "pkg_prod_server"
     },
     {
       "label": "jinru (5.223.82.96, @ORCH7_bot, disabled)",
@@ -13678,9 +13678,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_test_server",
       "community": 76,
-      "norm_label": "jinru (5.223.82.96, @orch7_bot, disabled)"
+      "norm_label": "jinru (5.223.82.96, @orch7_bot, disabled)",
+      "id": "pkg_test_server"
     },
     {
       "label": "daemon-runner (Go PID 1 supervisor) \u2014 12 edges",
@@ -13691,9 +13691,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_god_node_daemon_runner",
       "community": 32,
-      "norm_label": "daemon-runner (go pid 1 supervisor) \u2014 12 edges"
+      "norm_label": "daemon-runner (go pid 1 supervisor) \u2014 12 edges",
+      "id": "pkg_god_node_daemon_runner"
     },
     {
       "label": "parallel_mcp mcp__parallel__run \u2014 7 edges",
@@ -13704,9 +13704,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_god_node_parallel_mcp",
       "community": 7,
-      "norm_label": "parallel_mcp mcp__parallel__run \u2014 7 edges"
+      "norm_label": "parallel_mcp mcp__parallel__run \u2014 7 edges",
+      "id": "pkg_god_node_parallel_mcp"
     },
     {
       "label": "buildNewGuestSafetyPrompt(userId, vaultDir) \u2014 6 edges",
@@ -13717,9 +13717,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_god_node_build_guest_prompt",
       "community": 7,
-      "norm_label": "buildnewguestsafetyprompt(userid, vaultdir) \u2014 6 edges"
+      "norm_label": "buildnewguestsafetyprompt(userid, vaultdir) \u2014 6 edges",
+      "id": "pkg_god_node_build_guest_prompt"
     },
     {
       "label": ".daemons.yaml manifest \u2014 6 edges",
@@ -13730,9 +13730,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_god_node_daemons_yaml",
       "community": 32,
-      "norm_label": ".daemons.yaml manifest \u2014 6 edges"
+      "norm_label": ".daemons.yaml manifest \u2014 6 edges",
+      "id": "pkg_god_node_daemons_yaml"
     },
     {
       "label": "scripts/firewall/egress-monitor.sh \u2014 6 edges",
@@ -13743,9 +13743,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_god_node_egress_monitor",
       "community": 48,
-      "norm_label": "scripts/firewall/egress-monitor.sh \u2014 6 edges"
+      "norm_label": "scripts/firewall/egress-monitor.sh \u2014 6 edges",
+      "id": "pkg_god_node_egress_monitor"
     },
     {
       "label": "src/security.ts (checkContainerCommandSafety, BLOCKED_PATTERNS_CONTAINER)",
@@ -13756,9 +13756,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_security_ts",
       "community": 13,
-      "norm_label": "src/security.ts (checkcontainercommandsafety, blocked_patterns_container)"
+      "norm_label": "src/security.ts (checkcontainercommandsafety, blocked_patterns_container)",
+      "id": "pkg_security_ts"
     },
     {
       "label": "src/containers/bash-mcp.ts (mcp__container__Bash)",
@@ -13769,9 +13769,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_container_bash_mcp",
       "community": 13,
-      "norm_label": "src/containers/bash-mcp.ts (mcp__container__bash)"
+      "norm_label": "src/containers/bash-mcp.ts (mcp__container__bash)",
+      "id": "pkg_container_bash_mcp"
     },
     {
       "label": "src/handlers/text.ts",
@@ -13782,9 +13782,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_text_ts",
       "community": 7,
-      "norm_label": "src/handlers/text.ts"
+      "norm_label": "src/handlers/text.ts",
+      "id": "pkg_text_ts"
     },
     {
       "label": "src/handlers/audio.ts",
@@ -13795,9 +13795,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_audio_ts",
       "community": 7,
-      "norm_label": "src/handlers/audio.ts"
+      "norm_label": "src/handlers/audio.ts",
+      "id": "pkg_audio_ts"
     },
     {
       "label": "src/handlers/photo.ts",
@@ -13808,9 +13808,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_photo_ts",
       "community": 7,
-      "norm_label": "src/handlers/photo.ts"
+      "norm_label": "src/handlers/photo.ts",
+      "id": "pkg_photo_ts"
     },
     {
       "label": "src/handlers/video.ts",
@@ -13821,9 +13821,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_video_ts",
       "community": 7,
-      "norm_label": "src/handlers/video.ts"
+      "norm_label": "src/handlers/video.ts",
+      "id": "pkg_video_ts"
     },
     {
       "label": "src/containers/manager.ts",
@@ -13834,9 +13834,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_manager_ts",
       "community": 37,
-      "norm_label": "src/containers/manager.ts"
+      "norm_label": "src/containers/manager.ts",
+      "id": "pkg_manager_ts"
     },
     {
       "label": "src/containers/spec.ts (buildRunArgs)",
@@ -13847,9 +13847,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_spec_ts",
       "community": 37,
-      "norm_label": "src/containers/spec.ts (buildrunargs)"
+      "norm_label": "src/containers/spec.ts (buildrunargs)",
+      "id": "pkg_spec_ts"
     },
     {
       "label": "Subscription gate (src/subscription.ts, REQUIRED_CHANNEL_ID=@ProBoiAI)",
@@ -13860,9 +13860,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_subscription_gate",
       "community": 13,
-      "norm_label": "subscription gate (src/subscription.ts, required_channel_id=@proboiai)"
+      "norm_label": "subscription gate (src/subscription.ts, required_channel_id=@proboiai)",
+      "id": "pkg_subscription_gate"
     },
     {
       "label": "Rationale: consent gate before auth (order: consent\u2192auth\u2192rate-limit\u2192handler)",
@@ -13873,9 +13873,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_consent_before_auth",
       "community": 13,
-      "norm_label": "rationale: consent gate before auth (order: consent\u2192auth\u2192rate-limit\u2192handler)"
+      "norm_label": "rationale: consent gate before auth (order: consent\u2192auth\u2192rate-limit\u2192handler)",
+      "id": "pkg_rationale_consent_before_auth"
     },
     {
       "label": "Rationale: native DeepSeek over OpenRouter (pipeline quality, no conversion overhead, prompt caching)",
@@ -13886,9 +13886,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_native_ds_over_or",
       "community": 7,
-      "norm_label": "rationale: native deepseek over openrouter (pipeline quality, no conversion overhead, prompt caching)"
+      "norm_label": "rationale: native deepseek over openrouter (pipeline quality, no conversion overhead, prompt caching)",
+      "id": "pkg_rationale_native_ds_over_or"
     },
     {
       "label": "Rationale: least-busy pool for DeepSeek keys (distribute concurrent load)",
@@ -13899,9 +13899,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_least_busy_pool",
       "community": 7,
-      "norm_label": "rationale: least-busy pool for deepseek keys (distribute concurrent load)"
+      "norm_label": "rationale: least-busy pool for deepseek keys (distribute concurrent load)",
+      "id": "pkg_rationale_least_busy_pool"
     },
     {
       "label": "Rationale: SQLite daily counter (survives restarts, was in-memory Map before)",
@@ -13912,9 +13912,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_sqlite_daily_counter",
       "community": 7,
-      "norm_label": "rationale: sqlite daily counter (survives restarts, was in-memory map before)"
+      "norm_label": "rationale: sqlite daily counter (survives restarts, was in-memory map before)",
+      "id": "pkg_rationale_sqlite_daily_counter"
     },
     {
       "label": "Rationale: userns-remap uid offset 100000 (UID escape \u2192 host UID 101000, no access to other vaults)",
@@ -13925,9 +13925,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_userns_remap",
       "community": 26,
-      "norm_label": "rationale: userns-remap uid offset 100000 (uid escape \u2192 host uid 101000, no access to other vaults)"
+      "norm_label": "rationale: userns-remap uid offset 100000 (uid escape \u2192 host uid 101000, no access to other vaults)",
+      "id": "pkg_rationale_userns_remap"
     },
     {
       "label": "src/engines/openrouter.ts",
@@ -13938,9 +13938,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_openrouter_ts",
       "community": 7,
-      "norm_label": "src/engines/openrouter.ts"
+      "norm_label": "src/engines/openrouter.ts",
+      "id": "pkg_openrouter_ts"
     },
     {
       "label": "src/memory/analyzer.ts",
@@ -13951,9 +13951,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_memory_analyzer_ts",
       "community": 7,
-      "norm_label": "src/memory/analyzer.ts"
+      "norm_label": "src/memory/analyzer.ts",
+      "id": "pkg_memory_analyzer_ts"
     },
     {
       "label": "Metering bugs H1/H2/H3 (token losses at ask-user/stop/memory-analyzer)",
@@ -13964,9 +13964,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_metering_bugs",
       "community": 7,
-      "norm_label": "metering bugs h1/h2/h3 (token losses at ask-user/stop/memory-analyzer)"
+      "norm_label": "metering bugs h1/h2/h3 (token losses at ask-user/stop/memory-analyzer)",
+      "id": "pkg_metering_bugs"
     },
     {
       "label": "Invite flow + approve (callback.ts handleInviteCallback)",
@@ -13977,9 +13977,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_invite_flow",
       "community": 7,
-      "norm_label": "invite flow + approve (callback.ts handleinvitecallback)"
+      "norm_label": "invite flow + approve (callback.ts handleinvitecallback)",
+      "id": "pkg_invite_flow"
     },
     {
       "label": "lxcfs fallback fix: kernel 6.8.0-90 read-only bind-mount (manager.ts)",
@@ -13990,9 +13990,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_lxcfs_fix",
       "community": 37,
-      "norm_label": "lxcfs fallback fix: kernel 6.8.0-90 read-only bind-mount (manager.ts)"
+      "norm_label": "lxcfs fallback fix: kernel 6.8.0-90 read-only bind-mount (manager.ts)",
+      "id": "pkg_lxcfs_fix"
     },
     {
       "label": "Always-on automations cluster (seed 15: daemon-runner, .daemons.yaml, crashloop)",
@@ -14003,9 +14003,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_always_on_cluster",
       "community": 32,
-      "norm_label": "always-on automations cluster (seed 15: daemon-runner, .daemons.yaml, crashloop)"
+      "norm_label": "always-on automations cluster (seed 15: daemon-runner, .daemons.yaml, crashloop)",
+      "id": "pkg_always_on_cluster"
     },
     {
       "label": "Egress pipeline: setup\u2192monitor\u2192reset via systemd",
@@ -14016,9 +14016,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_egress_pipeline",
       "community": 48,
-      "norm_label": "egress pipeline: setup\u2192monitor\u2192reset via systemd"
+      "norm_label": "egress pipeline: setup\u2192monitor\u2192reset via systemd",
+      "id": "pkg_egress_pipeline"
     },
     {
       "label": "Alert chain: alert-bot \u2192 owner-alerts \u2192 problem channel",
@@ -14029,9 +14029,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_alert_chain",
       "community": 32,
-      "norm_label": "alert chain: alert-bot \u2192 owner-alerts \u2192 problem channel"
+      "norm_label": "alert chain: alert-bot \u2192 owner-alerts \u2192 problem channel",
+      "id": "pkg_alert_chain"
     }
   ],
   "links": [

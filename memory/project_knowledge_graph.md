@@ -2,6 +2,22 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-14 (EOD+) — Фикс крашей, удаление context compression
+
+### Итог сессии (commit 6a2f66c)
+- **Context compression полностью удалена** — `compactIfNeeded` + `sanitizeCompactionSummary` выпилены из `session.ts`. Баг: устанавливала `maxSegmentId=99` до основного запроса → реальный ответ стирался в done-хендлере
+- **Фикс File access blocked** — три класса путей теперь разрешены для Read-tool гостей:
+  - `/root/.claude/projects/-opt-vault-{userId}/` — WebFetch-кеш Claude CLI (основная причина крашей!)
+  - `/root/.claude/plans/` — план-файлы Claude CLI
+  - `/tmp/` — временные файлы (логи тестов, PDF)
+- Задеплоено на прод 89.167.125.175, бот запущен
+- **Следующий этап:** `docs/arch-migration-rf-db.md` — миграция ПДн на RF-сервер (242-ФЗ), P2-фиксы (V-29,V-30,V-35..V-39)
+
+### Диагноз крашей (из логов сервера)
+Главная причина "не удалось обработать сообщение": Claude CLI при WebFetch на PDF-URL кешировал результат в `/root/.claude/projects/-opt-vault-893951298/*/tool-results/webfetch-*.pdf`, затем пытался Read этот файл — security-чек блокировал. SQLiteError: no such column request_id — был в логах, но `recordUsage` его отлавливает и не показывает пользователю. Docker sha256 digest-ошибки — от старого процесса, текущий работает нормально.
+
+---
+
 ## Состояние: 2026-05-14 (EOD) — Security hardening ЗАВЕРШЁН, ключи ротированы, ветка смержена
 
 ### Итог дня
