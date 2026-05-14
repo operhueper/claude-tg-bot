@@ -23,7 +23,6 @@ import {
   THINKING_KEYWORDS,
   type UserProfile,
   isNewGuest,
-  getNewGuestOpenRouterKey,
   DEEPSEEK_POOL_MARKER,
 } from "./config";
 import { acquireDeepSeekKey } from "./deepseek-key-pool";
@@ -629,11 +628,9 @@ ${dialog}
       console.log(
         `[${this.profile.label}] Vision request — routing to OpenRouter Gemini`
       );
-      const openrouterKey = isNewGuest(this.profile.userId)
-        ? (this.profile.openrouterKey ?? getNewGuestOpenRouterKey(this.profile.userId))
-        : process.env.OPENROUTER_API_KEY;
+      const openrouterKey = process.env.OPENROUTER_API_KEY;
       if (!openrouterKey) {
-        const errMsg = "⚠️ Личный ключ не выдан — обратись к администратору бота.";
+        const errMsg = "⚠️ OpenRouter ключ не настроен — обработка изображений недоступна.";
         await statusCallback("segment_end", errMsg, 0);
         await statusCallback("done", "");
         return errMsg;
@@ -678,31 +675,6 @@ ${dialog}
           `[${this.profile.label}] Using DeepSeek via Claude CLI (native tools)`
         );
         // Falls through to the standard query() path below with DeepSeek env injected
-      } else {
-        // No DeepSeek key — fall back to OpenRouter for text
-        const openrouterKey = this.profile.openrouterKey ?? getNewGuestOpenRouterKey(this.profile.userId);
-        if (!openrouterKey) {
-          const errMsg =
-            "⚠️ Сервис временно недоступен. Обратись к администратору бота.";
-          await statusCallback("segment_end", errMsg, 0);
-          await statusCallback("done", "");
-          return errMsg;
-        }
-        const msgs = this.buildConversationHistory(messageToSend, mediaHint);
-        const response = await queryOpenRouter(
-          msgs,
-          this.profile.visionModel || "google/gemini-2.5-flash",
-          openrouterKey,
-          systemPromptWithMemory,
-          statusCallback,
-          null,
-          this.profile,
-          chatId
-        );
-        await statusCallback("segment_end", response, 0);
-        await statusCallback("done", "");
-        this.lastActivity = new Date();
-        return response || "Нет ответа от модели.";
       }
       // DeepSeek text path: falls through to standard query() below
     }
@@ -1114,6 +1086,15 @@ ${dialog}
               }
 
               if (cleanChunk) {
+                // Detect API auth errors surfaced as assistant text (e.g. DeepSeek 401).
+                // Throw immediately so replyFriendly can handle it instead of showing raw API errors.
+                if (
+                  /Failed to authenticate|Authentication Fails|api key.*invalid|invalid api key/i.test(cleanChunk) &&
+                  /API Error:\s*40[13]/i.test(cleanChunk)
+                ) {
+                  throw new Error(`API authentication failed: ${cleanChunk.slice(0, 120)}`);
+                }
+
                 responseParts.push(cleanChunk);
                 currentSegmentText += cleanChunk;
 

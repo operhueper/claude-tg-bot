@@ -128,17 +128,6 @@ export function getNewGuestVaultDir(userId: number): string {
   return `/opt/vault/${userId}`;
 }
 
-export function getNewGuestOpenRouterKey(userId: number): string {
-  const keyFile = `${getNewGuestVaultDir(userId)}/openrouter-key.txt`;
-  try {
-    const perUser = readFileSync(keyFile, "utf-8").trim();
-    if (perUser) return perUser;
-  } catch {}
-  // Do NOT fall back to the global key — prevents unprovisioned guests from
-  // spending against the shared OPENROUTER_API_KEY with no per-user cap.
-  return "";
-}
-
 /**
  * Returns the shared DeepSeek API key from process.env.DEEPSEEK_API_KEY.
  * Returns empty string if not provisioned.
@@ -965,11 +954,6 @@ export interface UserProfile {
   maxTurns?: number;
   /**
    * Personal OpenRouter subkey provisioned via the Provisioning API.
-   * When set, used instead of the shared OPENROUTER_API_KEY for this user's
-   * vision and text-fallback requests. Undefined for owner and guests without
-   * a provisioned key (falls back to the global key).
-   */
-  openrouterKey?: string;
   /** Subscription tier: 'free' | 'paid'. Owner always 'paid'. */
   tier: UserTier;
   /** Tier config with limits and feature flags. */
@@ -1131,7 +1115,6 @@ export function getUserProfile(userId: number): UserProfile {
       deepseekApiKey,
       deepseekEnv,
       containerEnabled: tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false,
-      openrouterKey: node?.openrouterKey,
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
       // to prevent "does not support this tool_choice" errors.
       // V-01 fix: free-tier guests also get the full FREE_DISALLOWED_TOOLS list so

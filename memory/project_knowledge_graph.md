@@ -2,6 +2,20 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-14 (EOD) — Security hardening ЗАВЕРШЁН, ключи ротированы, ветка смержена
+
+### Итог дня
+- Ветка `feature/legal-docs-consent-gate` смержена в `main`, запушена на GitHub
+- 27 security-фиксов (V--2..V-34) задеплоены на prod + jinru
+- Ротация ключей полностью завершена: TG, OpenAI, OpenRouter, DeepSeek×5, Composio
+- V-1B: chmod 600 на users.json + metering.sqlite
+- V-30D: basic auth на design.proboi.site (admin / [пароль в голове у Евгения])
+- V-31: подтверждено — покрыт V-01 (FREE_DISALLOWED_TOOLS)
+- Репо очищен от стале-файлов (10 root-MD + 23 raw audit файлов удалены)
+- **Следующий этап:** `docs/arch-migration-rf-db.md` — миграция ПДн на RF-сервер (242-ФЗ), там же P2-фиксы (V-29,V-30,V-35..V-39)
+
+---
+
 ## Состояние: 2026-05-14 — Consent Gate + DeepSeek Pool + Legal Docs (всё в проде)
 
 ### Новые фичи в этом пакете (ветка feature/legal-docs-consent-gate, задеплоена на prod)

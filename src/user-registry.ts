@@ -48,8 +48,6 @@ export interface UserNode {
   day4_push_sent?: boolean;
   /** ISO timestamp until which the user is in grace period after failed charge. */
   grace_period_until?: string;
-  /** Personal OpenRouter subkey provisioned via the Provisioning API. */
-  openrouterKey?: string;
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");
@@ -115,22 +113,6 @@ export class UserRegistry {
 }
 
 /**
- * Update (or set) the personal OpenRouter subkey for an existing user.
- * No-op if the user is not found in the registry.
- */
-export function setUserOpenRouterKey(userId: number, key: string): void {
-  const users = load();
-  const user = users.find((u) => u.userId === userId);
-  if (!user) {
-    console.warn(`setUserOpenRouterKey: user ${userId} not found in registry`);
-    return;
-  }
-  user.openrouterKey = key;
-  writeUsersAtomic(users);
-  _cache = users;
-  console.log(`[user-registry] Saved openrouterKey for user ${userId}`);
-}
-
 /**
  * Clean up all server-side resources for a user:
  * 1. Stop and remove their Docker container (claude-user-<id>).
