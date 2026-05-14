@@ -734,21 +734,21 @@ async function sendTelegramMessage(userId: number, text: string): Promise<void> 
 function startNotifyBridge(): void {
   Bun.serve({
     port: NOTIFY_BRIDGE_PORT,
-    async fetch(req) {
+    async fetch(req, server) {
       const url = new URL(req.url);
 
       if (req.method !== "POST" || url.pathname !== "/notify") {
         return new Response("Not Found", { status: 404 });
       }
 
-      // Source IP validation — only accept from guest subnet.
-      // Prefer the real socket address over the spoofable x-forwarded-for header.
-      const sourceIp =
-        (req as any).remoteAddress ||
-        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-        "";
+      // V--2: реальный socket-IP через Bun API. Заголовки (X-Forwarded-For,
+      // X-Real-IP) тут НЕ читаем — их может подделать любой контейнер.
+      // IPv6-mapped IPv4 (::ffff:172.18.0.5) нормализуем к чистому v4,
+      // чтобы startsWith("172.18.") работал.
+      const rawIp = server.requestIP(req)?.address ?? "";
+      const sourceIp = rawIp.replace(/^::ffff:/i, "");
       if (!sourceIp.startsWith(GUEST_SUBNET_PREFIX)) {
-        console.warn(`[notify-bridge] rejected source IP: ${sourceIp}`);
+        console.warn(`[notify-bridge] rejected source IP: ${rawIp}`);
         return new Response("Forbidden", { status: 403 });
       }
 
