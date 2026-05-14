@@ -1016,6 +1016,17 @@ export class ClaudeSession {
                   );
                 }
 
+                // Claude CLI surfaces "selected model" issues as assistant text
+                // (e.g. when the upstream endpoint doesn't know the model name).
+                // Users must never see internal model identifiers or CLI tips
+                // like "Run --model to pick a different model" — throw a generic
+                // error so replyFriendly delivers a clean message.
+                if (
+                  /issue with the selected model|may not exist or you may not have access|Run --model to pick|--model to pick a different/i.test(cleanChunk)
+                ) {
+                  throw new Error("Upstream model unavailable");
+                }
+
                 responseParts.push(cleanChunk);
                 currentSegmentText += cleanChunk;
 
