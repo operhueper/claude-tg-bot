@@ -198,6 +198,17 @@ export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean 
     // creates a transient cgroup under the system.slice in that case (no error).
     args.push("--cgroup-parent=claude-guests.slice");
 
+    // Optional container writable-layer size cap (defense-in-depth against bind-mount
+    // bypass). Works only with the overlay2 storage driver; other drivers reject the
+    // flag and the container fails to start.  To enable, set DOCKER_STORAGE_OPT=size=3G
+    // in .env after verifying: docker info | grep -i "Storage Driver" → overlay2.
+    // Deliberately opt-in via env — do NOT default to "size=3G" because this would
+    // silently break setups with devicemapper/btrfs/zfs storage drivers.
+    const storageOpt = process.env.DOCKER_STORAGE_OPT;
+    if (storageOpt) {
+      args.push("--storage-opt", storageOpt);
+    }
+
     // NOTE: --ulimit=nproc is intentionally NOT set here. nproc is a per-UID
     // limit on the HOST, so setting it 128 on each container means all containers
     // sharing uid 1000 compete for the same 128-slot budget. Once the total

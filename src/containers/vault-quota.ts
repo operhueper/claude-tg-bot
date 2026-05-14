@@ -47,9 +47,14 @@ interface QuotaResult {
   vaultPath: string;
 }
 
-// Cache size lookups for 60s — du can be slow on large vaults.
+// Cache size lookups for 5s — tight TTL to reduce the TOCTOU write window.
+// A 60-second cache allowed a guest to write ~20 GB during one cache period;
+// 5s limits undetected overage to ~250 MB at 50 MB/s. The background-refresh
+// pattern means the event loop never blocks on du regardless of TTL value.
+// Trade-off: on a large (2 GB+) vault du takes 1–5 s, so we may see back-to-back
+// refreshes at 5 s intervals for active users. Acceptable given the security gain.
 const cache = new Map<number, { result: QuotaResult; ts: number }>();
-const CACHE_TTL_MS = 60_000;
+const CACHE_TTL_MS = 5_000;
 
 // Track in-progress background refreshes to avoid concurrent du for same user.
 const inProgress = new Set<number>();
