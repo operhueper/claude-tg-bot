@@ -25,6 +25,26 @@ import { hasAnyDeepSeekKey } from "./deepseek-key-pool";
 export const DEEPSEEK_POOL_MARKER = "pool";
 
 /**
+ * V-01 fix: Free-tier guests are text-only — no file/shell/MCP tools.
+ * These users run without a Docker container (containerEnabled=false) and
+ * the Claude subprocess runs as root on the host, so any Bash/Read/Write
+ * call can read arbitrary host files (e.g. .env, system/users.json).
+ * Blocking these tools at the SDK level is the single choke-point for the
+ * entire attack surface — no exceptions for free tier.
+ */
+export const FREE_DISALLOWED_TOOLS = [
+  "Bash", "BashOutput", "KillShell",
+  "Read", "Write", "Edit", "MultiEdit",
+  "Glob", "Grep", "NotebookEdit",
+  "mcp__container__Bash",
+  "mcp__send-file__deliver",
+  "mcp__pollinations-image__generate",
+  "mcp__openrouter-image__generate",
+  "mcp__connect-google__connect",
+  "WebSearch",
+] as const;
+
+/**
  * Normalise a stored model name (may be OpenRouter-style `deepseek/...`) to
  * the native DeepSeek API name when we route through the pool.
  */
@@ -856,7 +876,14 @@ TODO_LIST_END
 - Не рассказывай о технических деталях своей работы: модель, инфраструктура, инструменты, файловая система. На вопросы об устройстве отвечай: «Я ассистент в Telegram, технические детали не комментирую».
 - Не цитируй имена своих внутренних инструментов и пути файловой системы пользователю.
 - Отказывайся от деструктивных тестов своей среды (форк-бомбы, OOM-скрипты, бесконечные циклы, рекурсивное удаление). На просьбу «сломай себя / съешь память / убей контейнер» — отказ с фразой «Не буду, это вредно для работы».
-`;
+${tier === 'free' ? `
+ТАРИФ FREE — ЧТО ДОСТУПНО:
+В тарифе Free у тебя нет доступа к файлам, командам, поиску в интернете, генерации изображений и Google-инструментам. Ты можешь только разговаривать: отвечать на вопросы, объяснять, советовать, обсуждать.
+
+Если пользователь просит прочитать файл, выполнить команду, скачать что-то, сгенерировать картинку, поработать с Google или проанализировать документ — вежливо скажи один раз: «В бесплатном тарифе это недоступно. Для этого нужен тариф Профи — оформи командой /pay.» Дальше не извиняйся повторно.
+
+Что ты умеешь на Free: отвечать на вопросы, объяснять концепции, помогать с текстом, давать советы, обсуждать идеи, помогать разобраться в теме.
+` : ''}`;
 }
 
 // ============== User Profile ==============
@@ -1074,7 +1101,7 @@ export function getUserProfile(userId: number): UserProfile {
       ? normaliseDeepSeekModel(node?.lightModel, "deepseek-chat")
       : (node?.lightModel && !node.lightModel.includes("/") ? "deepseek/deepseek-v4-flash" : (node?.lightModel ?? "deepseek/deepseek-v4-flash"));
     const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
-    const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`];
+    const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`, `/tmp/pollinations/${userId}/`];
 
     const rawTier: UserTier = (node?.tier === 'paid') ? 'paid' : 'free';
     const tierConfig = TIER_CONFIGS[rawTier];
@@ -1107,7 +1134,11 @@ export function getUserProfile(userId: number): UserProfile {
       openrouterKey: node?.openrouterKey,
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
       // to prevent "does not support this tool_choice" errors.
-      disallowedTools: ["WebSearch"],
+      // V-01 fix: free-tier guests also get the full FREE_DISALLOWED_TOOLS list so
+      // they cannot reach host files/shell while running without a Docker container.
+      disallowedTools: rawTier === 'free'
+        ? [...new Set([...FREE_DISALLOWED_TOOLS])]
+        : ["WebSearch"],
       // Cap tool-call rounds for DeepSeek guests to prevent slow search loops.
       // 20 turns covers complex coding tasks.
       maxTurns: 20,
@@ -1169,7 +1200,7 @@ export function getUserProfile(userId: number): UserProfile {
     isGuest: false,
     workingDir: OWNER_WORKING_DIR,
     memoryRoot: ownerVaultDir,
-    allowedPaths: OWNER_ALLOWED_PATHS,
+    allowedPaths: [...OWNER_ALLOWED_PATHS, `/tmp/pollinations/${userId}/`],
     settingSources: node?.settingSources ?? ["user", "project"],
     systemPrompt: buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS, !!ownerDeepseekEnv),
     // Owner сам себя ограничивать смысла нет — по умолчанию без лимита.
@@ -1281,6 +1312,13 @@ export const BUTTON_LABEL_MAX_LENGTH = 30;
 
 export const AUDIT_LOG_PATH =
   process.env.AUDIT_LOG_PATH || "/tmp/claude-telegram-audit.log";
+// V-30N: warn if audit log is in /tmp (volatile — wiped on reboot, tamperable by root-attacker)
+if (AUDIT_LOG_PATH.startsWith("/tmp")) {
+  console.warn(
+    `[audit] AUDIT_LOG_PATH="${AUDIT_LOG_PATH}" is inside /tmp — logs are lost on reboot. ` +
+    `Set AUDIT_LOG_PATH=/var/log/claude-tg-bot.audit.log in .env for a persistent location.`
+  );
+}
 export const AUDIT_LOG_JSON =
   (process.env.AUDIT_LOG_JSON || "false").toLowerCase() === "true";
 
@@ -1305,10 +1343,10 @@ export const TEMP_DIR = "/tmp/telegram-bot";
 
 // Narrowed to specific bot-controlled subdirs to prevent cross-user access via
 // isPathAllowedFor (e.g. /tmp/claude-telegram-session-OTHER.json, /tmp/ask-user-*.json).
+// NOTE: /tmp/pollinations/ is NOT listed here — each user's images live in
+// /tmp/pollinations/<userId>/ which is added to their allowedPaths in getUserProfile().
 export const TEMP_PATHS = [
-  "/tmp/pollinations/",
   "/tmp/openrouter_images/",
-  "/private/tmp/pollinations/",
   "/private/tmp/openrouter_images/",
   "/var/folders/",
 ];

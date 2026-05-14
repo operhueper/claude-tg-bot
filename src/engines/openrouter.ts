@@ -15,6 +15,7 @@ import { recordUsage } from "../metering";
 import { containerManager } from "../containers/manager";
 import { escapeHtml } from "../formatting";
 import { checkCommandSafety, isPathAllowedFor } from "../security";
+import { alertSuspiciousCommand } from "../owner-alerts";
 import type { StatusCallback } from "../types";
 
 // ---------------------------------------------------------------------------
@@ -316,6 +317,8 @@ export async function executeToolAsync(
       const cmd = args.command || "";
       const [isSafe, reason] = checkCommandSafety(cmd, profile.allowedPaths);
       if (!isSafe) return `Error: command blocked — ${reason}`;
+      // V-30O: alert owner on suspicious-but-allowed commands
+      alertSuspiciousCommand(profile.userId, cmd);
 
       // Guests without a container must not run commands on the host as root.
       // Fail closed — host-mode execution is only permitted for the owner.
@@ -697,6 +700,8 @@ export async function queryOpenRouter(
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
   let finalText = "";
+  // V-30M: stable request ID for deduplication — prevents double-billing on retries
+  const requestId = `or-${profile.userId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   // Anti-loop: track (tool, args_hash) pairs seen in this conversation
   const seenToolCalls = new Set<string>();
@@ -790,7 +795,7 @@ export async function queryOpenRouter(
     // Continue loop — model will respond after seeing tool results
   }
 
-  // Record metering for the entire agentic loop
+  // Record metering for the entire agentic loop (V-30M: requestId deduplicates on retry)
   if (totalPromptTokens > 0 || totalCompletionTokens > 0) {
     recordUsage({
       userId: profile.userId,
@@ -798,6 +803,7 @@ export async function queryOpenRouter(
       model,
       inputTokens: totalPromptTokens,
       outputTokens: totalCompletionTokens,
+      requestId,
     });
   } else {
     // OpenRouter usually returns usage; if not, surface the gap so we know

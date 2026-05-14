@@ -33,6 +33,14 @@ metering.sqlite-wal
 # DeepSeek API key pool (per-host, never commit)
 system/deepseek-keys.json
 
+# User registry — содержит PII, payment_method_id YooKassa, subscription state.
+# Файл живёт только на проде; локально может быть устаревший дамп. Никогда не коммитить.
+system/users.json
+
+# Confidential business documents (bank requisites, contracts, etc.) — never commit
+COMREQ-*
+*.pdf
+
 # caches
 .eslintcache
 .cache

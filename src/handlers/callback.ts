@@ -16,7 +16,8 @@ import { getPendingInvite, removePendingInvite } from "../containers/invites";
 import { addUser } from "../user-registry";
 import { invalidateSubscription, isSubscribed, isSubscriptionGateEnabled } from "../subscription";
 import { handleGoalCallback } from "./goals";
-import { GUEST_MENU_COMMANDS } from "./commands";
+import { GUEST_MENU_COMMANDS, handleStart } from "./commands";
+import { recordConsent, hasConsented } from "../consent";
 
 /**
  * Handle callback queries from inline keyboards.
@@ -32,13 +33,31 @@ export async function handleCallback(ctx: Context): Promise<void> {
     return;
   }
 
-  // 1. Authorization check
+  // 1. Consent accept — must be handled before the auth check so that users
+  //    who haven't been onboarded yet can still give consent.
+  if (callbackData === "consent_accept") {
+    if (!hasConsented(userId)) {
+      recordConsent(userId, "telegram_button");
+    }
+    await ctx.answerCallbackQuery({ text: "Спасибо! Условия приняты." });
+    // Clean up the gate message (cosmetic)
+    try {
+      await ctx.deleteMessage();
+    } catch {
+      // not critical
+    }
+    // Show the normal welcome screen
+    await handleStart(ctx);
+    return;
+  }
+
+  // 2. Authorization check
   if (!isAuthorized(userId, ALLOWED_USERS)) {
     await ctx.answerCallbackQuery({ text: "Unauthorized" });
     return;
   }
 
-  // 1b. Subscription gate recheck (only reachable for authorized users —
+  // 2b. Subscription gate recheck (only reachable for authorized users —
   //     unauthorized users never see the button).
   if (callbackData === "subscription:check") {
     await handleSubscriptionCheckCallback(ctx);

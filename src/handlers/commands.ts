@@ -24,6 +24,9 @@ import {
 import { isAuthorized } from "../security";
 import { auditLog, replyFriendly } from "../utils";
 import { requestAccess } from "../containers/invites";
+import { hasConsented, revokeConsent } from "../consent";
+import { cleanupUserResources } from "../user-registry";
+import { sendConsentGate } from "./consent-gate";
 import { getUserSubscriptionExpiry, isTrialUsed, sendYuKassaBindingLink } from "../payments.js";
 import { getTodayCount, resetIfNewDay } from "../daily-limit";
 import { GraphStore } from "../memory/graph";
@@ -60,6 +63,13 @@ export async function handleStart(ctx: Context): Promise<void> {
 
   if (!userId) {
     await ctx.reply("Unauthorized. Contact the bot owner for access.");
+    return;
+  }
+
+  // Consent gate — must be the first check after userId extraction.
+  // Unauthorized and new-guest flows come AFTER so the gate is always first.
+  if (!hasConsented(userId)) {
+    await sendConsentGate(ctx);
     return;
   }
 
@@ -778,7 +788,17 @@ export async function handleForget(ctx: Context): Promise<void> {
       // ignore
     }
 
-    await ctx.reply("Память очищена. Начинаем с чистого листа.");
+    revokeConsent(userId);
+
+    // GDPR cleanup: remove vault, Docker container, and temp dropbox in addition
+    // to the memory files already deleted above.
+    cleanupUserResources(userId).catch((e) =>
+      console.warn(`[/forget] cleanupUserResources failed for ${userId}:`, e)
+    );
+
+    await ctx.reply(
+      "Память очищена. Начинаем с чистого листа.\n\nСогласие на обработку отозвано. Чтобы продолжить использование, нажмите /start и примите условия заново."
+    );
   } catch (err) {
     await ctx.reply("Не удалось очистить память. Попробуй позже.");
     console.error("[/forget]", err);

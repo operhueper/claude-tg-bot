@@ -2,6 +2,42 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-14 — Consent Gate + DeepSeek Pool + Legal Docs + Security Pack (всё в проде)
+
+### Consent Gate (commit 8c62b1d) — НОВЫЙ БАРЬЕР ДО АВТОРИЗАЦИИ
+- **`src/consent.ts`**: SQLite-хранилище в `metering.sqlite`. `DOC_VERSION="2026-05-14"` — смена версии инвалидирует все согласия.
+- **`src/handlers/consent-gate.ts`**: gate-сообщение + кнопка «✅ Принимаю условия».
+- **`src/index.ts`**: middleware перехватывает ВСЁ до consent. Порядок: consent → авторизация → rate-limit → handler.
+- **`/forget`**: также вызывает `revokeConsent(userId)`.
+
+### DeepSeek Key Pool (commit 12233f2)
+- **`src/deepseek-key-pool.ts`**: least-busy pool. `acquireDeepSeekKey()` / `release()`. Fallback на env-key.
+- **`system/deepseek-keys.json`**: gitignored, 5-6 ключей, per-host. На проде 6 ключей.
+- Гости: native DS API (`api.deepseek.com/anthropic`), НЕ через OpenRouter.
+- OR sub-keys provisioning удалён из `callback.ts`.
+
+### Юридические документы (commit 8c62b1d)
+- **`oferta.ts`**: 16 разделов, лимит ответственности 2000 ₽, ЗоЗПП ст. 32, AI-disclaimer.
+- **`privacy.ts`**: 14 разделов, 152-ФЗ, 5 категорий данных, трансграничная передача (ст. 12 ч. 4 п. 1).
+- **`terms.ts`** (новый): 10 разделов, запреты, ответственность за контейнер.
+- ИП Энбом Ксения Игоревна, ИНН 631609033320, ОГРНИП 324632700187012. АО «ТБанк».
+- **`legal/`**: внутренние документы ПДН.
+
+### Security hardening pack (25 коммитов, 3e0b1d6..fc6edb8)
+- V-01 free-tier: только текст (no Bash/Read/Write/MCP файловых)
+- V-02 memory injection: zod+escape, reply_to sanitize
+- V-04..V-30P: nginx CSP/TLS, bind 127.0.0.1, iptables metadata+inter-container DROP, parallel_mcp cap, voice duration cap, vault quota, daemon-runner injection, pollinations per-user, deleteUser cleanup, session.kill, OR dedup, audit-log warn, owner-alerts
+- V-26 userns-remap: deployed. uid 101000:101000 на vault. Storage driver overlay2 на обоих серверах.
+- Аудит: `audit/2026-05-14-pre-rotation/` — 23 raw-документа + FIX_PLAN.md + VULNERABILITIES.md
+
+### Что ОСТАЛОСЬ
+- Ротация ключей: TELEGRAM_BOT_TOKEN, OPENAI, OPENROUTER + PROVISIONING, DEEPSEEK (пул), COMPOSIO
+- P2 (~35 пунктов V-07..V-39): reliability — отдельная сессия
+- V--1 filter-repo: владелец отказался (после ротации токены станут бесполезны)
+- YuKassa IP whitelist расширился — нет reconciliation job
+
+---
+
 ## Состояние: 2026-05-13 (поздний вечер) — возврат гостей с OpenRouter на native DeepSeek + пул из 5 ключей
 
 ### Симптом

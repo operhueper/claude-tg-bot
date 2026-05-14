@@ -38,6 +38,7 @@ import { renderLanding, renderHowToSetup } from "./templates/landing";
 import { renderDashboard } from "./templates/user-dashboard";
 import { renderOferta } from "./templates/oferta";
 import { renderPrivacy } from "./templates/privacy";
+import { renderTerms } from "./templates/terms";
 import type { YuKassaWebhookEvent } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +49,13 @@ const DASHBOARD_PORT = parseInt(process.env.DASHBOARD_PORT || "3848", 10);
 const NOTIFY_BRIDGE_PORT = parseInt(process.env.NOTIFY_BRIDGE_PORT || "3849", 10);
 const GUEST_SUBNET_PREFIX = process.env.GUEST_SUBNET_PREFIX || "172.18.";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+
+// Hostname for the notify-bridge that guest containers POST to.
+// On prod the docker bridge interface is 172.18.0.1 — set GUEST_BRIDGE_IP in .env.
+// On a dev machine without docker the bridge doesn't exist, so if binding fails
+// the bridge falls back to 0.0.0.0 with a warning (containers won't work locally anyway).
+// Default is 127.0.0.1 (safe for dev); prod MUST set GUEST_BRIDGE_IP=172.18.0.1.
+const GUEST_BRIDGE_IP = process.env.GUEST_BRIDGE_IP || "127.0.0.1";
 
 // Allowed users cache for notify-bridge validation
 let _allowedUsers: Set<number> | null = null;
@@ -257,6 +265,62 @@ async function assetResponse(filename: string): Promise<Response> {
 }
 
 // ---------------------------------------------------------------------------
+// Per-userId rate limiter for /api/* endpoints (V-34)
+// Simple token-bucket: 10 requests per 60 seconds per userId.
+// ---------------------------------------------------------------------------
+
+interface RateLimitBucket {
+  tokens: number;
+  lastRefill: number; // Date.now() ms
+}
+
+const API_RL_LIMIT = 10;       // max requests per window
+const API_RL_WINDOW_MS = 60_000; // 60 seconds
+
+const _apiRateLimitMap = new Map<number, RateLimitBucket>();
+
+function checkApiRateLimit(userId: number): boolean {
+  const now = Date.now();
+  let bucket = _apiRateLimitMap.get(userId);
+  if (!bucket) {
+    bucket = { tokens: API_RL_LIMIT, lastRefill: now };
+    _apiRateLimitMap.set(userId, bucket);
+  }
+  const elapsed = now - bucket.lastRefill;
+  if (elapsed >= API_RL_WINDOW_MS) {
+    bucket.tokens = API_RL_LIMIT;
+    bucket.lastRefill = now;
+  }
+  if (bucket.tokens <= 0) return false;
+  bucket.tokens -= 1;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Cached docker stats for container metrics (V-34)
+// A single 30-second cache shared across all /api/* callers prevents
+// fork-bombing docker stats on every dashboard poll.
+// ---------------------------------------------------------------------------
+
+interface CachedAllContainerMetrics {
+  data: Awaited<ReturnType<typeof getAllContainerMetrics>>;
+  fetchedAt: number; // Date.now() ms
+}
+
+const CONTAINER_METRICS_TTL_MS = 30_000;
+let _cachedAllContainerMetrics: CachedAllContainerMetrics | null = null;
+
+async function getAllContainerMetricsCached(): Promise<Awaited<ReturnType<typeof getAllContainerMetrics>>> {
+  const now = Date.now();
+  if (_cachedAllContainerMetrics && now - _cachedAllContainerMetrics.fetchedAt < CONTAINER_METRICS_TTL_MS) {
+    return _cachedAllContainerMetrics.data;
+  }
+  const data = await getAllContainerMetrics();
+  _cachedAllContainerMetrics = { data, fetchedAt: Date.now() };
+  return data;
+}
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
 
@@ -287,6 +351,10 @@ async function handleApiMe(req: Request): Promise<Response> {
     return jsonErr("forbidden", 403);
   }
 
+  if (!checkApiRateLimit(userId)) {
+    return jsonErr("rate_limited", 429);
+  }
+
   const profile = getUserProfile(userId);
 
   // Subscription gate: non-owner guests must be members of REQUIRED_CHANNEL_ID.
@@ -298,7 +366,10 @@ async function handleApiMe(req: Request): Promise<Response> {
   }
 
   const today = getUserTotals(userId, moscowDayStartUtcSeconds());
-  const container = await getContainerMetrics(userId);
+  // Use cached metrics to avoid forking docker stats on every poll (V-34)
+  const allMetrics = await getAllContainerMetricsCached();
+  const container = allMetrics.find((m) => String(m.userId) === String(userId)) ??
+    await getContainerMetrics(userId);
 
   const role: "owner" | "guest" =
     profile.isOwner ? "owner" : "guest";
@@ -368,9 +439,13 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
     return jsonErr("forbidden", 403);
   }
 
+  if (!checkApiRateLimit(validated.user.id)) {
+    return jsonErr("rate_limited", 429);
+  }
+
   const allTotals = getAllUsersTotals();
   const [allContainers, host] = await Promise.all([
-    getAllContainerMetrics(),
+    getAllContainerMetricsCached(),
     getHostMetrics(),
   ]);
   const aggregate = getGuestsAggregate(allContainers);
@@ -449,13 +524,18 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
 
 async function handleYuKassaWebhookRoute(req: Request): Promise<Response> {
   // IP check (enabled by default; disable with YUKASSA_IP_CHECK=false in env)
+  // V-00: при пустом clientIp раньше проверка пропускалась → любой мог
+  // POST'ом активировать подписку без оплаты. Теперь пустой IP = отказ.
+  // Источник IP — X-Real-IP, который nginx ставит из реального сокета.
+  // X-Forwarded-For читаем как fallback на случай нескольких прокси,
+  // но nginx-конфиг должен гарантировать X-Real-IP всегда.
   if (process.env.YUKASSA_IP_CHECK !== "false") {
     const clientIp =
+      req.headers.get("x-real-ip")?.trim() ||
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
       "";
-    if (clientIp && !isYuKassaIp(clientIp)) {
-      console.warn(`[yukassa-webhook] rejected IP: ${clientIp}`);
+    if (!clientIp || !isYuKassaIp(clientIp)) {
+      console.warn(`[yukassa-webhook] rejected IP: ${clientIp || "<empty>"}`);
       return new Response("Forbidden", { status: 403 });
     }
   }
@@ -602,6 +682,7 @@ ${autoRedirectScript}
 export function startDashboardServer(): void {
   Bun.serve({
     port: DASHBOARD_PORT,
+    hostname: "127.0.0.1",
     async fetch(req) {
       const url = new URL(req.url);
       const { pathname, method } = Object.assign(url, {
@@ -666,6 +747,12 @@ export function startDashboardServer(): void {
           });
         }
 
+        if (method === "GET" && pathname === "/terms") {
+          return new Response(renderTerms(), {
+            headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        }
+
         return new Response("Not Found", { status: 404 });
       } catch (err) {
         console.error("[dashboard] Unhandled error:", err);
@@ -725,23 +812,24 @@ async function sendTelegramMessage(userId: number, text: string): Promise<void> 
 }
 
 function startNotifyBridge(): void {
-  Bun.serve({
+  const serveNotify = (hostname: string) => Bun.serve({
     port: NOTIFY_BRIDGE_PORT,
-    async fetch(req) {
+    hostname,
+    async fetch(req, server) {
       const url = new URL(req.url);
 
       if (req.method !== "POST" || url.pathname !== "/notify") {
         return new Response("Not Found", { status: 404 });
       }
 
-      // Source IP validation — only accept from guest subnet.
-      // Prefer the real socket address over the spoofable x-forwarded-for header.
-      const sourceIp =
-        (req as any).remoteAddress ||
-        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-        "";
+      // V--2: реальный socket-IP через Bun API. Заголовки (X-Forwarded-For,
+      // X-Real-IP) тут НЕ читаем — их может подделать любой контейнер.
+      // IPv6-mapped IPv4 (::ffff:172.18.0.5) нормализуем к чистому v4,
+      // чтобы startsWith("172.18.") работал.
+      const rawIp = server.requestIP(req)?.address ?? "";
+      const sourceIp = rawIp.replace(/^::ffff:/i, "");
       if (!sourceIp.startsWith(GUEST_SUBNET_PREFIX)) {
-        console.warn(`[notify-bridge] rejected source IP: ${sourceIp}`);
+        console.warn(`[notify-bridge] rejected source IP: ${rawIp}`);
         return new Response("Forbidden", { status: 403 });
       }
 
@@ -798,5 +886,12 @@ function startNotifyBridge(): void {
     },
   });
 
-  console.log(`Notify bridge listening on port ${NOTIFY_BRIDGE_PORT}`);
+  try {
+    serveNotify(GUEST_BRIDGE_IP);
+    console.log(`Notify bridge listening on ${GUEST_BRIDGE_IP}:${NOTIFY_BRIDGE_PORT}`);
+  } catch {
+    console.warn(`[notify-bridge] bind on ${GUEST_BRIDGE_IP}:${NOTIFY_BRIDGE_PORT} failed (no docker bridge?), falling back to 0.0.0.0`);
+    serveNotify("0.0.0.0");
+    console.log(`Notify bridge listening on 0.0.0.0:${NOTIFY_BRIDGE_PORT} (fallback)`);
+  }
 }

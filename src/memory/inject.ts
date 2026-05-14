@@ -3,9 +3,13 @@ import { GraphStore } from "./graph";
 import { rankNodesByQuery } from "./relevance";
 
 /** Strip prompt-injection patterns before splicing node content into a system prompt. */
-function sanitizeForPrompt(s: unknown): string {
+export function sanitizeForPrompt(s: unknown): string {
   if (typeof s !== "string") return String(s ?? "").slice(0, 100);
   return s
+    // HTML-escape first (& must come before < and >) to prevent HTML injection in prompts
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
     .slice(0, 500) // hard cap
     .replace(/^#{1,6}\s/gm, "") // strip markdown headings
     .replace(/^(SYSTEM:|INST:|<\|)/gm, "") // strip directive prefixes

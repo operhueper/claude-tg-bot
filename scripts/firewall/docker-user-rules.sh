@@ -22,6 +22,18 @@ ensure_rule() {
     fi
 }
 
+# V-22: block Hetzner metadata endpoint from guest containers
+ensure_rule DOCKER-USER \
+    -s 10.89.0.0/24 \
+    -d 169.254.169.254 \
+    -j DROP
+
+# V-21: block inter-container lateral movement on claude-guest0
+ensure_rule DOCKER-USER \
+    -i "$GUEST_IF" \
+    -o "$GUEST_IF" \
+    -j DROP
+
 for port in "${HOST_PORTS[@]}"; do
     ensure_rule DOCKER-USER \
         -i "$GUEST_IF" \

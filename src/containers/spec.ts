@@ -158,20 +158,29 @@ export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean 
     // exhaustion, socket floods). Soft 1024 / hard 2048.
     args.push("--ulimit=nofile=1024:2048");
 
-    // Disk-IO cgroup limits — prevent dd/yt-dlp/tar from saturating the NVMe
-    // and stalling overlay-FS for other guests and the host bot.
-    // blkio-weight sets relative IO priority (512 = half of max 1000).
-    // bps/iops caps are per-device hard limits; device path auto-detected from df.
-    // Skipped gracefully when /opt/vault is unavailable (macOS dev, CI).
-    {
-      const vaultDev = getVaultDevice();
-      if (vaultDev) {
-        args.push("--blkio-weight=500");
-        args.push("--device-write-bps", `${vaultDev}:50m`);
-        args.push("--device-read-bps", `${vaultDev}:100m`);
-        args.push("--device-write-iops", `${vaultDev}:2000`);
-        args.push("--device-read-iops", `${vaultDev}:4000`);
-      }
+    // Disk-IO cgroup limits are enforced by --cgroup-parent=claude-guests.slice
+    // (systemd slice with IOWriteBandwidthMax / IOReadBandwidthMax via cgroup v2).
+    // Docker blkio flags (--blkio-weight, --device-write-bps, etc.) are intentionally
+    // omitted: on Docker 27+ with cgroup v2 they fail with "no such device" instead of
+    // being silent no-ops, breaking container startup.
+
+    // Attach all guest containers to the claude-guests.slice systemd slice.
+    // This activates the cgroup v2 io controller (IOWriteBandwidthMax /
+    // IOReadBandwidthMax) defined in scripts/systemd/claude-guests.slice,
+    // enforcing 50 MB/s write / 100 MB/s read limits per-slice.
+    // Safe to include even when the slice is not yet installed — Docker silently
+    // creates a transient cgroup under the system.slice in that case (no error).
+    args.push("--cgroup-parent=claude-guests.slice");
+
+    // Optional container writable-layer size cap (defense-in-depth against bind-mount
+    // bypass). Works only with the overlay2 storage driver; other drivers reject the
+    // flag and the container fails to start.  To enable, set DOCKER_STORAGE_OPT=size=3G
+    // in .env after verifying: docker info | grep -i "Storage Driver" → overlay2.
+    // Deliberately opt-in via env — do NOT default to "size=3G" because this would
+    // silently break setups with devicemapper/btrfs/zfs storage drivers.
+    const storageOpt = process.env.DOCKER_STORAGE_OPT;
+    if (storageOpt) {
+      args.push("--storage-opt", storageOpt);
     }
 
     // NOTE: --ulimit=nproc is intentionally NOT set here. nproc is a per-UID

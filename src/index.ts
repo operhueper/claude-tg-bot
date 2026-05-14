@@ -14,6 +14,8 @@ import {
   RESTART_FILE,
   getUserProfile,
 } from "./config";
+import { hasConsented } from "./consent";
+import { sendConsentGate } from "./handlers/consent-gate";
 import {
   isSubscriptionGateEnabled,
   isSubscribed,
@@ -191,6 +193,38 @@ bot.use(
     return ctx.chat?.id.toString();
   })
 );
+
+// ============== Consent Gate ==============
+// Must run after sequentialize but before any command/message handlers.
+// Blocks all interaction until the user accepts the legal documents.
+//
+// Pass-through cases:
+//   1. No userId — downstream handlers will reject.
+//   2. consent_accept callback — the handler itself records consent.
+//   3. /start — handleStart shows the gate inline so onboarding flow is intact.
+//   4. Already consented — pass through immediately.
+bot.use(async (ctx, next) => {
+  const userId = ctx.from?.id;
+  if (!userId) return next();
+
+  // Let the consent_accept callback through so the user can give consent.
+  if (ctx.callbackQuery?.data === "consent_accept") {
+    return next();
+  }
+
+  if (hasConsented(userId)) {
+    return next();
+  }
+
+  // /start handles the gate itself — forward so it can run its normal flow.
+  const text = ctx.message?.text;
+  if (text === "/start" || text?.startsWith("/start ")) {
+    return next();
+  }
+
+  // Block everything else and show the gate.
+  await sendConsentGate(ctx);
+});
 
 // ============== Command Handlers ==============
 
@@ -408,6 +442,9 @@ const HEALTH_OWNER_ID = ALLOWED_USERS.find((id) => !NEW_GUEST_USERS.includes(id)
 if (HEALTH_SECRET && HEALTH_OWNER_ID) {
   Bun.serve({
     port: HEALTH_PORT,
+    // V-1D: internal healthcheck, Telegram сюда не стучит. Биндим на 127.0.0.1,
+    // чтобы UFW не был единственной защитой от внешнего доступа.
+    hostname: "127.0.0.1",
     async fetch(req) {
       if (req.method !== "POST") {
         return new Response("Method Not Allowed", { status: 405 });

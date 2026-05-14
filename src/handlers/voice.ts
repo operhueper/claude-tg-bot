@@ -44,6 +44,25 @@ export async function handleVoice(ctx: Context): Promise<void> {
     return;
   }
 
+  // 2b. Duration limit per tier (checked before download to avoid wasted bandwidth)
+  {
+    const profile = getUserProfile(userId);
+    if (!profile.isOwner) {
+      const maxDuration = profile.tierConfig.tier === 'paid' ? 1800 : 300;
+      const duration = voice.duration ?? 999_999;
+      if (duration > maxDuration) {
+        const durationMin = Math.ceil(duration / 60);
+        const limitMin = maxDuration / 60;
+        await ctx.reply(
+          `Голосовое сообщение (${durationMin} мин) слишком длинное.\n` +
+          `На вашем тарифе можно до ${limitMin} минут.\n\n` +
+          `Разбейте на части или перейдите на Профи /pay.`
+        );
+        return;
+      }
+    }
+  }
+
   // 3. Daily message limit — enforced only when tierConfig specifies a finite cap
   {
     const profile = getUserProfile(userId);
@@ -134,11 +153,12 @@ export async function handleVoice(ctx: Context): Promise<void> {
 
     const transcript = await transcribeVoice(voicePath);
     if (!transcript) {
+      // V-30L: editMessageText may throw if user blocked the bot — ignore
       await ctx.api.editMessageText(
         chatId,
         statusMsg.message_id,
         "❌ Не удалось расшифровать голосовое. Попробуй ещё раз."
-      );
+      ).catch(() => {});
       return;
     }
 
@@ -148,11 +168,12 @@ export async function handleVoice(ctx: Context): Promise<void> {
       transcript.length > maxDisplay
         ? transcript.slice(0, maxDisplay) + "…"
         : transcript;
+    // V-30L: editMessageText may throw if user blocked the bot — ignore
     await ctx.api.editMessageText(
       chatId,
       statusMsg.message_id,
       `🎤 "${displayTranscript}"`
-    );
+    ).catch(() => {});
 
     // 10. Set conversation title from transcript (if new session)
     if (!session.isActive) {

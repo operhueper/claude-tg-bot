@@ -182,6 +182,66 @@ Two layers protect host services from guest containers:
 
 Persistence: rules are saved to `/etc/iptables/rules.v4` and re-applied on bot start via systemd drop-in `/etc/systemd/system/claude-tg-bot.service.d/firewall.conf` (`ExecStartPre=-/opt/claude-tg-bot/scripts/firewall/docker-user-rules.sh`). The script is idempotent — `iptables -C` guards every `iptables -I`.
 
+## Migration: V-26 userns-remap (Docker user namespace isolation)
+
+**Цель:** без userns-remap UID 1000 внутри контейнера совпадает с UID 1000 на хосте. При любом kernel-CVE escape гость получит host UID 1000, у которого есть доступ к `/opt/vault/*` всех других гостей. После включения UID 1000 в контейнере маппируется в host UID 101000 (offset 100000), у которого нет прав ни на что вне vault'а.
+
+**Известные риски перед запуском:**
+- Docker при рестарте пересоздаёт весь imagestore под новый namespace — нужно ~6+ ГБ свободного места.
+- На сервере нет других (non-claude) контейнеров, поэтому пересоздание всего Docker-стейта безопасно.
+- userns-remap независим от ext4 `prjquota` — не требует remount.
+
+### Процедура деплоя
+
+1. **Backup vault:**
+   ```bash
+   cp -a /opt/vault /opt/vault.bak-$(date +%Y%m%d)
+   ```
+
+2. **Backup daemon.json:**
+   ```bash
+   cp /etc/docker/daemon.json /etc/docker/daemon.json.bak 2>/dev/null || true
+   ```
+
+3. **Dry-run (проверить что изменится без реального воздействия):**
+   ```bash
+   bash /opt/claude-tg-bot/scripts/v26-userns-remap-migration.sh --dry-run
+   ```
+
+4. **Запустить миграцию:**
+   ```bash
+   bash /opt/claude-tg-bot/scripts/v26-userns-remap-migration.sh
+   ```
+   Скрипт идёмпотентен — повторный запуск без `--force` обнаружит уже включённый userns-remap и выйдет без изменений.
+
+5. **Верификация:**
+   ```bash
+   # UID внутри контейнера должен быть 1000
+   docker exec claude-user-<userid> id
+   # UID файлов в vault на хосте должен быть 101000
+   stat /opt/vault/<userid>/
+   ```
+
+6. **Rollback (если что-то пошло не так):**
+   ```bash
+   # Убрать userns-remap из daemon.json
+   jq 'del(.["userns-remap"])' /etc/docker/daemon.json > /tmp/d.json && mv /tmp/d.json /etc/docker/daemon.json
+   systemctl restart docker
+   chown -R 1000:1000 /opt/vault
+   systemctl restart claude-tg-bot
+   ```
+
+### Предусловия (оператор проверяет вручную)
+
+1. Скрипт запускается под root на Linux-хосте (`proboi-bot`, 89.167.125.175).
+2. Свободное место ≥ 6 ГБ: `df -h /var/lib/docker`.
+3. Этот шаг — **последний** в пакете фиксов V-26 (шаг 14 по `audit/2026-05-14-pre-rotation/FIX_PLAN.md`). Все остальные фиксы и smoke-тесты должны быть пройдены до запуска.
+4. `jq` установлен (опционально, но рекомендуется для safe-merge daemon.json). Без jq скрипт использует python3.
+
+### Изменения в TypeScript отсутствуют
+
+`spec.ts` и приложение не меняются — userns-remap прозрачен для Docker API. Контейнеры пересоздаются ботом автоматически через `containerManager.init()` при старте.
+
 ## Patterns
 
 **Adding a command**: Create handler in `commands.ts`, register in `index.ts` with `bot.command("name", handler)`. If the command should appear in the side menu, also add it to `baseCommands` and/or `ownerCommands` in `index.ts`. If guests should be blocked from running it, add the name to `OWNER_COMMANDS` only (not `GUEST_COMMANDS`) in `config.ts` and check via `getUserProfile(userId).allowedCommands.has(...)` in the handler.
@@ -280,6 +340,27 @@ launchctl load ~/Library/LaunchAgents/com.claude-telegram-ts.plist
 # Logs
 tail -f /tmp/claude-telegram-bot-ts.log
 tail -f /tmp/claude-telegram-bot-ts.err
+```
+
+## External Watchdog (V-30P)
+
+The bot exposes a health endpoint at `GET /healthz` (port 3847, proxied through nginx as `https://proboi.site/healthz`). Configure an **external uptime monitor** to detect deadlocks and silent crashes that internal checks cannot catch:
+
+1. Go to [UptimeRobot](https://uptimerobot.com) (free tier: 50 monitors, 5-min interval).
+2. Create a new monitor:
+   - **Type:** HTTP(S)
+   - **URL:** `https://proboi.site/healthz`
+   - **Interval:** 5 minutes
+   - **Alert contacts:** owner Telegram or email
+3. Alternatively use [Healthchecks.io](https://healthchecks.io) — bot pings it on each successful startup; silence = alert.
+
+Note: nginx must proxy `/healthz` to `127.0.0.1:3847`. If the vhost does not have this location block, add it:
+
+```nginx
+location /healthz {
+    proxy_pass http://127.0.0.1:3847/healthz;
+    proxy_read_timeout 5s;
+}
 ```
 
 ## Sibling Files

@@ -5,6 +5,8 @@
  */
 
 import { existsSync, readFileSync, writeFileSync, renameSync } from "fs";
+import * as fs from "fs";
+import { execFile } from "child_process";
 import { resolve, dirname } from "path";
 
 export type UserRole = "owner" | "guest" | "new_guest";
@@ -127,6 +129,69 @@ export function setUserOpenRouterKey(userId: number, key: string): void {
   writeUsersAtomic(users);
   _cache = users;
   console.log(`[user-registry] Saved openrouterKey for user ${userId}`);
+}
+
+/**
+ * Clean up all server-side resources for a user:
+ * 1. Stop and remove their Docker container (claude-user-<id>).
+ * 2. Delete their vault directory (/opt/vault/<id>/).
+ * 3. Delete their Telegram temp dropbox (/tmp/telegram-bot/<id>/).
+ *
+ * All steps are best-effort: errors are logged but never thrown so
+ * callers (deleteUser, /forget) are unaffected if e.g. the container
+ * doesn't exist or /opt/vault/ is absent on a dev machine.
+ */
+export async function cleanupUserResources(userId: number): Promise<void> {
+  const containerName = `claude-user-${userId}`;
+
+  // 1. Stop and remove Docker container
+  await new Promise<void>((resolve) => {
+    execFile("docker", ["rm", "-f", containerName], (err) => {
+      if (err) {
+        // ENOENT means docker not installed, other errors = container didn't exist — both fine
+        const msg = err.message || "";
+        if (!msg.includes("No such container") && !/ENOENT/.test(msg)) {
+          console.warn(`[cleanupUserResources] docker rm -f ${containerName}:`, err.message);
+        }
+      }
+      resolve();
+    });
+  });
+
+  // 2. Remove vault directory
+  const vaultDir = `/opt/vault/${userId}/`;
+  try {
+    await fs.promises.rm(vaultDir, { recursive: true, force: true });
+  } catch (err) {
+    console.warn(`[cleanupUserResources] rm -rf ${vaultDir}:`, err);
+  }
+
+  // 3. Remove Telegram temp dropbox
+  const dropboxDir = `/tmp/telegram-bot/${userId}/`;
+  try {
+    await fs.promises.rm(dropboxDir, { recursive: true, force: true });
+  } catch (err) {
+    console.warn(`[cleanupUserResources] rm -rf ${dropboxDir}:`, err);
+  }
+
+  console.log(`[cleanupUserResources] Cleaned up resources for user ${userId}`);
+}
+
+/**
+ * Remove a user from the registry and clean up all their server-side resources.
+ * Returns true if the user was found and removed, false otherwise.
+ */
+export async function deleteUser(userId: number): Promise<boolean> {
+  const users = load();
+  const idx = users.findIndex((u) => u.userId === userId);
+  if (idx < 0) return false;
+
+  users.splice(idx, 1);
+  writeUsersAtomic(users);
+  _cache = users;
+
+  await cleanupUserResources(userId);
+  return true;
 }
 
 /**

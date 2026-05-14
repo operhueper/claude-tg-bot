@@ -2,6 +2,122 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-14 — Consent Gate + DeepSeek Pool + Legal Docs (всё в проде)
+
+### Новые фичи в этом пакете (ветка feature/legal-docs-consent-gate, задеплоена на prod)
+
+#### 1. Consent Gate (commit 8c62b1d)
+- **`src/consent.ts`**: SQLite-хранилище согласий в `metering.sqlite`, `DOC_VERSION="2026-05-14"`. При смене версии все старые согласия инвалидируются.
+- **`src/handlers/consent-gate.ts`**: gate-сообщение с 3 ссылками (Оферта, Политика, Соглашение) + кнопка «✅ Принимаю условия».
+- **`src/index.ts`**: middleware блокирует ВСЁ (кроме `/start` и callback `consent_accept`) до получения согласия. Это первый барьер перед авторизацией.
+- **`src/handlers/callback.ts`**: обработчик `consent_accept` записывает согласие, удаляет gate-сообщение, пробрасывает в `handleStart`.
+- **`/forget`**: дополнительно вызывает `revokeConsent(userId)`.
+
+#### 2. DeepSeek Key Pool (commit 12233f2)
+- **`src/deepseek-key-pool.ts`**: least-busy pool selector — выбирает ключ с наименьшим in-flight count (tie-break по `lastUsedMs`). Lazy load из `system/deepseek-keys.json`, fallback на `DEEPSEEK_API_KEY` env.
+- **`system/deepseek-keys.json`**: 5-6 DS ключей, gitignored, per-host.
+- **`src/session.ts`**: `withDeepSeekPoolKey()` обёрнут вокруг main query loop, compactIfNeeded и runBackgroundAnalysis; release в finally на каждом пути.
+- **Routing**: гости снова через native DeepSeek API (`api.deepseek.com/anthropic`), НЕ через OpenRouter. OR sub-keys provisioning удалён из `callback.ts`.
+- На проде при старте: `[deepseek-pool] Loaded 6 DeepSeek key(s)`.
+
+#### 3. Юридические документы (commit 8c62b1d)
+- **`src/templates/oferta.ts`**: 16 разделов, лимит ответственности 2000 ₽, рекуррент с notice-box, ЗоЗПП ст. 32, AI-disclaimer, претензионный порядок 30 дней.
+- **`src/templates/privacy.ts`**: 14 разделов, 152-ФЗ, 5 категорий данных с правовыми основаниями, явное согласие на трансграничную передачу (ст. 12 ч. 4 п. 1).
+- **`src/templates/terms.ts`** (новый): 10 разделов, 5 подразделов запретов, жёсткий блок ответственности за контейнер.
+- **Реквизиты**: ИП Энбом Ксения Игоревна, ИНН 631609033320, ОГРНИП 324632700187012, Самара. АО «ТБанк».
+- **`legal/`**: внутренние документы ПДН (`polozhenie_pdn.md`, `prikaz_otvetstvennyy_pdn.md`).
+
+#### 4. Что ОСТАЛОСЬ (не закрыто)
+- **Ротация ключей**: TELEGRAM_BOT_TOKEN (BotFather), OPENAI_API_KEY, OPENROUTER_API_KEY + PROVISIONING_KEY, DEEPSEEK keys (пул), COMPOSIO_API_KEY.
+- **P2 (~35 пунктов V-07..V-39)**: reliability и мелочи — отдельная сессия.
+- **V--1 filter-repo**: владелец отказался от переписывания истории (после ротации токены станут бесполезны).
+- **YuKassa IP whitelist**: расширение диапазона — нет reconciliation job и `/check`.
+- **Consent gate ещё не тестировался с новыми пользователями** — при первом реальном onboarding после деплоя убедиться, что gate работает корректно.
+
+---
+
+## Состояние: 2026-05-14 — Pre-rotation security pack ЗАДЕПЛОЕН на PROD + jinru
+
+### Деплой
+
+Пакет 25 коммитов (3e0b1d6..fc6edb8) ветка `feature/legal-docs-consent-gate`.
+
+**jinru (5.223.82.96, @ORCH7_bot):** code + image rebuild + V-26 migration + smoke V-01 ОК. Контейнеры пересозданы лениво. Storage driver на jinru сменился с **overlayfs → overlay2** автоматически после `systemctl restart docker` в рамках V-26.
+
+**prod (89.167.125.175, @proboiAI_bot):** те же шаги. Vault 3.9G (19 юзеров, 3 paid). Backup: `.env.bak-20260514-074918`, `users.json.bak-…`, `metering.sqlite.bak-…`, `/opt/vault.bak-20260514-074918`. 3 paid контейнера были удалены и пересоздаются при следующем сообщении каждого юзера.
+
+### Verify-snapshot обоих серверов
+
+| Свойство | jinru | proboi-bot |
+|---|---|---|
+| Storage driver | overlay2 (после рестарта) | overlay2 |
+| userns-remap | enabled, dockremap uid=111 | enabled, dockremap uid=108 |
+| Vault ownership | 101000:101000 | 101000:101000 |
+| Bun 3847 (health) | n/a (HEALTH_SECRET не задан) | 127.0.0.1 |
+| Bun 3848 (dashboard) | 127.0.0.1 | 127.0.0.1 |
+| Bun 3849 (notify) | 172.18.0.1 | 172.18.0.1 |
+| iptables V-22 packets | 3 (metadata access blocked) | 0 |
+| Sandbox digest | sha256:5ebde1979… | sha256:f6d97dca… |
+
+### Что осталось (НЕ закрыто в этом пакете)
+
+- **V--1 filter-repo**: владелец отказался от переписывания истории (после ротации ключей сами по себе токены в коммитах станут бесполезны).
+- **P2 (~35 пунктов V-07..V-39)**: reliability и мелочи, отдельная сессия.
+- **Ротация ключей** (всё ещё впереди): TELEGRAM_BOT_TOKEN на @BotFather, OPENAI_API_KEY, OPENROUTER_API_KEY + OPENROUTER_PROVISIONING_KEY, DEEPSEEK_API_KEY (5-key pool в system/deepseek-keys.json), COMPOSIO_API_KEY.
+
+### Защитный посох на ходу
+
+- 1 сторонний эксфильт-тест на jinru от Артёма дал отказ (V-01 работает).
+- 0 утечек /etc/, /opt/ — Bash/Read/Write/Edit заблокированы для free.
+- Контейнеры свежие (новый sandbox image со всеми security-патчами в Dockerfile.user).
+- На случай регрессии — backup vault и .env существуют на обоих хостах.
+
+---
+
+## Состояние: 2026-05-14 — Pre-rotation security hardening (ветка feature/legal-docs-consent-gate) — HISTORY
+
+### Что сделано за сессию 2026-05-14 — пакет security-фиксов перед ротацией ключей
+
+**Триггер:** утечка `TELEGRAM_BOT_TOKEN` через free-гостя Артём (5615267984) — `cat /opt/claude-tg-bot/.env` под root на хосте. 14 из 18 пользователей могли повторить. См. `audit/2026-05-14-pre-rotation/`.
+
+**Стратегия:** закрыть все известные дыры со старыми ключами одним пакетом, ротация — в самом конце. Без деплоя до явного подтверждения. См. `memory/security_audit_2026_05_14.md`.
+
+**23 атомарных коммита (3e0b1d6..b30fba9), все в `feature/legal-docs-consent-gate`:**
+
+| Зона | Уязвимости | Файлы |
+|---|---|---|
+| Git history | V--1 untrack users.json | `.gitignore`, `system/users.json` |
+| Notify-bridge / Webhook | V--2 source IP, V-00 IP-bypass, V-1A retry-dedup | `src/dashboard-server.ts`, `src/payments.ts`, `src/metering.ts` |
+| Free-tier модель | V-01 disallowedTools, V-05 pdftotext в контейнере | `src/config.ts`, `src/session.ts`, `src/handlers/document.ts` |
+| Nginx | V-04 X-Frame, V-30A CSP `/u/`, V-30B TLS 1.2+, V-30C rate-limit | `scripts/nginx/snippets/`, `sites-available/*.conf` |
+| Memory injection | V-02 zod+escape, V-1J reply-to sanitize | `src/memory/inject.ts`, `src/memory/graph.ts`, `src/handlers/text.ts` |
+| Path/Shell hardening | V-06 execFile, V-1G path traversal, V-25 daemon-runner cmd | `src/handlers/document.ts`, `scripts/daemon-runner/main.go` |
+| Resource limits | V-1C voice duration, V-23 parallel maxItems, V-1I cwd allowlist, V-20 cgroup slice, V-24 quota TTL+storage | `src/handlers/voice.ts`, `parallel_mcp/server.ts`, `src/containers/spec.ts`, `vault-quota.ts`, `scripts/systemd/claude-guests.slice` |
+| Network isolation | V-1D Bun bind 127.0.0.1, V-21 inter-container DROP, V-22 metadata DROP | `src/dashboard-server.ts`, `src/index.ts`, `scripts/firewall/docker-user-rules.sh` |
+| Cross-user storage | V-1H pollinations per-user | `pollinations_mcp/server.ts`, `src/config.ts` |
+| State cleanup / DoS | V-32 deleteUser cleanup, V-33 session.kill, V-34 /api rate-limit + docker stats cache | `src/user-registry.ts`, `src/handlers/commands.ts`, `src/session.ts`, `src/dashboard-server.ts` |
+| Supply chain | V-30G Bun pin, V-30H sandbox digest TODO | `Dockerfile.user`, `src/containers/paths.ts` |
+| Dashboard frontend | V-30I CSP meta, V-30J href scheme, V-30K caption truncate, V-30L editMessage catch | `src/templates/user-dashboard.ts`, `src/handlers/streaming.ts`, `src/handlers/voice.ts` |
+| Metering / Logs / Alerts | V-30M OR request-id dedup, V-30N audit-log warn, V-30O suspicious-cmd alerts, V-30P watchdog docs | `src/engines/openrouter.ts`, `src/config.ts`, `src/owner-alerts.ts`, `CLAUDE.md` |
+| Privilege gates | V-31 closed by V-01 (free=без Bash) | — |
+
+**ОСТАЛОСЬ ВРУЧНУЮ (требует подтверждения деплоя):**
+
+- `git filter-repo --path system/users.json --invert-paths` + force-push (V--1, переписать историю)
+- На проде: `chmod 600 system/users.json metering.sqlite* .env` (V-1B)
+- В прод-`.env`: `AUDIT_LOG_JSON=true`, `GUEST_BRIDGE_IP=172.18.0.1`, опционально `DOCKER_STORAGE_OPT=size=3G`
+- Systemd: `sudo cp scripts/systemd/claude-guests.slice /etc/systemd/system/ && systemctl daemon-reload`
+- ExecStartPre: добавить chmod 600 для `users.json`/`metering.sqlite` в systemd-юнит
+- Применить iptables правила (через `ExecStartPre=-/opt/claude-tg-bot/scripts/firewall/docker-user-rules.sh` уже настроено)
+- `nginx -T` сверить с репо, скопировать `ssl-params.conf` в `/etc/nginx/snippets/`, reload nginx
+- Получить и применить sha256 digest для `claude-user-sandbox` (V-30H)
+- V-26 (userns-remap) — отложено, требует отдельного согласования (пересоздание всех контейнеров)
+- Ротация: TELEGRAM_BOT_TOKEN, OPENAI_API_KEY, OPENROUTER_API_KEY, DEEPSEEK_API_KEY (пул), COMPOSIO_API_KEY — только после smoke-теста пакета
+
+**P2 (~35 пунктов) — V-07..V-39: reliability и мелочи, отдельная сессия.**
+
+---
+
 ## Состояние: 2026-05-13 — Reliability hardening задеплоен на PROD
 
 ### Что сделано за эту сессию (2026-05-13) — таймауты, OR субключи, memory cap

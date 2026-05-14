@@ -21,6 +21,7 @@ import {
 } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { escapeHtml } from "../formatting";
+import { sanitizeForPrompt } from "../memory/inject";
 import { maybeAutoNew } from "./topic-helper";
 import { maybeWarmInfrastructure } from "../infrastructure-warmer";
 
@@ -187,19 +188,23 @@ export async function handleText(ctx: Context): Promise<void> {
     // Continue processing — user already wrote something, handle it below
   }
 
-  // Prepend replied-to message context if user is replying to something
+  // Prepend replied-to message context if user is replying to something.
+  // Both first_name and message text are sanitized to prevent prompt injection
+  // (first_name is user-controlled; quoted text may contain adversarial content).
   const replyMsg = ctx.message?.reply_to_message;
   if (replyMsg) {
-    const replyText =
+    const rawReplyText =
       "text" in replyMsg && replyMsg.text
         ? replyMsg.text
         : "caption" in replyMsg && replyMsg.caption
         ? replyMsg.caption
         : null;
-    if (replyText) {
-      const replyFrom = replyMsg.from?.first_name || replyMsg.from?.username || "unknown";
-      const truncated = replyText.length > 500 ? replyText.slice(0, 497) + "..." : replyText;
-      message = `[В ответ на сообщение от ${replyFrom}: «${truncated}»]\n\n${message}`;
+    if (rawReplyText) {
+      const replyFrom = sanitizeForPrompt(
+        replyMsg.from?.first_name || replyMsg.from?.username || "unknown"
+      );
+      const replyText = sanitizeForPrompt(rawReplyText);
+      message = `[В ответ на сообщение от ${replyFrom}: «${replyText}»]\n\n${message}`;
     }
   }
 

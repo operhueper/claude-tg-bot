@@ -1,6 +1,34 @@
 import * as fs from "fs";
+import { z } from "zod";
 import type { MemoryGraph, MemoryNode, MemoryEdge, NodeType, RelationType, AnalysisPatch } from "./types";
 import { graphFile, ensureMemoryStructure } from "./paths";
+
+const NodeSchema = z.object({
+  id: z.string().min(1).max(200),
+  type: z.string().min(1).max(50),
+  label: z.string().max(500),
+  data: z.record(z.string(), z.unknown()).default({}),
+  tags: z.array(z.string()).default([]),
+  importance: z.number().min(0).max(1).default(0.5),
+  created_at: z.string(),
+  updated_at: z.string(),
+  last_mentioned_at: z.string(),
+  mention_count: z.number().int().nonnegative().default(1),
+  source_sessions: z.array(z.string()).default([]),
+});
+
+function sanitizeGraphNodes(raw: MemoryGraph): MemoryGraph {
+  const validatedNodes: Record<string, MemoryNode> = {};
+  for (const [id, node] of Object.entries(raw.nodes ?? {})) {
+    const result = NodeSchema.safeParse(node);
+    if (result.success) {
+      validatedNodes[id] = result.data as MemoryNode;
+    } else {
+      console.warn(`[graph] Dropping invalid node id=${id}:`, result.error.issues.map(i => i.message).join("; "));
+    }
+  }
+  return { ...raw, nodes: validatedNodes };
+}
 
 function ulid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
@@ -42,7 +70,8 @@ export class GraphStore {
       };
     }
     try {
-      return JSON.parse(fs.readFileSync(file, "utf8")) as MemoryGraph;
+      const raw = JSON.parse(fs.readFileSync(file, "utf8")) as MemoryGraph;
+      return sanitizeGraphNodes(raw);
     } catch {
       return {
         version: 1,

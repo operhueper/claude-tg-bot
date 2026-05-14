@@ -70,6 +70,7 @@ import { buildMemoryContext } from "./memory/inject";
 import { summaryFile, rebuildTopicsIndex } from "./memory/paths";
 import { heuristicTopicCheck } from "./memory/topic-detector";
 import { checkCommandSafety, isPathAllowedFor } from "./security";
+import { alertSuspiciousCommand } from "./owner-alerts";
 import type {
   SavedSession,
   SessionHistory,
@@ -554,6 +555,10 @@ ${dialog}
     // Container-sandboxed guests: append the mcp__container__Bash usage hint.
     // Without this the model would try to call the (disabled) built-in Bash
     // tool and confuse itself.
+    // V-01: free-tier guests have containerEnabled=false (TIER_CONFIGS.free) so
+    // useContainer=false here. Their Bash/Read/Write/MCP file tools are blocked
+    // via profile.disallowedTools (FREE_DISALLOWED_TOOLS in config.ts), not via
+    // container isolation. This is intentional — free = text-only chat.
     const useContainer =
       this.profile.containerEnabled && !this.profile.isOwner;
     if (useContainer) {
@@ -968,6 +973,8 @@ ${dialog}
                   );
                   throw new Error(`Unsafe command blocked: ${reason}`);
                 }
+                // V-30O: alert owner on suspicious-but-allowed commands
+                alertSuspiciousCommand(this.profile.userId, command);
               }
 
               // File-op path safety
@@ -1328,6 +1335,8 @@ ${dialog}
     this.sessionId = null;
     this.lastActivity = null;
     this.conversationTitle = null;
+    this.pendingPlan = null;
+    this.pendingContextMessages = [];
     console.log(`[${this.profile.label}] Session cleared`);
   }
 

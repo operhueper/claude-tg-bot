@@ -1,0 +1,13 @@
+[Unit]
+Description=Slice for Claude guest containers (IO/CPU/Memory limits)
+
+[Slice]
+IOAccounting=true
+# Write limit: 50 MB/s. Read limit: 100 MB/s.
+# IMPORTANT: verify the block device path before deploying on a new host:
+#   lsblk -d -o NAME,TYPE | grep disk
+#   df -P /opt/vault | tail -1 | awk '{print $1}'
+# On Hetzner CX-series the disk is usually /dev/sda.
+# On CCX/dedicated it may be /dev/nvme0n1 — update the paths below accordingly.
+IOWriteBandwidthMax=/dev/sda 52428800
+IOReadBandwidthMax=/dev/sda 104857600
