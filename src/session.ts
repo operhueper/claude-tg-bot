@@ -160,27 +160,27 @@ class TodoMarkerParser {
 
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed === 'TODO_LIST_START') {
+      if (/^TODO_?LIST_?START$/.test(trimmed)) {
         this.items = [];
         continue;
       }
-      if (trimmed === 'TODO_LIST_END') {
+      if (/^TODO_?LIST_?END$/.test(trimmed)) {
         action = { type: 'init', items: [...this.items] };
         continue;
       }
-      const itemMatch = trimmed.match(/^TODO_ITEM:([^:]+):(.+)$/);
+      const itemMatch = trimmed.match(/^TODO_?ITEM:([^:]+):(.+)$/);
       if (itemMatch) {
         this.items.push({ id: itemMatch[1]!, label: itemMatch[2]!, status: 'pending' });
         continue;
       }
-      const startMatch = trimmed.match(/^TODO_START:(.+)$/);
+      const startMatch = trimmed.match(/^TODO_?START:(.+)$/);
       if (startMatch) {
         const id = startMatch[1]!;
         this.items = this.items.map(i => ({ ...i, status: i.id === id ? 'in_progress' : i.status }));
         action = { type: 'update', items: [...this.items] };
         continue;
       }
-      const doneMatch = trimmed.match(/^TODO_DONE:(.+)$/);
+      const doneMatch = trimmed.match(/^TODO_?DONE:(.+)$/);
       if (doneMatch) {
         const id = doneMatch[1]!;
         this.items = this.items.map(i => ({ ...i, status: i.id === id ? 'done' : i.status }));
@@ -196,7 +196,7 @@ class TodoMarkerParser {
   flush(): string {
     const remaining = this.lineBuffer;
     this.lineBuffer = '';
-    if (remaining.trim().startsWith('TODO_')) return '';
+    if (/^TODO[_A-Z]/.test(remaining.trim())) return '';
     return remaining;
   }
 }

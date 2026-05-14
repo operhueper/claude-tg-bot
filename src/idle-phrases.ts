@@ -129,6 +129,16 @@ export const IDLE_PHRASES: readonly string[] = [
   "напеваю колыбельную процессору",
 ];
 
+const IDLE_EMOJI: readonly string[] = [
+  "✨", "🎲", "🪄", "🧩", "🛠", "☕", "🦉", "🎨", "🧶",
+  "🎩", "🔮", "🐉", "🪞", "🍯", "🧪", "🌙", "🎯", "🐾",
+  "📚", "🧭", "🕯", "🍀", "🪶", "🎐", "🌀", "💫",
+];
+
+export function pickIdleEmoji(): string {
+  return IDLE_EMOJI[Math.floor(Math.random() * IDLE_EMOJI.length)]!;
+}
+
 export function pickRandomPhrase(exclude?: string): string {
   const candidates =
     exclude && IDLE_PHRASES.length > 1

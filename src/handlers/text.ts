@@ -469,9 +469,4 @@ export async function handleText(ctx: Context): Promise<void> {
   enqueueDebounced(userId, message, ctx, async (combined, latestCtx) => {
     await processCombinedMessage(combined, latestCtx, userId, username, chatId);
   });
-  try {
-    await ctx.react("👌");
-  } catch {
-    // ignore
-  }
 }

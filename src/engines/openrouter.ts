@@ -576,6 +576,9 @@ async function openRouterRequest(
 
   if (!resp.ok || !resp.body) {
     const errText = await resp.text();
+    if (/issue with the selected model|may not exist or you may not have access|Run --model to pick|--model to pick a different/i.test(errText)) {
+      throw new Error("Upstream model unavailable");
+    }
     throw new Error(`OpenRouter error ${resp.status}: ${errText}`);
   }
 

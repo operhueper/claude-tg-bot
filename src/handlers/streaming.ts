@@ -18,7 +18,7 @@ import {
 } from "../config";
 import { getUserProfile } from "../config";
 import { isPathAllowedFor } from "../security";
-import { pickRandomPhrase } from "../idle-phrases";
+import { pickRandomPhrase, pickIdleEmoji } from "../idle-phrases";
 import { initiateGoogleConnections, getComposioApiKey } from "../composio";
 import { replyFriendly } from "../utils";
 
@@ -348,7 +348,7 @@ class IdleHeartbeat {
         await this.ctx.api.editMessageText(
           this.idleMessage.chat.id,
           this.idleMessage.message_id,
-          phrase
+          `${pickIdleEmoji()} ${phrase}`
         );
       } catch (err) {
         const s = String(err);
@@ -364,7 +364,7 @@ class IdleHeartbeat {
       this.silenceTimer = null;
     }
     try {
-      this.idleMessage = await this.ctx.reply(phrase);
+      this.idleMessage = await this.ctx.reply(`${pickIdleEmoji()} ${phrase}`);
       this.currentPhrase = phrase;
     } catch (err) {
       console.debug("IdleHeartbeat: context initial reply failed:", err);
@@ -406,7 +406,7 @@ class IdleHeartbeat {
     const phrase = this.pickPhrase();
     this.currentPhrase = phrase;
     try {
-      this.idleMessage = await this.ctx.reply(phrase);
+      this.idleMessage = await this.ctx.reply(`${pickIdleEmoji()} ${phrase}`);
     } catch (err) {
       console.debug("IdleHeartbeat: failed to send initial phrase:", err);
       return;
@@ -435,7 +435,7 @@ class IdleHeartbeat {
       await this.ctx.api.editMessageText(
         this.idleMessage.chat.id,
         this.idleMessage.message_id,
-        next
+        `${pickIdleEmoji()} ${next}`
       );
     } catch (err) {
       const s = String(err);

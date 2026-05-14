@@ -162,11 +162,6 @@ export async function handleVoice(ctx: Context): Promise<void> {
   enqueueDebounced(userId, finalTranscript, ctx, async (combined, latestCtx) => {
     await processVoiceMessage(combined, latestCtx, userId, username, chatId);
   });
-  try {
-    await ctx.react("👌");
-  } catch {
-    // ignore
-  }
 }
 
 /**

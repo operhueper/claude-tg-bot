@@ -777,6 +777,7 @@ sessions/ — история по темам:
   \`\`\`
 - Примеры cron: "30 8 * * 1-5" (будни 8:30), "0 */2 * * *" (каждые 2ч), "0 18 * * 5" (пятница 18:00)
 - Расписание работает ВСЕГДА — даже когда пользователь не в чате. Результат придёт уведомлением.
+- СРОК ЖИЗНИ — БЕССРОЧНО. Нет ограничения 7 дней, неделя, месяц — задача из .schedule.yaml тикает по cron, пока запись лежит в файле. То же для .daemons.yaml. Если пользователь спрашивает «надолго ли это?» — отвечай: «работает столько, сколько нужно, пока сам не уберёшь из манифеста». Не выдумывай ограничения по сроку.
 - Логи выполнения: ${vaultDir}/.schedule-runs/<name>-YYYY-MM-DD.log
 - Удалить задачу: убери её из списка в .schedule.yaml и сохрани файл
 - Если пользователь хочет проверить расписание: покажи содержимое файла .schedule.yaml
@@ -1072,7 +1073,7 @@ export function getUserProfile(userId: number): UserProfile {
     //   запрос модулем deepseek-key-pool по принципу least-busy. В профиле
     //   стоит маркер `pool`; session.ts подменяет его на реальный ключ перед
     //   отправкой запроса и release() в finally.
-    //   Если пул пуст — fallback на OpenRouter (`deepseek/deepseek-v4-flash`).
+    //   Если пул пуст — fallback на OpenRouter (`deepseek/deepseek-chat`).
     //   На native DS сейчас живут только deepseek-v4-flash и deepseek-v4-pro;
     //   `deepseek-chat` — deprecated alias, который сам резолвится в v4-flash.
     const dsPoolAvailable = hasAnyDeepSeekKey();
@@ -1090,13 +1091,13 @@ export function getUserProfile(userId: number): UserProfile {
       : undefined;
     const model = dsPoolAvailable
       ? normaliseDeepSeekModel(node?.model, "deepseek-chat")
-      : (node?.model && !node.model.includes("/") ? "deepseek/deepseek-v4-flash" : (node?.model ?? "deepseek/deepseek-v4-flash"));
+      : (node?.model && !node.model.includes("/") ? "deepseek/deepseek-chat" : (node?.model ?? "deepseek/deepseek-chat"));
     const complexModel = dsPoolAvailable
       ? normaliseDeepSeekModel(node?.complexModel, "deepseek-reasoner")
       : (node?.complexModel ?? "deepseek/deepseek-r1");
     const lightModel = dsPoolAvailable
       ? normaliseDeepSeekModel(node?.lightModel, "deepseek-chat")
-      : (node?.lightModel && !node.lightModel.includes("/") ? "deepseek/deepseek-v4-flash" : (node?.lightModel ?? "deepseek/deepseek-v4-flash"));
+      : (node?.lightModel && !node.lightModel.includes("/") ? "deepseek/deepseek-chat" : (node?.lightModel ?? "deepseek/deepseek-chat"));
     const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
     const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`, `/tmp/pollinations/${userId}/`];
 
