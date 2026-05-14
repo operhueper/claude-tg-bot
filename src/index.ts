@@ -442,6 +442,9 @@ const HEALTH_OWNER_ID = ALLOWED_USERS.find((id) => !NEW_GUEST_USERS.includes(id)
 if (HEALTH_SECRET && HEALTH_OWNER_ID) {
   Bun.serve({
     port: HEALTH_PORT,
+    // V-1D: internal healthcheck, Telegram сюда не стучит. Биндим на 127.0.0.1,
+    // чтобы UFW не был единственной защитой от внешнего доступа.
+    hostname: "127.0.0.1",
     async fetch(req) {
       if (req.method !== "POST") {
         return new Response("Method Not Allowed", { status: 405 });

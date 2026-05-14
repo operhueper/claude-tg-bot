@@ -50,6 +50,13 @@ const NOTIFY_BRIDGE_PORT = parseInt(process.env.NOTIFY_BRIDGE_PORT || "3849", 10
 const GUEST_SUBNET_PREFIX = process.env.GUEST_SUBNET_PREFIX || "172.18.";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 
+// Hostname for the notify-bridge that guest containers POST to.
+// On prod the docker bridge interface is 172.18.0.1 — set GUEST_BRIDGE_IP in .env.
+// On a dev machine without docker the bridge doesn't exist, so if binding fails
+// the bridge falls back to 0.0.0.0 with a warning (containers won't work locally anyway).
+// Default is 127.0.0.1 (safe for dev); prod MUST set GUEST_BRIDGE_IP=172.18.0.1.
+const GUEST_BRIDGE_IP = process.env.GUEST_BRIDGE_IP || "127.0.0.1";
+
 // Allowed users cache for notify-bridge validation
 let _allowedUsers: Set<number> | null = null;
 function getAllowedUsers(): Set<number> {
@@ -608,6 +615,7 @@ ${autoRedirectScript}
 export function startDashboardServer(): void {
   Bun.serve({
     port: DASHBOARD_PORT,
+    hostname: "127.0.0.1",
     async fetch(req) {
       const url = new URL(req.url);
       const { pathname, method } = Object.assign(url, {
@@ -737,8 +745,9 @@ async function sendTelegramMessage(userId: number, text: string): Promise<void> 
 }
 
 function startNotifyBridge(): void {
-  Bun.serve({
+  const serveNotify = (hostname: string) => Bun.serve({
     port: NOTIFY_BRIDGE_PORT,
+    hostname,
     async fetch(req, server) {
       const url = new URL(req.url);
 
@@ -810,5 +819,12 @@ function startNotifyBridge(): void {
     },
   });
 
-  console.log(`Notify bridge listening on port ${NOTIFY_BRIDGE_PORT}`);
+  try {
+    serveNotify(GUEST_BRIDGE_IP);
+    console.log(`Notify bridge listening on ${GUEST_BRIDGE_IP}:${NOTIFY_BRIDGE_PORT}`);
+  } catch {
+    console.warn(`[notify-bridge] bind on ${GUEST_BRIDGE_IP}:${NOTIFY_BRIDGE_PORT} failed (no docker bridge?), falling back to 0.0.0.0`);
+    serveNotify("0.0.0.0");
+    console.log(`Notify bridge listening on 0.0.0.0:${NOTIFY_BRIDGE_PORT} (fallback)`);
+  }
 }
