@@ -49,11 +49,17 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 # Bun installs to /usr/local so the sandbox user (uid=1000) can use it.
 # Default install location is $HOME/.bun — that lands in /root/.bun, which
 # is mode 0700 and unreachable for non-root users.
+# V-30G: pinned version prevents silent upgrades from breaking sandbox.
+# To update: bump BUN_VERSION, verify sha256 from https://github.com/oven-sh/bun/releases
+# TODO V-30G: add --checksums sha256:<hash> once Bun installer supports it natively.
+ARG BUN_VERSION=1.3.13
 ENV BUN_INSTALL=/usr/local
-RUN curl -fsSL https://bun.sh/install | bash
+RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}"
 ENV PATH="/usr/local/bin:$PATH"
 
-# Node.js 20 LTS
+# Node.js 20 LTS — pinned to major via nodesource setup script.
+# V-30G: nodesource setup_20.x pins to Node 20.x LTS; no curl-pipe for the
+# actual binary (apt handles verification via nodesource GPG key).
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*

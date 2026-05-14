@@ -7,6 +7,12 @@
  * queue used while a container is being created.
  */
 
+// V-30H: pin to an immutable digest after each image rebuild to prevent
+// silent base-image drift. To get the digest after `docker build`:
+//   docker images --digests claude-user-sandbox
+// Then replace :latest with @sha256:<digest>, e.g.:
+//   "claude-user-sandbox@sha256:<digest>"
+// The digest must be obtained on the prod server — it is not portable across hosts.
 export const SANDBOX_IMAGE = "claude-user-sandbox:latest";
 export const BOT_DATA_DIR = "/var/lib/claude-bot";
 
