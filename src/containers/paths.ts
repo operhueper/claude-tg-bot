@@ -7,13 +7,15 @@
  * queue used while a container is being created.
  */
 
-// V-30H: pin to an immutable digest after each image rebuild to prevent
-// silent base-image drift. To get the digest after `docker build`:
+// V-30H: пинуем образ по digest, чтобы исключить «тихий» drift локально
+// собранного :latest. Digest НЕ портативен между хостами — на каждом
+// сервере получаем свой и кладём в .env как CLAUDE_SANDBOX_IMAGE.
+// Как получить после сборки:
 //   docker images --digests claude-user-sandbox
-// Then replace :latest with @sha256:<digest>, e.g.:
-//   "claude-user-sandbox@sha256:<digest>"
-// The digest must be obtained on the prod server — it is not portable across hosts.
-export const SANDBOX_IMAGE = "claude-user-sandbox:latest";
+// Затем в .env на сервере:
+//   CLAUDE_SANDBOX_IMAGE=claude-user-sandbox@sha256:<digest>
+// Если переменная не задана — fallback на :latest (dev / fresh server).
+export const SANDBOX_IMAGE = process.env.CLAUDE_SANDBOX_IMAGE || "claude-user-sandbox:latest";
 export const BOT_DATA_DIR = "/var/lib/claude-bot";
 
 export function containerName(userId: number): string {
