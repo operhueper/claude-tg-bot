@@ -1101,7 +1101,7 @@ export function getUserProfile(userId: number): UserProfile {
       ? normaliseDeepSeekModel(node?.lightModel, "deepseek-chat")
       : (node?.lightModel && !node.lightModel.includes("/") ? "deepseek/deepseek-v4-flash" : (node?.lightModel ?? "deepseek/deepseek-v4-flash"));
     const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
-    const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`];
+    const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`, `/tmp/pollinations/${userId}/`];
 
     const rawTier: UserTier = (node?.tier === 'paid') ? 'paid' : 'free';
     const tierConfig = TIER_CONFIGS[rawTier];
@@ -1200,7 +1200,7 @@ export function getUserProfile(userId: number): UserProfile {
     isGuest: false,
     workingDir: OWNER_WORKING_DIR,
     memoryRoot: ownerVaultDir,
-    allowedPaths: OWNER_ALLOWED_PATHS,
+    allowedPaths: [...OWNER_ALLOWED_PATHS, `/tmp/pollinations/${userId}/`],
     settingSources: node?.settingSources ?? ["user", "project"],
     systemPrompt: buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS, !!ownerDeepseekEnv),
     // Owner сам себя ограничивать смысла нет — по умолчанию без лимита.
@@ -1336,10 +1336,10 @@ export const TEMP_DIR = "/tmp/telegram-bot";
 
 // Narrowed to specific bot-controlled subdirs to prevent cross-user access via
 // isPathAllowedFor (e.g. /tmp/claude-telegram-session-OTHER.json, /tmp/ask-user-*.json).
+// NOTE: /tmp/pollinations/ is NOT listed here — each user's images live in
+// /tmp/pollinations/<userId>/ which is added to their allowedPaths in getUserProfile().
 export const TEMP_PATHS = [
-  "/tmp/pollinations/",
   "/tmp/openrouter_images/",
-  "/private/tmp/pollinations/",
   "/private/tmp/openrouter_images/",
   "/var/folders/",
 ];

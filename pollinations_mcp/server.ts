@@ -18,7 +18,20 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { mkdirSync } from "fs";
 
-const OUTPUT_DIR = process.env.POLLINATIONS_OUTPUT_DIR || "/tmp/pollinations";
+// Per-user isolation: each user's images go into /tmp/pollinations/<userId>/
+// TELEGRAM_USER_ID is injected by session.ts into the subprocess env before every query.
+const BASE_OUTPUT_DIR = process.env.POLLINATIONS_OUTPUT_DIR || "/tmp/pollinations";
+const TELEGRAM_USER_ID = process.env.TELEGRAM_USER_ID;
+
+function getOutputDir(): string {
+  if (TELEGRAM_USER_ID) {
+    return `${BASE_OUTPUT_DIR}/${TELEGRAM_USER_ID}`;
+  }
+  // Fallback for non-Telegram contexts — use shared dir with a warning.
+  console.error("[pollinations-mcp] WARNING: TELEGRAM_USER_ID not set — falling back to shared output dir");
+  return BASE_OUTPUT_DIR;
+}
+
 const BASE_URL = "https://image.pollinations.ai/prompt";
 
 const server = new Server(
@@ -79,8 +92,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const height = args.height || 1024;
   const model = args.model || "flux";
 
+  const OUTPUT_DIR = getOutputDir();
   try {
-    mkdirSync(OUTPUT_DIR, { recursive: true });
+    mkdirSync(OUTPUT_DIR, { recursive: true, mode: 0o700 });
   } catch { /* already exists */ }
 
   const encodedPrompt = encodeURIComponent(prompt);
