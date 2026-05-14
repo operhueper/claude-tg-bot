@@ -13,9 +13,10 @@ import { promisify } from "node:util";
 import path from "path";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR, inboxDirFor, getUserProfile, OWNER_USER_ID } from "../config";
+import { containerManager } from "../containers/manager";
 import { acquireUserLock, isUserBusy } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
-import { isDailyLimitReached, getDailyUsage, incrementDailyUsage, hasFreeDocUsed, markFreeDocUsed } from "../daily-limit";
+import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import { auditLog, auditLogRateLimit, replyFriendly, startTypingIndicator } from "../utils";
 import { StreamingState, createStatusCallback } from "./streaming";
 import { createMediaGroupBuffer, handleProcessingError } from "./media-group";
@@ -184,15 +185,20 @@ async function downloadDocument(ctx: Context, userId: number): Promise<string> {
 
 /**
  * Extract text from a document.
+ * @param userId - required for container routing (paid users run pdftotext
+ *   inside their Docker sandbox; 0 = owner path, runs on host).
  */
 async function extractText(
   filePath: string,
-  mimeType?: string
+  mimeType?: string,
+  userId?: number
 ): Promise<string> {
   const fileName = filePath.split("/").pop() || "";
   const extension = "." + (fileName.split(".").pop() || "").toLowerCase();
 
   // LAS/LAZ point cloud files - extract metadata via laspy
+  // NOTE: python3 still runs on the host for LAS files (V-05 scope is PDF only).
+  // LAS files are exotic enough that no public CVE chain exists; revisit if needed.
   if (LAS_EXTENSIONS.includes(extension)) {
     try {
       const script = `
@@ -235,15 +241,46 @@ print(json.dumps(info, indent=2))
     }
   }
 
-  // PDF extraction using pdftotext CLI (install: brew install poppler)
+  // PDF extraction using pdftotext CLI.
+  // V-05: paid guests with a container run pdftotext inside their Docker
+  // sandbox so a malicious PDF (poppler CVE) can only crash the container
+  // process, not the host bot. Owner and unusual configs fall back to host.
   if (mimeType === "application/pdf" || extension === ".pdf") {
+    // Determine whether to use the container path.
+    const profile = userId ? getUserProfile(userId) : null;
+    const useContainer = !!(profile && !profile.isOwner && profile.containerEnabled);
+
     try {
-      // V-06 fix: execFile (array args) — no shell, no injection risk regardless of filePath content
-      const pdfPromise = execFileAsync("pdftotext", ["-layout", filePath, "-"], { maxBuffer: 50 * 1024 * 1024 });
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("PDF processing timeout")), 30_000)
-      );
-      const { stdout } = await Promise.race([pdfPromise, timeoutPromise]);
+      let stdout: string;
+
+      if (useContainer && userId) {
+        // The vault dir is bind-mounted at the same absolute path inside the
+        // container, so filePath (e.g. /opt/vault/<id>/inbox/doc.pdf) is
+        // directly accessible inside the container without any copying.
+        const result = await containerManager.exec(
+          userId,
+          // Shell-escape the path: wrap in single quotes, escape embedded '
+          `pdftotext -layout '${filePath.replace(/'/g, "'\\''")}' -`,
+          { timeout: 30_000 }
+        );
+        if (result.exitCode !== 0 && !result.stdout) {
+          const isTimeout = result.exitCode === 124;
+          return isTimeout
+            ? "[PDF parsing timed out — file may be malformed or too complex]"
+            : `[PDF parsing failed inside container: ${result.stderr.slice(0, 200)}]`;
+        }
+        stdout = result.stdout;
+      } else {
+        // Owner or container not available — run on host (pre-existing path).
+        // V-06 fix: execFile (array args) — no shell, no injection risk regardless of filePath content
+        const pdfPromise = execFileAsync("pdftotext", ["-layout", filePath, "-"], { maxBuffer: 50 * 1024 * 1024 });
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("PDF processing timeout")), 30_000)
+        );
+        const result = await Promise.race([pdfPromise, timeoutPromise]);
+        stdout = result.stdout;
+      }
+
       return stdout;
     } catch (error) {
       console.error("PDF parsing failed:", error);
@@ -628,7 +665,7 @@ async function processDocumentPaths(
   for (const path of paths) {
     try {
       const name = path.split("/").pop() || "document";
-      const content = await extractText(path);
+      const content = await extractText(path, undefined, userId);
       documents.push({ path, name, content });
     } catch (error) {
       console.error(`Failed to extract ${path}:`, error);
@@ -687,9 +724,12 @@ export async function handleDocument(ctx: Context): Promise<void> {
     }
   }
 
-  // 1c. Free doc gate — free-tier users get one document per day.
-  // Audio and image files sent as documents bypass this gate entirely
-  // (they are routed to their own handlers later and don't consume a doc slot).
+  // 1c. V-05 / free-tier gate: документы и файлы доступны только на тарифе Профи.
+  // Причина безопасности: free-пользователи не имеют Docker-контейнера,
+  // поэтому парсинг PDF/DOCX/архивов происходил бы на хосте под root.
+  // Зловредный PDF (CVE в poppler) мог бы обрушить процесс бота.
+  // Audio и image-файлы пропускаем — они маршрутизируются в свои хандлеры
+  // и не используют document-парсеры.
   {
     const _gateFileName = doc.file_name || "";
     const _gateExt = "." + (_gateFileName.split(".").pop() || "").toLowerCase();
@@ -700,24 +740,19 @@ export async function handleDocument(ctx: Context): Promise<void> {
     const _gateIsText = TEXT_EXTENSIONS.includes(_gateExt) || (doc.mime_type?.startsWith("text/") ?? false);
     const _gateIsArchive = isArchive(_gateFileName);
     const _gateIsLas = LAS_EXTENSIONS.includes(_gateExt);
-    // Only apply the gate to actual document types — not audio or image files
-    const _isDocumentType = _gateIsPdf || _gateIsDocx || _gateIsText || _gateIsArchive || _gateIsLas;
+    const _gateIsImage = isImageFile(_gateFileName, doc.mime_type);
+    const _gateIsAudio = isAudioFile(_gateFileName, doc.mime_type);
+    // Only block actual document types — audio and image files have their own handlers
+    const _isDocumentType = (_gateIsPdf || _gateIsDocx || _gateIsText || _gateIsArchive || _gateIsLas)
+      && !_gateIsImage && !_gateIsAudio;
     const _profile = getUserProfile(userId);
     if (_isDocumentType && _profile.tier !== 'paid' && userId !== OWNER_USER_ID) {
-      if (hasFreeDocUsed(userId)) {
-        await ctx.reply(
-          'На бесплатном тарифе — 1 документ в день, и вы уже его использовали.\nЛимит обновится в полночь по Москве.\n\nПрофи — без ограничений: документы, код, Google и ещё много всего.',
-          {
-            reply_markup: new InlineKeyboard()
-              .url('5 дней Профи бесплатно', 'https://t.me/proboiAI_bot?start=pay')
-              .row()
-              .url('Что даёт Профи →', 'https://proboi.site/how-to-setup#docs'),
-          }
-        );
-        return;
-      }
-      // First doc of the day — allow but mark so subsequent docs are gated
-      markFreeDocUsed(userId);
+      // V-05: hard block — no documents on free tier, not even one per day.
+      await ctx.reply(
+        'В тарифе **Free** документы и файлы не обрабатываются — только текстовый чат.\n\nПодпишись командой /pay, чтобы открыть работу с файлами.',
+        { parse_mode: 'Markdown' }
+      );
+      return;
     }
   }
 
@@ -866,7 +901,7 @@ export async function handleDocument(ctx: Context): Promise<void> {
         // Unknown type — pass path directly so Claude can work with it via tools
         content = `File: ${fileName}\nType: ${doc.mime_type || extension}\nPath: ${docPath}\n\nThis file has been downloaded. Use it via its path above.`;
       } else {
-        content = await extractText(docPath, doc.mime_type);
+        content = await extractText(docPath, doc.mime_type, userId);
       }
       await processDocuments(
         ctx,
