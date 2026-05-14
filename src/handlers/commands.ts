@@ -25,6 +25,7 @@ import { isAuthorized } from "../security";
 import { auditLog, replyFriendly } from "../utils";
 import { requestAccess } from "../containers/invites";
 import { hasConsented, revokeConsent } from "../consent";
+import { cleanupUserResources } from "../user-registry";
 import { sendConsentGate } from "./consent-gate";
 import { getUserSubscriptionExpiry, isTrialUsed, sendYuKassaBindingLink } from "../payments.js";
 import { getTodayCount, resetIfNewDay } from "../daily-limit";
@@ -788,6 +789,13 @@ export async function handleForget(ctx: Context): Promise<void> {
     }
 
     revokeConsent(userId);
+
+    // GDPR cleanup: remove vault, Docker container, and temp dropbox in addition
+    // to the memory files already deleted above.
+    cleanupUserResources(userId).catch((e) =>
+      console.warn(`[/forget] cleanupUserResources failed for ${userId}:`, e)
+    );
+
     await ctx.reply(
       "Память очищена. Начинаем с чистого листа.\n\nСогласие на обработку отозвано. Чтобы продолжить использование, нажмите /start и примите условия заново."
     );
