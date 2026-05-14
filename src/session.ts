@@ -98,17 +98,6 @@ const CONTAINER_BASH_PROMPT = `
 У тебя есть инструмент для запуска shell-команд в твоей рабочей среде. Используй его для выполнения кода, обработки файлов, установки пакетов (pip install, npm install, apt-get и т.д.). Все команды работают в изолированной среде. Доступны python3, node, bun, git и обычные unix-утилиты. Состояние (установленные пакеты, файлы) сохраняется между сообщениями. Файлы созданные через инструмент Bash видны инструментам Read/Write/Edit и наоборот — это одна и та же рабочая папка.`;
 
 /**
- * Sanitize a DeepSeek-generated compaction summary before injecting it into
- * the system prompt. Strips lines that look like prompt-injection attempts.
- */
-function sanitizeCompactionSummary(text: string): string {
-  return text
-    .split('\n')
-    .filter(line => !/^\s*(ignore|forget|disregard|system:|<system>|инструкция:|забудь|игнорируй)/i.test(line))
-    .join('\n');
-}
-
-/**
  * Infrastructure disclosure patterns that must not surface in guest-visible
  * thinking blocks. If any pattern matches, the block is suppressed entirely.
  */
@@ -383,109 +372,6 @@ export class ClaudeSession {
     return false;
   }
 
-  /**
-   * Compact context when input tokens are approaching the model limit.
-   * Summarizes recent transcript turns via DeepSeek, resets the session,
-   * and injects the summary into the system prompt for the next query.
-   * Returns true if compaction ran (summary injected), false if skipped.
-   */
-  private async compactIfNeeded(
-    systemPromptRef: { value: string },
-    statusCallback: StatusCallback
-  ): Promise<boolean> {
-    const lastInput = this.lastUsage?.input_tokens ?? 0;
-    const limit = this.profile.isOwner ? 320_000 : 100_000;
-    if (lastInput < limit * 0.8) return false;
-
-    const turns = this.transcriptRecorder?.getRecentTurns(20) ?? [];
-    if (turns.length === 0) return false;
-
-    const dialog = turns
-      .map(
-        (t) =>
-          `${t.role === "user" ? "Пользователь" : "Ассистент"}: ${
-            typeof t.content === "string"
-              ? t.content.slice(0, 1000)
-              : JSON.stringify(t.content).slice(0, 500)
-          }`
-      )
-      .join("\n\n");
-
-    const summaryPrompt = `Сделай краткое резюме диалога (не более 800 слов). Сохрани:
-- ключевые договорённости и решения
-- имена файлов, переменных, функций
-- незавершённые задачи
-- важные ограничения и контекст
-
-Диалог:
-${dialog}
-
-Резюме:`;
-
-    // Захватываем ключ из пула (или fallback на env). release() в finally,
-    // иначе in-flight счётчик ключа не упадёт.
-    const acquired = acquireDeepSeekKey();
-    const apiKey = acquired?.key
-      ?? (this.profile.deepseekEnv?.ANTHROPIC_API_KEY !== DEEPSEEK_POOL_MARKER
-          ? this.profile.deepseekEnv?.ANTHROPIC_API_KEY
-          : undefined)
-      ?? process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) {
-      acquired?.release();
-      return false;
-    }
-
-    try {
-      const res = await fetch("https://api.deepseek.com/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "deepseek-chat",
-          messages: [{ role: "user", content: summaryPrompt }],
-          max_tokens: 1500,
-          temperature: 0.3,
-        }),
-      });
-
-      if (!res.ok) return false;
-      const data = (await res.json()) as {
-        choices: Array<{ message: { content: string } }>;
-      };
-      const summary = data.choices?.[0]?.message?.content;
-      if (!summary) return false;
-
-      // Reset session so SDK starts fresh
-      this.sessionId = null;
-      this.transcriptRecorder = null;
-      this.lastUsage = null;
-
-      // Sanitize before injecting to prevent prompt injection via summary content
-      const safeSummary = sanitizeCompactionSummary(summary);
-
-      // Inject summary into system prompt
-      systemPromptRef.value =
-        (systemPromptRef.value || "") +
-        `\n\n[Краткое резюме предыдущего диалога, сжатого из-за превышения контекста]\n${safeSummary}`;
-
-      // Notify user
-      await statusCallback("text", "Контекст сессии стал большим — сжимаю историю...", 99);
-      await statusCallback("segment_end", "Контекст сжат, продолжаем.", 99);
-
-      return true;
-    } catch (err) {
-      console.warn(
-        `[${this.profile.label}] Compaction failed (non-fatal):`,
-        err
-      );
-      return false;
-    } finally {
-      acquired?.release();
-    }
-  }
-
   async sendMessageStreaming(
     message: string,
     username: string,
@@ -613,14 +499,6 @@ ${dialog}
           err
         );
       }
-    }
-
-    // Compact context if approaching model token limit (non-fatal, guests only since
-    // owner's Claude API has generous limits and automatic context management)
-    if (!mediaHint && !this.profile.isOwner) {
-      const promptRef = { value: systemPromptWithMemory };
-      await this.compactIfNeeded(promptRef, statusCallback);
-      systemPromptWithMemory = promptRef.value;
     }
 
     // ============== Universal vision routing: all users with mediaHint go via OpenRouter Gemini ==============
@@ -960,7 +838,18 @@ ${dialog}
                       // other users' transcripts via /root/.claude/projects/*.
                       (this.profile.isOwner &&
                         (filePath.startsWith("/root/.claude/projects/") ||
-                          filePath.includes("/.claude/"))));
+                          filePath.includes("/.claude/"))) ||
+                      // Guests can read WebFetch/tool-result cache in their own session dir.
+                      // The CLI caches fetched content at this path; blocking it breaks WebFetch.
+                      (!this.profile.isOwner &&
+                        filePath.startsWith(`/root/.claude/projects/-opt-vault-${this.profile.userId}/`)) ||
+                      // Claude CLI plan files — created by the CLI during reasoning.
+                      // Content is only Claude's own plans, cross-user risk is negligible.
+                      (!this.profile.isOwner && filePath.startsWith("/root/.claude/plans/")) ||
+                      // Allow reading general /tmp files (e.g. PDFs downloaded by the CLI,
+                      // test output logs). Guests cannot write to host /tmp (Bash is blocked),
+                      // so cross-user leakage requires explicit adversarial prompting — acceptable risk.
+                      (!this.profile.isOwner && filePath.startsWith("/tmp/")));
 
                   if (
                     !isTmpRead &&
