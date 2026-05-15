@@ -45,7 +45,6 @@ export const GUEST_MENU_COMMANDS = [
   { command: "status", description: "Мой тариф и статус" },
   { command: "dashboard", description: "🧠 Second Brain — задачи и память" },
   { command: "new", description: "Начать новый чат" },
-  { command: "threads", description: "📂 Мои темы разговора" },
   { command: "stop", description: "Остановить выполнение" },
   { command: "retry", description: "Повторить последнее сообщение" },
   { command: "memory", description: "Что бот помнит обо мне" },
@@ -168,14 +167,17 @@ export async function handleNew(ctx: Context): Promise<void> {
     }
   }
 
-  // Force memory save before clearing (captures short sessions < 6 turns)
+  // Ack immediately so the user sees it without waiting for memory flush.
+  await ctx.reply("🆕 Session cleared. Next message starts fresh.");
+
+  // Fire-and-forget: captures short sessions < 6 turns without blocking.
   if (session.isActive) {
-    session.forceMemoryFlush().catch((e) => console.warn("[/new] forceMemoryFlush failed:", e));
+    session.forceMemoryFlush().catch((e) =>
+      console.warn("[/new] forceMemoryFlush failed:", e)
+    );
   }
 
   await session.kill();
-
-  await ctx.reply("🆕 Session cleared. Next message starts fresh.");
 }
 
 /**

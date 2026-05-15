@@ -1,523 +1,234 @@
-# Graph Report - graphify-input  (2026-05-14)
+# Graph Report - graphify-input  (2026-05-15)
 
 ## Corpus Check
-- 3 files · ~50,000 words
+- 3 files · ~6,000 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1147 nodes · 1976 edges · 77 communities detected
-- Extraction: 72% EXTRACTED · 28% INFERRED · 0% AMBIGUOUS · INFERRED: 544 edges (avg confidence: 0.8)
+- 265 nodes · 309 edges · 29 communities detected
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 15 edges (avg confidence: 0.83)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
-- [[_COMMUNITY_Message Handlers|Message Handlers]]
-- [[_COMMUNITY_Subscription & Alerts|Subscription & Alerts]]
-- [[_COMMUNITY_Session & Config Core|Session & Config Core]]
-- [[_COMMUNITY_Security & Infra Ops|Security & Infra Ops]]
-- [[_COMMUNITY_Dependencies & Scheduling|Dependencies & Scheduling]]
-- [[_COMMUNITY_Container Manager|Container Manager]]
-- [[_COMMUNITY_Bot Commands & Daemons|Bot Commands & Daemons]]
-- [[_COMMUNITY_Guest Routing & Keys|Guest Routing & Keys]]
-- [[_COMMUNITY_Memory & Goals System|Memory & Goals System]]
-- [[_COMMUNITY_Feature Design & Docs|Feature Design & Docs]]
-- [[_COMMUNITY_Analytics & Dashboard|Analytics & Dashboard]]
-- [[_COMMUNITY_Concepts & Architecture|Concepts & Architecture]]
-- [[_COMMUNITY_MCP Integrations|MCP Integrations]]
-- [[_COMMUNITY_Security Audit Pack|Security Audit Pack]]
-- [[_COMMUNITY_User Bootstrapping|User Bootstrapping]]
-- [[_COMMUNITY_Admin & Cost Rules|Admin & Cost Rules]]
-- [[_COMMUNITY_Legal & Tiers|Legal & Tiers]]
-- [[_COMMUNITY_Context Compaction (removed)|Context Compaction (removed)]]
-- [[_COMMUNITY_Interactive MCPs|Interactive MCPs]]
-- [[_COMMUNITY_File Drop Box|File Drop Box]]
-- [[_COMMUNITY_Crash & Alert Monitoring|Crash & Alert Monitoring]]
-- [[_COMMUNITY_Documentation EN|Documentation EN]]
-- [[_COMMUNITY_Bot Ideas Roadmap|Bot Ideas Roadmap]]
-- [[_COMMUNITY_Memory Graph RAG|Memory Graph RAG]]
-- [[_COMMUNITY_Vault Quota|Vault Quota]]
-- [[_COMMUNITY_MCP Server Files|MCP Server Files]]
-- [[_COMMUNITY_Security Hardening|Security Hardening]]
-- [[_COMMUNITY_Subscription Gate|Subscription Gate]]
-- [[_COMMUNITY_Vault Quota Code|Vault Quota Code]]
-- [[_COMMUNITY_Roadmap Items|Roadmap Items]]
-- [[_COMMUNITY_OpenRouter Provisioning|OpenRouter Provisioning]]
-- [[_COMMUNITY_Archive Handler|Archive Handler]]
-- [[_COMMUNITY_Daemon Lifecycle|Daemon Lifecycle]]
-- [[_COMMUNITY_User Registry|User Registry]]
-- [[_COMMUNITY_Ask User MCP|Ask User MCP]]
-- [[_COMMUNITY_Architecture Docs|Architecture Docs]]
-- [[_COMMUNITY_Prod Infrastructure|Prod Infrastructure]]
-- [[_COMMUNITY_Container Spec|Container Spec]]
-- [[_COMMUNITY_Guest Public Migration|Guest Public Migration]]
-- [[_COMMUNITY_Scheduler Migration|Scheduler Migration]]
-- [[_COMMUNITY_Privacy Template|Privacy Template]]
-- [[_COMMUNITY_Oferta Template|Oferta Template]]
-- [[_COMMUNITY_Dashboard Template|Dashboard Template]]
-- [[_COMMUNITY_Graph Store|Graph Store]]
-- [[_COMMUNITY_OpenRouter Engine|OpenRouter Engine]]
-- [[_COMMUNITY_OpenRouter Vision|OpenRouter Vision]]
-- [[_COMMUNITY_Composio & MCP Filter|Composio & MCP Filter]]
-- [[_COMMUNITY_DeepSeek Fast Path|DeepSeek Fast Path]]
-- [[_COMMUNITY_Egress Pipeline|Egress Pipeline]]
-- [[_COMMUNITY_Guest CLAUDE.md Migration|Guest CLAUDE.md Migration]]
-- [[_COMMUNITY_Skills Migration|Skills Migration]]
-- [[_COMMUNITY_Memory Types|Memory Types]]
-- [[_COMMUNITY_Memory Index|Memory Index]]
-- [[_COMMUNITY_Containers Index|Containers Index]]
-- [[_COMMUNITY_Handlers Index|Handlers Index]]
-- [[_COMMUNITY_New Guest Users Config|New Guest Users Config]]
-- [[_COMMUNITY_Owner Allowed Paths|Owner Allowed Paths]]
-- [[_COMMUNITY_Rate Limit Config|Rate Limit Config]]
-- [[_COMMUNITY_Owner System Prompt|Owner System Prompt]]
-- [[_COMMUNITY_Guest System Prompt|Guest System Prompt]]
-- [[_COMMUNITY_Daily Limit Module|Daily Limit Module]]
-- [[_COMMUNITY_Bot Encyclopedia|Bot Encyclopedia]]
-- [[_COMMUNITY_Public Encyclopedia|Public Encyclopedia]]
-- [[_COMMUNITY_Daemon Encyclopedia|Daemon Encyclopedia]]
-- [[_COMMUNITY_Commit Style|Commit Style]]
-- [[_COMMUNITY_Deploy Constraint|Deploy Constraint]]
-- [[_COMMUNITY_No Rsync Env Rule|No Rsync Env Rule]]
-- [[_COMMUNITY_Security Layers|Security Layers]]
-- [[_COMMUNITY_MCP Dropbox Pattern|MCP Dropbox Pattern]]
-- [[_COMMUNITY_Vision Pipeline Arch|Vision Pipeline Arch]]
-- [[_COMMUNITY_RU MCP Guide|RU MCP Guide]]
-- [[_COMMUNITY_Graph Report File|Graph Report File]]
-- [[_COMMUNITY_Firewall Uninstall|Firewall Uninstall]]
-- [[_COMMUNITY_Idle Phrases|Idle Phrases]]
-- [[_COMMUNITY_Connect Google MCP|Connect Google MCP]]
-- [[_COMMUNITY_Landing Assets|Landing Assets]]
-- [[_COMMUNITY_Test Server|Test Server]]
+- [[_COMMUNITY_Community 0|Community 0]]
+- [[_COMMUNITY_Community 1|Community 1]]
+- [[_COMMUNITY_Community 2|Community 2]]
+- [[_COMMUNITY_Community 3|Community 3]]
+- [[_COMMUNITY_Community 4|Community 4]]
+- [[_COMMUNITY_Community 5|Community 5]]
+- [[_COMMUNITY_Community 6|Community 6]]
+- [[_COMMUNITY_Community 7|Community 7]]
+- [[_COMMUNITY_Community 8|Community 8]]
+- [[_COMMUNITY_Community 9|Community 9]]
+- [[_COMMUNITY_Community 10|Community 10]]
+- [[_COMMUNITY_Community 11|Community 11]]
+- [[_COMMUNITY_Community 12|Community 12]]
+- [[_COMMUNITY_Community 13|Community 13]]
+- [[_COMMUNITY_Community 14|Community 14]]
+- [[_COMMUNITY_Community 15|Community 15]]
+- [[_COMMUNITY_Community 16|Community 16]]
+- [[_COMMUNITY_Community 17|Community 17]]
+- [[_COMMUNITY_Community 18|Community 18]]
+- [[_COMMUNITY_Community 19|Community 19]]
+- [[_COMMUNITY_Community 20|Community 20]]
+- [[_COMMUNITY_Community 21|Community 21]]
+- [[_COMMUNITY_Community 22|Community 22]]
+- [[_COMMUNITY_Community 23|Community 23]]
+- [[_COMMUNITY_Community 24|Community 24]]
+- [[_COMMUNITY_Community 25|Community 25]]
+- [[_COMMUNITY_Community 26|Community 26]]
+- [[_COMMUNITY_Community 27|Community 27]]
+- [[_COMMUNITY_Community 28|Community 28]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `handleText()` - 38 edges
-2. `getUserProfile()` - 37 edges
-3. `isAuthorized()` - 28 edges
-4. `getSession()` - 28 edges
-5. `ClaudeSession` - 23 edges
-6. `handleDocument()` - 23 edges
-7. `handleCallback()` - 22 edges
-8. `handleVideo()` - 21 edges
-9. `handleVoice()` - 21 edges
-10. `handleText handler` - 21 edges
+1. `src/session.ts` - 17 edges
+2. `15-daemons-and-containers: Always-on container design decisions` - 12 edges
+3. `Audit-fixes sprint: 25 atomic commits (2026-05-13 evening)` - 11 edges
+4. `Security hardening: 9 targeted fixes (commit 39be7ab, 2026-05-13)` - 10 edges
+5. `Smoke-batch 2026-05-16: 12 of 18 items closed` - 10 edges
+6. `Tier enforcement hardening (2026-05-13) — SQLite daily counter` - 9 edges
+7. `Batch #2: UI / UID / Composio polling / profiler` - 9 edges
+8. `Состояние 2026-05-15 вечер — пакет из 7 блоков задеплоен на TEST jinru` - 8 edges
+9. `src/config.ts` - 8 edges
+10. `src/session.ts` - 7 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Subscription gate — isSubscribed / invalidateSubscription` --related_to--> `YuKassa Payment Phase`  [INFERRED]
-  src/subscription.ts → memory/project_knowledge_graph.md
-- `handlePlanCallback — plan confirm/cancel/clarify` --implemented_by--> `Plan mode: bot shows plan before execution, user confirms/cancels/refines`  [INFERRED]
-  src/handlers/callback.ts → BOT_ENCYCLOPEDIA.md
-- `Owner-only guard for invite_approve/deny (OWNER_USER_ID check)` --enforces--> `Owner (292228713) vs Guest: separate cwd, settingSources, models, commands`  [INFERRED]
-  src/handlers/callback.ts → CLAUDE.md
-- `sendMessage()` --calls--> `fetch()`  [INFERRED]
-  fitcoach-evening.ts → src/index.ts
-- `sendMessage()` --calls--> `send()`  [INFERRED]
-  fitcoach-morning.ts → src/owner-alerts.ts
+- `src/session.ts` --used_by--> `parallel_mcp/server.ts`  [INFERRED]
+  graphify-input/project_knowledge_graph.md → graphify-input/project_knowledge_graph.md  _Bridges community 0 → community 14_
+- `Pack item 4 — P2 Security (V-29 resume-hijack, V-30 transcript sanitize, V-36..V-39)` --calls--> `src/session.ts`  [INFERRED]
+  graphify-input/project_knowledge_graph.md → graphify-input/project_knowledge_graph.md  _Bridges community 3 → community 6_
+- `src/consent.ts` --stores_data_in--> `metering.sqlite (SQLite DB)`  [EXTRACTED]
+  graphify-input/project_knowledge_graph.md → graphify-input/project_knowledge_graph.md  _Bridges community 9 → community 2_
+- `src/session.ts` --located_in--> `Metering bugs H1/H2/H3/M1/M2/M3 (token loss at ask-user, stop, memory analyzer)`  [EXTRACTED]
+  graphify-input/project_knowledge_graph.md → graphify-input/project_knowledge_graph.md  _Bridges community 0 → community 6_
+- `src/handlers/callback.ts` --affected--> `Tier enforcement hardening (2026-05-13) — SQLite daily counter`  [EXTRACTED]
+  graphify-input/project_knowledge_graph.md → graphify-input/project_knowledge_graph.md  _Bridges community 0 → community 2_
+
+## Hyperedges (group relationships)
+- **Batch #2 и Batch #3 задеплоены на jinru, прод заморожен до smoke** — pkg_batch2, pkg_batch3, pkg_server_jinru, pkg_server_prod, pkg_rationale_no_prod_deploy [EXTRACTED 1.00]
+- **Токсичная петля памяти: analyzer → саммари → инъекция → петля → фиксы Group B** — pkg_toxic_memory_loop, pkg_src_memory_analyzer, pkg_fix_group_b_memory, pkg_src_analyzer_scheduler, pkg_rationale_memory_filter [EXTRACTED 1.00]
+- **Security pack 2026-05-14: 27 фиксов + ротация ключей + userns-remap на оба сервера** — pkg_security_pack_0514, pkg_key_rotation, pkg_v26_userns_remap, pkg_server_prod, pkg_server_jinru, pkg_branch_legal_consent [EXTRACTED 1.00]
 
 ## Communities
 
-### Community 0 - "Message Handlers"
-Cohesion: 0.04
-Nodes (119): handleAudio(), isAudioFile(), processAudioFile(), handleCallback(), handlePlanCallback(), handleResumeCallback(), commandAllowed(), handleCancel() (+111 more)
-
-### Community 1 - "Subscription & Alerts"
-Cohesion: 0.06
-Nodes (53): alertExpiringSubscription(), alertHighFreeUserCount(), alertNewSubscriber(), notifyOwner(), handleInviteCallback(), handleTaskConfirmCallback(), handlePay(), sendMessage() (+45 more)
-
-### Community 2 - "Session & Config Core"
-Cohesion: 0.03
-Nodes (68): ClaudeSession class (per-user session state), ALLOWED_USERS (TELEGRAM_ALLOWED_USERS + UserRegistry merge), BLOCKED_PATTERNS (fork bomb, rm -rf /, etc.), bootstrapNewGuestDir() — vault structure setup on first access, buildGuestBaseEnv() — explicit passthrough (no process.env spread), .daemons.yaml bootstrap (bot-scheduler default daemon), getNewGuestOpenRouterKey() — per-user key file fallback, getUserProfile(userId) — single source of truth for profiles (+60 more)
-
-### Community 3 - "Security & Infra Ops"
-Cohesion: 0.04
-Nodes (68): /etc/claude-firewall/env Config, Composio OAuth Flow — Account Binding, Composio Security Model, CPU Alert Logic, CPU Monitor Install Script, CPU Monitor State Files, Custom MCP Deployment Checklist, Custom MCP TypeScript Skeleton (+60 more)
-
-### Community 4 - "Dependencies & Scheduling"
-Cohesion: 0.04
-Nodes (60): Cron: 21:00 daily (evening summary), Cron: 10:00 daily (morning nudge), Cron: every 2 minutes (sync), Bun Runtime, @anthropic-ai/claude-agent-sdk, @modelcontextprotocol/sdk, Env: OPENROUTER_API_KEY, Env: TELEGRAM_PARALLEL_ALLOWED_PATHS (+52 more)
-
-### Community 5 - "Container Manager"
-Cohesion: 0.06
-Nodes (16): stopRunner(), chownToSandbox(), ContainerManager, hasActiveDaemons(), containerName(), dropboxDir(), userDataDir(), ClaudeSession (+8 more)
-
-### Community 6 - "Bot Commands & Daemons"
-Cohesion: 0.06
-Nodes (32): newCmd(), crashEvent, daemon, DaemonSpec, Manifest, runner, add(), applyTimeline() (+24 more)
-
-### Community 7 - "Guest Routing & Keys"
-Cohesion: 0.05
-Nodes (54): src/handlers/audio.ts, C-1: voice.ts rate limit moved after acquireUserLock, C-2: profile.md prompt injection: wrapAsProfileData() (session.ts), src/handlers/callback.ts, src/handlers/commands.ts, compactIfNeeded() (session.ts), Compact thresholds ×2: guest 100k, owner 320k (DeepSeek V4 1M ctx), src/config.ts (+46 more)
-
-### Community 8 - "Memory & Goals System"
+### Community 0 - "Community 0"
 Cohesion: 0.08
-Nodes (25): handleForget(), GoalsStore, handleAchieve(), handleGoalCallback(), handleGoals(), handleGoalsAdd(), ulid(), GraphStore (+17 more)
+Nodes (31): C-2: profile.md prompt injection: wrapAsProfileData() (session.ts), src/handlers/callback.ts, src/handlers/commands.ts, compactIfNeeded() (session.ts), Compact thresholds ×2: guest 100k, owner 320k (DeepSeek V4 1M ctx), src/config.ts, containerEnabled bugfix: per-user > tier-default (10c83d0), DeepSeek Key Pool (commit 12233f2) (+23 more)
 
-### Community 9 - "Feature Design & Docs"
-Cohesion: 0.06
-Nodes (47): Claude Code Features (5 features), Session Compaction Feature, containerEnabled Per-User Bugfix, Mental model shift: container = ephemeral workspace → personal 24/7 slot, Container Pause Skip for Active Daemons, --restart=unless-stopped: containers survive host reboot and docker daemon restart, CPU Monitor Script, scripts/monitoring/*: docker stats every minute, 60-point history, alert if avg >70% for 1hr (+39 more)
-
-### Community 10 - "Analytics & Dashboard"
-Cohesion: 0.07
-Nodes (31): analyzeSession(), nextResetAt(), handleApiAdminAll(), handleApiMe(), handleYuKassaWebhookRoute(), isYuKassaIp(), jsonErr(), jsonOk() (+23 more)
-
-### Community 11 - "Concepts & Architecture"
-Cohesion: 0.06
-Nodes (40): Access Approval Flow, BotFather Token, Guest Container (isolated env), ! Interrupt Shorthand, MCP (Model Context Protocol), New User Onboarding Flow, Skill (Claude Code skill), Composio Guide (EN) — stub (+32 more)
-
-### Community 12 - "MCP Integrations"
-Cohesion: 0.07
-Nodes (22): buildContainerBashMcp(), buildGoogleMcpUrl(), getComposioApiKey(), initiateGoogleConnections(), connect-google-{userId}-*.json drop-box pattern, code(), convertBlockquotes(), convertMarkdownToHtml() (+14 more)
-
-### Community 13 - "Security Audit Pack"
-Cohesion: 0.07
-Nodes (29): Audit-fixes sprint: 25 atomic commits (2026-05-13 evening), Consent Gate (commit 8c62b1d), src/handlers/consent-gate.ts, src/consent.ts, src/containers/bash-mcp.ts (mcp__container__Bash), CRIT-01: /root/.claude/projects/* owner-only (ae0d652), CRIT-02: mcp__container__Bash BLOCKED_PATTERNS_CONTAINER (7fde99c), CRIT-03: heartbeat leak closed all 5 handlers (e60e32e) (+21 more)
-
-### Community 14 - "User Bootstrapping"
-Cohesion: 0.08
-Nodes (25): ALLOWED_USERS in-memory mutation on invite approve, Owner (292228713) vs Guest: separate cwd, settingSources, models, commands, bootstrapNewGuestDir — vault layout provisioning on approve, askuser inline keyboard response handler, cancel_subscription / confirm_cancel_subscription callbacks, handleGoalCallback — goal done/pause/delete, handleCallback — main callback router, handleInviteCallback — invite approve/deny handler (+17 more)
-
-### Community 15 - "Admin & Cost Rules"
-Cohesion: 0.12
-Nodes (24): Admin Operations Map, Agent Routing Rules, API Cost Rules, Agent Routing Rules (CLAUDE.md workspace), Group Chat Persona: Клод, Kseniya Inbox (shared workspace), Marketing Knowledge Base Rule, Marketing RAG Library (9 books, 4435 chunks) (+16 more)
-
-### Community 16 - "Legal & Tiers"
+### Community 1 - "Community 1"
 Cohesion: 0.09
-Nodes (23): Proboi tiers: Free (10 msg/day) vs Профи (499₽/мес, unlimited), Data retention policy: logs stored minimum 6 months, OFERTA_DRAFT.md — legal terms draft for Proboi platform, Platform rights: suspend account, inspect containers, cooperate with law, User prohibitions: no spam/phishing/malware/piracy/PD hosting, Pre-publication checklist: abuse@ email, SLA, logs, lawyer review, onboarding gate, Conversion philosophy: upsell at every interaction via guide page, not at purchase, Task 7: daily limit — FREE_DAILY_LIMIT=10, counter in-memory, resets 00:00 UTC (+15 more)
+Nodes (27): Batch #2: UI / UID / Composio polling / profiler, Batch #3: Composio polling correctness + disconnect, Telegram Bot @ORCH7_bot, Fix A — Single status bubble (дедуп прогресс-пузыря), Fix B1 — free-tier не просит Approve (FREE_DISALLOWED_TOOLS + buildFreeTierPrompt), Fix B2 — dedup прогресс-пузыря (единая строка announce.ts, progressLines поиск), Fix B3 — Mini App открывается на jinru (DASHBOARD_URL env + config.ts export), Fix B — env-check info-leak block in prompts (+19 more)
 
-### Community 17 - "Context Compaction (removed)"
+### Community 2 - "Community 2"
+Cohesion: 0.1
+Nodes (26): src/handlers/audio.ts, Audit-fixes sprint: 25 atomic commits (2026-05-13 evening), C-1: voice.ts rate limit moved after acquireUserLock, src/containers/bash-mcp.ts (mcp__container__Bash), CRIT-01: /root/.claude/projects/* owner-only (ae0d652), CRIT-02: mcp__container__Bash BLOCKED_PATTERNS_CONTAINER (7fde99c), CRIT-03: heartbeat leak closed all 5 handlers (e60e32e), CRIT-04: double-billing on retry fixed, request_id unique index (9f2d3b5) (+18 more)
+
+### Community 3 - "Community 3"
+Cohesion: 0.09
+Nodes (26): MCP tool mcp__container__Bash, Команда /new, Команды /threads и /resume_thread (сняты из меню), Fix acceptEdits + allowedTools for paid tier (PAID_ALLOWED_TOOLS 17 names), Fix C — /new instant ack (reply → flush → kill), Smoke Group B — memory (label_index, try/catch, debounce scheduler, forceMemoryFlush), Smoke Group F — threads (/threads /resume_thread сняты из меню), docs/HANDOFF-2026-05-15-night.md (+18 more)
+
+### Community 4 - "Community 4"
 Cohesion: 0.1
 Nodes (22): compactSession(): summarizes old messages via LLM, replaces with summary block, rewrites sessionFile, estimateContextSize(): reads sessionFile, counts JSON bytes, approximates tokens, buildSummaryPrompt(): prompt for summarizing dialog history, max 2000 words, Feature 3: Context compaction — auto-summarize old messages when approaching token limit, Feature 4: Guest memory — persistent session summaries in /opt/vault/{userId}/memory/, Feature 1: Plan Mode — pre-execution plan with PLAN_START/PLAN_END markers and confirm/cancel/clarify buttons, Feature 5: Redirect interrupt — !<text> aborts current execution and relaunches with new instruction, Feature 2: Todo-list — live progress tracking with TODO_LIST_START/TODO_ITEM/TODO_START/TODO_DONE markers (+14 more)
 
-### Community 18 - "Interactive MCPs"
+### Community 5 - "Community 5"
 Cohesion: 0.11
-Nodes (15): Ask User Drop-box Pattern, Ask User MCP Server, ask_user tool, .daemons.yaml, Notify Bridge (http://172.18.0.1:3849/notify), Notify bridge allowed users gate, docker inspect IP verification (container owns userId), Message truncation to 4000 chars before Telegram send (+7 more)
+Nodes (18): Smoke-batch 2026-05-16: 12 of 18 items closed, Branch feature/legal-docs-consent-gate (25 commits, 3e0b1d6..fc6edb8), Code-review (Sonnet): 2 HIGH blockers (subscription pattern, memory flush double-fire), Consent Gate (src/consent.ts + src/handlers/consent-gate.ts), system/deepseek-blacklist.json (новый), DeepSeek Key Pool (src/deepseek-key-pool.ts, least-busy selector), Smoke Group A — критичные (blacklist, memory filter, subscription pattern), Smoke Group E — Write vs Bash UID research (only research, no impl) (+10 more)
 
-### Community 19 - "File Drop Box"
-Cohesion: 0.18
-Nodes (16): containerManager.exec(userId, cmd, opts), containerManager.getOrStart(profile), send-file-{userId}-*.json drop-box pattern, checkPendingSendFileRequests (per-user drop-box), executeToolAsync(), create_excel tool (python3 openpyxl), generate_image tool (Pollinations AI), list_dir tool (+8 more)
+### Community 6 - "Community 6"
+Cohesion: 0.15
+Nodes (18): Команды /memory и /forget, Feat: Компакция + Redirect + /memory /forget (commit 633c634), Feat: Todo-list + Plan Mode (TodoMarkerParser, PlanMarkerParser, plan_confirm/cancel), Fix: удалена context compression (compactIfNeeded + sanitizeCompactionSummary), Fix F — Profiler marks (6 blindspot marks, PROFILER_ENABLED), Fix: File access blocked — 3 класса путей разрешены для Read-tool гостей, Smoke Group D+H — промпты + профилировщик (КРАТКОСТЬ И СУТЬ, profiler.ts), Fix: request timeouts OpenRouter/DeepSeek + Claude subprocess (90s/600s) (+10 more)
 
-### Community 20 - "Crash & Alert Monitoring"
+### Community 7 - "Community 7"
+Cohesion: 0.17
+Nodes (16): Mental model shift: container = ephemeral workspace → personal 24/7 slot, --restart=unless-stopped: containers survive host reboot and docker daemon restart, scripts/monitoring/*: docker stats every minute, 60-point history, alert if avg >70% for 1hr, src/crashloop-watcher.ts: polls <vault>/.daemons-events/*-crashloop.json every 30s, Rationale: 3 daemon limit per user aligns with future Базовый=1/Профи=3/Студия=10 tiers, daemon-runner: Go binary PID 1 in claude-user-sandbox, ~5-10 MB, 15-daemons-and-containers: Always-on container design decisions, .daemons.yaml: manifest file for daemon registration, limit 3 per user (+8 more)
+
+### Community 8 - "Community 8"
+Cohesion: 0.13
+Nodes (15): audit/2026-05-14-pre-rotation/ (23 docs + FIX_PLAN + VULNERABILITIES), Telegram Bot @proboiAI_bot, Fix: Memory cap 1024 MB (NODE_OPTIONS systemd conf), Fix: per-user OpenRouter sub-keys (createGuestSubKey, $2 limit), Key Rotation TODO (TG/OPENAI/OPENROUTER/DEEPSEEK/COMPOSIO), Rationale: Мягкая квота вместо kernel quota — ext4 без prjquota, remount рискован, Rationale: userns-remap uid offset 100000 (UID escape → host UID 101000, no access to other vaults), Security hardening 2026-05-10 (56 коммитов, S-01..S-53 закрыты) (+7 more)
+
+### Community 9 - "Community 9"
+Cohesion: 0.14
+Nodes (14): Consent Gate (commit 8c62b1d), src/handlers/consent-gate.ts, src/consent.ts, DOC_VERSION=2026-05-14, src/index.ts, ИП Энбом Ксения Игоревна (ИНН 631609033320), legal/ (internal PDN docs), Legal Documents (commit 8c62b1d) (+6 more)
+
+### Community 10 - "Community 10"
 Cohesion: 0.29
-Nodes (8): escapeHtml(), processOnce(), readEvent(), startCrashloopWatcher(), notifyGuest(), notifyOwnerDM(), notifyProblemChannel(), send()
+Nodes (7): Cluster 09: Composio OAuth для Google Workspace (seed 09-composio-google.md), MCP tool mcp__connect-google__disconnect, MCP tool mcp__connect-google__connect, connect_google_mcp/server.ts, Batch #3 Fix — mcp__connect-google__disconnect tool, src/composio.ts, src/mcp-filter.ts
 
-### Community 21 - "Documentation EN"
-Cohesion: 0.53
-Nodes (11): Guide EN — FAQ and Limits (09), Guide EN — What is MCP (02), Guide EN — Roadmap (04), Guide EN — Build Your Own Bot (08), Guide EN — README (index), Guide EN — Scenarios (01), Guide EN — Skills (07), Guide EN — Getting Started (00) (+3 more)
-
-### Community 22 - "Bot Ideas Roadmap"
-Cohesion: 0.18
-Nodes (11): Idea #7: Bots On Demand Agency, Idea #26: Freelancer Assistant Bot, Idea #5: Micro-Learning Platform, Idea #30: Second Brain for Managers, Idea #11: Smart Savings Bot, Idea #2: Tax Assistant Bot, Music Server Idea (Navidrome), Evgeniy Inbox (+3 more)
-
-### Community 23 - "Memory Graph RAG"
+### Community 11 - "Community 11"
 Cohesion: 0.33
-Nodes (6): buildMemoryContext(), sanitizeForPrompt(), jaccard(), rankNodesByQuery(), scoreNode(), tokenize()
+Nodes (6): src/dashboard-server.ts, notify-bridge container ownership fix (dashboard-server.ts), src/payments.ts, src/tasks.ts, src/user-registry.ts (UserNode, addUser), YuKassa payment flow (src/payments.ts, 2026-05-11)
 
-### Community 24 - "Vault Quota"
-Cohesion: 0.22
-Nodes (9): Vault quota: 2 GB soft limit per guest, 60s TTL cache, checkVaultQuota() pre-message, Vault structure: inbox/, public/, notes/, projects/, skills/, memory/, MEDIUM bottleneck: MAX_CONCURRENT_CONTAINER_SESSIONS=5 global semaphore, CRITICAL bottleneck: single CPU core — hard ceiling at 10+ concurrent users, MEDIUM bottleneck: shared DeepSeek API key — rate limits at 20+ concurrent, HIGH bottleneck: 1.9 GiB RAM — comfortable only for 3-5 active containers, MEDIUM bottleneck: vault-quota.ts execFileSync du — blocks event loop, Decision: jinru TEST server NOT ready for 50 users (+1 more)
+### Community 12 - "Community 12"
+Cohesion: 0.4
+Nodes (5): Alert chain: alert-bot → owner-alerts → problem channel, Always-on automations cluster (seed 15: daemon-runner, .daemons.yaml, crashloop), Cluster 15: Always-on автоматизации daemon-runner + .daemons.yaml (seed 15), God Node: daemon-runner (Go PID 1, 12 edges), .daemons.yaml manifest — 6 edges
 
-### Community 25 - "MCP Server Files"
-Cohesion: 0.25
-Nodes (1): main()
+### Community 13 - "Community 13"
+Cohesion: 0.4
+Nodes (5): Daily limit gate + free doc gate (isDailyLimitReached, upsell CTA), Legal pages (oferta.ts + privacy.ts placeholders), YuKassa payment flow (payments.ts, webhook, activateSubscription, chargeExpiredTrials), src/payments.ts, Состояние 2026-05-11 — YuKassa-фаза + Claude Code Features на TEST
 
-### Community 26 - "Security Hardening"
-Cohesion: 0.29
-Nodes (7): audit/2026-05-14-pre-rotation/ (23 docs + FIX_PLAN + VULNERABILITIES), Key Rotation TODO (TG/OPENAI/OPENROUTER/DEEPSEEK/COMPOSIO), Rationale: userns-remap uid offset 100000 (UID escape → host UID 101000, no access to other vaults), Security Hardening Pack (25 commits 3e0b1d6..fc6edb8), V-01 free-tier: text only (no Bash/Read/Write/MCP), V-02 memory injection: zod+escape, reply_to sanitize, V-26 userns-remap (uid 101000 on vault)
-
-### Community 27 - "Subscription Gate"
-Cohesion: 0.6
-Nodes (5): handleSubscriptionCheckCallback(), invalidateSubscription(), isSubscribed(), isSubscriptionGateEnabled(), parseChannelId()
-
-### Community 28 - "Vault Quota Code"
-Cohesion: 0.47
-Nodes (4): checkVaultQuota(), formatBytes(), getVaultPath(), getVaultQuotaBytes()
-
-### Community 29 - "Roadmap Items"
-Cohesion: 0.33
-Nodes (6): Feature: Context Compaction — Auto-compress Near Limit, Feature: Guest Memory — Persistent Context Between Sessions, Feature: Interrupt with Redirect — Graceful Execution Control, Feature: Plan Mode — Pre-execution Plan, Roadmap Technical Risks, Feature: Todo List — Real-time Progress
-
-### Community 30 - "OpenRouter Provisioning"
-Cohesion: 0.5
-Nodes (5): createGuestSubKey() — POST /api/v1/keys, deleteGuestSubKey() — DELETE /api/v1/keys/{hash}, OpenRouter Provisioning (per-user subkeys), OPENROUTER_PROVISIONING_KEY env var, OPENROUTER_GUEST_LIMIT_USD (default $2.0)
-
-### Community 31 - "Archive Handler"
-Cohesion: 0.5
-Nodes (4): checkArchiveSize (zip bomb prevention), preScanTar (path traversal guard), processArchive (zip/tar with zip-slip guard), assertNoZipSlip (post-extraction path check)
-
-### Community 32 - "Daemon Lifecycle"
-Cohesion: 0.5
-Nodes (4): Alert chain: alert-bot → owner-alerts → problem channel, Always-on automations cluster (seed 15: daemon-runner, .daemons.yaml, crashloop), daemon-runner (Go PID 1 supervisor) — 12 edges, .daemons.yaml manifest — 6 edges
-
-### Community 33 - "User Registry"
+### Community 14 - "Community 14"
 Cohesion: 0.67
-Nodes (3): UserRegistry, UserNode interface, UserRole type (owner|guest|new_guest)
+Nodes (4): Cluster 10: parallel_mcp mcp__parallel__run для DeepSeek-сессий (seed 10), MCP tool mcp__parallel__run, God Node: parallel_mcp/server.ts mcp__parallel__run (7 edges), parallel_mcp/server.ts
 
-### Community 34 - "Ask User MCP"
-Cohesion: 0.67
-Nodes (3): ask-user-{userId}-*.json drop-box pattern, checkPendingAskUserRequests (per-user drop-box), createAskUserKeyboard (inline buttons)
-
-### Community 35 - "Architecture Docs"
-Cohesion: 0.67
-Nodes (3): AGENTS.md is a symlink to CLAUDE.md — identical content for Codex/other tools, Message flow: Telegram → Handler → Auth → Rate limit → Claude session → Stream → Audit, CLAUDE.md: read project_knowledge_graph.md before any work; update after tasks
-
-### Community 36 - "Prod Infrastructure"
+### Community 15 - "Community 15"
 Cohesion: 0.67
 Nodes (3): src/templates/landing.ts (proboi.site landing, 1188 lines), proboi.site (89.167.125.175, prod domain), proboi-bot (89.167.125.175, @proboiAI_bot)
 
-### Community 37 - "Container Spec"
+### Community 16 - "Community 16"
 Cohesion: 0.67
 Nodes (3): lxcfs fallback fix: kernel 6.8.0-90 read-only bind-mount (manager.ts), src/containers/manager.ts, src/containers/spec.ts (buildRunArgs)
 
-### Community 38 - "Guest Public Migration"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 39 - "Scheduler Migration"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 40 - "Privacy Template"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 41 - "Oferta Template"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 42 - "Dashboard Template"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 43 - "Graph Store"
-Cohesion: 1.0
-Nodes (1): GraphStore
-
-### Community 44 - "OpenRouter Engine"
-Cohesion: 1.0
-Nodes (2): src/engines/openrouter.ts, OpenRouterMessage interface
-
-### Community 45 - "OpenRouter Vision"
+### Community 17 - "Community 17"
 Cohesion: 1.0
 Nodes (2): OPENROUTER_API_KEY (env), Vision pipeline (OpenRouter Gemini Flash)
 
-### Community 46 - "Composio & MCP Filter"
+### Community 18 - "Community 18"
 Cohesion: 1.0
 Nodes (2): src/composio.ts, src/mcp-filter.ts
 
-### Community 47 - "DeepSeek Fast Path"
+### Community 19 - "Community 19"
 Cohesion: 1.0
 Nodes (2): src/engines/deepseek-fast.ts (uncommitted), src/fast-path.ts (uncommitted)
 
-### Community 48 - "Egress Pipeline"
+### Community 20 - "Community 20"
 Cohesion: 1.0
 Nodes (2): Egress pipeline: setup→monitor→reset via systemd, scripts/firewall/egress-monitor.sh — 6 edges
 
-### Community 49 - "Guest CLAUDE.md Migration"
+### Community 21 - "Community 21"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (2): Состояние 2026-05-12 — UX hardening на PROD (4 агента аудит), UX hardening (commit e562cb0): resume/pay/invites/voice/text/video/tasks/index
 
-### Community 50 - "Skills Migration"
+### Community 22 - "Community 22"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (2): Cluster 12: subscription gate src/subscription.ts (seed 12), src/subscription.ts
 
-### Community 51 - "Memory Types"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 52 - "Memory Index"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 53 - "Containers Index"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 54 - "Handlers Index"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 55 - "New Guest Users Config"
-Cohesion: 1.0
-Nodes (1): NEW_GUEST_USERS list (env override or hardcoded defaults)
-
-### Community 56 - "Owner Allowed Paths"
-Cohesion: 1.0
-Nodes (1): OWNER_ALLOWED_PATHS (ALLOWED_PATHS env or defaults)
-
-### Community 57 - "Rate Limit Config"
-Cohesion: 1.0
-Nodes (1): Rate limit config (RATE_LIMIT_ENABLED/REQUESTS/WINDOW env vars)
-
-### Community 58 - "Owner System Prompt"
-Cohesion: 1.0
-Nodes (1): Owner system prompt (buildOwnerSafetyPrompt, DeepSeek-aware)
-
-### Community 59 - "Guest System Prompt"
-Cohesion: 1.0
-Nodes (1): Guest system prompt (buildNewGuestSafetyPrompt, tier-aware)
-
-### Community 60 - "Daily Limit Module"
-Cohesion: 1.0
-Nodes (1): daily-limit.ts module
-
-### Community 61 - "Bot Encyclopedia"
-Cohesion: 1.0
-Nodes (1): BOT_ENCYCLOPEDIA.md — user-facing feature reference for @proboiAI_bot
-
-### Community 62 - "Public Encyclopedia"
-Cohesion: 1.0
-Nodes (1): User public page at proboi.site/u/<userId>/ — public/ folder mapped
-
-### Community 63 - "Daemon Encyclopedia"
-Cohesion: 1.0
-Nodes (1): Daemon tasks: scheduled (cron) and persistent (max 3 concurrent) background processes
-
-### Community 64 - "Commit Style"
-Cohesion: 1.0
-Nodes (1): Commit style: no Generated-with / Co-Authored-By footers
-
-### Community 65 - "Deploy Constraint"
-Cohesion: 1.0
-Nodes (1): Deploy constraint: test on jinru first, PROD only with explicit user confirmation
-
-### Community 66 - "No Rsync Env Rule"
-Cohesion: 1.0
-Nodes (1): Never rsync .env or system/users.json between servers
-
-### Community 67 - "Security Layers"
-Cohesion: 1.0
-Nodes (1): 8 security layers: allowlist, rate limit, path validation, command safety, system prompt, command allowlist, audit, disallowedTools
-
-### Community 68 - "MCP Dropbox Pattern"
-Cohesion: 1.0
-Nodes (1): MCP file-dropbox pattern: ask-user/send-file/connect-google write files, bot polls
-
-### Community 69 - "Vision Pipeline Arch"
-Cohesion: 1.0
-Nodes (1): Vision pipeline: all photos → OpenRouter Gemini (google/gemini-2.5-flash)
-
-### Community 70 - "RU MCP Guide"
-Cohesion: 1.0
-Nodes (1): Installed MCPs guide reference (RU)
-
-### Community 71 - "Graph Report File"
-Cohesion: 1.0
-Nodes (1): GRAPH_REPORT.md (graphify output)
-
-### Community 72 - "Firewall Uninstall"
-Cohesion: 1.0
-Nodes (1): Firewall Uninstall Script
-
-### Community 73 - "Idle Phrases"
+### Community 23 - "Community 23"
 Cohesion: 1.0
 Nodes (1): src/idle-phrases.ts (130 heartbeat phrases)
 
-### Community 74 - "Connect Google MCP"
-Cohesion: 1.0
-Nodes (1): connect_google_mcp/server.ts (OAuth drop-box MCP)
-
-### Community 75 - "Landing Assets"
+### Community 24 - "Community 24"
 Cohesion: 1.0
 Nodes (1): src/templates/assets/ (CSS/JS, 3 files, 1975 lines)
 
-### Community 76 - "Test Server"
+### Community 25 - "Community 25"
 Cohesion: 1.0
 Nodes (1): jinru (5.223.82.96, @ORCH7_bot, disabled)
 
+### Community 26 - "Community 26"
+Cohesion: 1.0
+Nodes (1): Cluster 13: IdleHeartbeat + idle-phrases.ts (seed 13)
+
+### Community 27 - "Community 27"
+Cohesion: 1.0
+Nodes (1): Cluster 14: лендинг proboi.site (seed 14, commit 3c046db)
+
+### Community 28 - "Community 28"
+Cohesion: 1.0
+Nodes (1): Открытые задачи (AAAA DNS, hf_llm_mcp, execSync async, parallel test)
+
 ## Knowledge Gaps
-- **336 isolated node(s):** `Schedule`, `ScheduleConfig`, `notifyPayload`, `DaemonSpec`, `Manifest` (+331 more)
+- **125 isolated node(s):** `src/handlers/consent-gate.ts`, `DOC_VERSION=2026-05-14`, `system/deepseek-keys.json`, `src/templates/oferta.ts`, `src/templates/privacy.ts` (+120 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Guest Public Migration`** (2 nodes): `isPlaceholder()`, `migrate-guest-public-index.ts`
+- **Thin community `Community 17`** (2 nodes): `OPENROUTER_API_KEY (env)`, `Vision pipeline (OpenRouter Gemini Flash)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Scheduler Migration`** (2 nodes): `SCHEDULER_ENTRY()`, `migrate-scheduler.ts`
+- **Thin community `Community 18`** (2 nodes): `src/composio.ts`, `src/mcp-filter.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Privacy Template`** (2 nodes): `renderPrivacy()`, `privacy.ts`
+- **Thin community `Community 19`** (2 nodes): `src/engines/deepseek-fast.ts (uncommitted)`, `src/fast-path.ts (uncommitted)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Oferta Template`** (2 nodes): `renderOferta()`, `oferta.ts`
+- **Thin community `Community 20`** (2 nodes): `Egress pipeline: setup→monitor→reset via systemd`, `scripts/firewall/egress-monitor.sh — 6 edges`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Dashboard Template`** (2 nodes): `user-dashboard.ts`, `renderDashboard()`
+- **Thin community `Community 21`** (2 nodes): `Состояние 2026-05-12 — UX hardening на PROD (4 агента аудит)`, `UX hardening (commit e562cb0): resume/pay/invites/voice/text/video/tasks/index`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Graph Store`** (2 nodes): `GraphStore`, `import-handoff.ts`
+- **Thin community `Community 22`** (2 nodes): `Cluster 12: subscription gate src/subscription.ts (seed 12)`, `src/subscription.ts`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `OpenRouter Engine`** (2 nodes): `src/engines/openrouter.ts`, `OpenRouterMessage interface`
+- **Thin community `Community 23`** (1 nodes): `src/idle-phrases.ts (130 heartbeat phrases)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `OpenRouter Vision`** (2 nodes): `OPENROUTER_API_KEY (env)`, `Vision pipeline (OpenRouter Gemini Flash)`
+- **Thin community `Community 24`** (1 nodes): `src/templates/assets/ (CSS/JS, 3 files, 1975 lines)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Composio & MCP Filter`** (2 nodes): `src/composio.ts`, `src/mcp-filter.ts`
+- **Thin community `Community 25`** (1 nodes): `jinru (5.223.82.96, @ORCH7_bot, disabled)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `DeepSeek Fast Path`** (2 nodes): `src/engines/deepseek-fast.ts (uncommitted)`, `src/fast-path.ts (uncommitted)`
+- **Thin community `Community 26`** (1 nodes): `Cluster 13: IdleHeartbeat + idle-phrases.ts (seed 13)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Egress Pipeline`** (2 nodes): `Egress pipeline: setup→monitor→reset via systemd`, `scripts/firewall/egress-monitor.sh — 6 edges`
+- **Thin community `Community 27`** (1 nodes): `Cluster 14: лендинг proboi.site (seed 14, commit 3c046db)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Guest CLAUDE.md Migration`** (1 nodes): `migrate-guest-claude-md.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Skills Migration`** (1 nodes): `migrate-skills.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Memory Types`** (1 nodes): `types.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Memory Index`** (1 nodes): `index.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Containers Index`** (1 nodes): `index.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Handlers Index`** (1 nodes): `index.ts`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `New Guest Users Config`** (1 nodes): `NEW_GUEST_USERS list (env override or hardcoded defaults)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Owner Allowed Paths`** (1 nodes): `OWNER_ALLOWED_PATHS (ALLOWED_PATHS env or defaults)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Rate Limit Config`** (1 nodes): `Rate limit config (RATE_LIMIT_ENABLED/REQUESTS/WINDOW env vars)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Owner System Prompt`** (1 nodes): `Owner system prompt (buildOwnerSafetyPrompt, DeepSeek-aware)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Guest System Prompt`** (1 nodes): `Guest system prompt (buildNewGuestSafetyPrompt, tier-aware)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Daily Limit Module`** (1 nodes): `daily-limit.ts module`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Bot Encyclopedia`** (1 nodes): `BOT_ENCYCLOPEDIA.md — user-facing feature reference for @proboiAI_bot`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Public Encyclopedia`** (1 nodes): `User public page at proboi.site/u/<userId>/ — public/ folder mapped`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Daemon Encyclopedia`** (1 nodes): `Daemon tasks: scheduled (cron) and persistent (max 3 concurrent) background processes`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Commit Style`** (1 nodes): `Commit style: no Generated-with / Co-Authored-By footers`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Deploy Constraint`** (1 nodes): `Deploy constraint: test on jinru first, PROD only with explicit user confirmation`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `No Rsync Env Rule`** (1 nodes): `Never rsync .env or system/users.json between servers`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Security Layers`** (1 nodes): `8 security layers: allowlist, rate limit, path validation, command safety, system prompt, command allowlist, audit, disallowedTools`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `MCP Dropbox Pattern`** (1 nodes): `MCP file-dropbox pattern: ask-user/send-file/connect-google write files, bot polls`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Vision Pipeline Arch`** (1 nodes): `Vision pipeline: all photos → OpenRouter Gemini (google/gemini-2.5-flash)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `RU MCP Guide`** (1 nodes): `Installed MCPs guide reference (RU)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Graph Report File`** (1 nodes): `GRAPH_REPORT.md (graphify output)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Firewall Uninstall`** (1 nodes): `Firewall Uninstall Script`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Idle Phrases`** (1 nodes): `src/idle-phrases.ts (130 heartbeat phrases)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Connect Google MCP`** (1 nodes): `connect_google_mcp/server.ts (OAuth drop-box MCP)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Landing Assets`** (1 nodes): `src/templates/assets/ (CSS/JS, 3 files, 1975 lines)`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Test Server`** (1 nodes): `jinru (5.223.82.96, @ORCH7_bot, disabled)`
+- **Thin community `Community 28`** (1 nodes): `Открытые задачи (AAAA DNS, hf_llm_mcp, execSync async, parallel test)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `handleText()` connect `Message Handlers` to `Subscription & Alerts`, `MCP Integrations`, `Container Manager`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
-- **Why does `getUserProfile()` connect `Message Handlers` to `Subscription & Alerts`, `Memory & Goals System`, `Analytics & Dashboard`, `MCP Integrations`, `File Drop Box`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
-- **Why does `handleCallback()` connect `Message Handlers` to `Memory & Goals System`, `Subscription & Alerts`, `Subscription Gate`, `Container Manager`?**
-  _High betweenness centrality (0.027) - this node is a cross-community bridge._
-- **Are the 35 inferred relationships involving `handleText()` (e.g. with `getDailyUsage()` and `incrementDailyUsage()`) actually correct?**
-  _`handleText()` has 35 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 25 inferred relationships involving `getUserProfile()` (e.g. with `handleApiMe()` and `maybeWarmInfrastructure()`) actually correct?**
-  _`getUserProfile()` has 25 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 23 inferred relationships involving `isAuthorized()` (e.g. with `handleStart()` and `handleNew()`) actually correct?**
-  _`isAuthorized()` has 23 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 24 inferred relationships involving `getSession()` (e.g. with `checkInterrupt()` and `getUserProfile()`) actually correct?**
-  _`getSession()` has 24 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `Metering bugs H1/H2/H3/M1/M2/M3 (token loss at ask-user, stop, memory analyzer)` connect `Community 6` to `Community 0`, `Community 3`?**
+  _High betweenness centrality (0.276) - this node is a cross-community bridge._
+- **Why does `src/session.ts` connect `Community 6` to `Community 1`, `Community 10`, `Community 3`, `Community 5`?**
+  _High betweenness centrality (0.262) - this node is a cross-community bridge._
+- **Why does `Tier enforcement hardening (2026-05-13) — SQLite daily counter` connect `Community 2` to `Community 0`, `Community 6`?**
+  _High betweenness centrality (0.174) - this node is a cross-community bridge._
+- **Are the 2 inferred relationships involving `src/session.ts` (e.g. with `Pack item 4 — P2 Security (V-29 resume-hijack, V-30 transcript sanitize, V-36..V-39)` and `Fix: File access blocked — 3 класса путей разрешены для Read-tool гостей`) actually correct?**
+  _`src/session.ts` has 2 INFERRED edges - model-reasoned connections that need verification._
+- **What connects `src/handlers/consent-gate.ts`, `DOC_VERSION=2026-05-14`, `system/deepseek-keys.json` to the rest of the system?**
+  _125 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Community 0` be split into smaller, more focused modules?**
+  _Cohesion score 0.08 - nodes in this community are weakly interconnected._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.09 - nodes in this community are weakly interconnected._

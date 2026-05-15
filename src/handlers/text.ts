@@ -26,6 +26,7 @@ import { sanitizeForPrompt } from "../memory/inject";
 import { maybeAutoNew } from "./topic-helper";
 import { maybeWarmInfrastructure } from "../infrastructure-warmer";
 import { enqueueDebounced } from "./message-buffer";
+import { RequestProfiler, setActiveProfiler, clearActiveProfiler, PROFILER_ENABLED } from "../profiler";
 
 /**
  * Detect messages that contain multiple independent subtasks and prepend an
@@ -169,6 +170,10 @@ async function processCombinedMessage(
   username: string,
   chatId: number
 ): Promise<void> {
+  const profiler = new RequestProfiler(userId, "text");
+  if (PROFILER_ENABLED) setActiveProfiler(userId, profiler);
+  profiler.mark("debounce_fired");
+
   let releaseUserLock: (() => void) | null = null;
   let releaseContainerSlot: (() => void) | null = null;
 
@@ -177,6 +182,7 @@ async function processCombinedMessage(
     return;
   }
   releaseUserLock = await acquireUserLock(userId);
+  profiler.mark("lock_acquired");
 
   const _containerProfile = getUserProfile(userId);
   if (_containerProfile.containerEnabled) {
@@ -206,6 +212,7 @@ async function processCombinedMessage(
     return;
   }
 
+  profiler.mark("rate_limit_ok");
   // Daily-limit increment — one unit per flush
   {
     const _profile = getUserProfile(userId);
@@ -224,6 +231,7 @@ async function processCombinedMessage(
   }
 
   const session = getSession(userId);
+  profiler.mark("session_obtained");
 
   let message = combined;
 
@@ -273,6 +281,7 @@ async function processCombinedMessage(
   try {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
+        profiler.mark("before_query");
         const response = await session.sendMessageStreaming(
           message,
           username,
@@ -342,6 +351,8 @@ async function processCombinedMessage(
     typing.stop();
     releaseContainerSlot?.();
     releaseUserLock?.();
+    profiler.finish();
+    if (PROFILER_ENABLED) clearActiveProfiler(userId);
   }
 
   await drainPendingContext(session, ctx, username, userId, chatId);

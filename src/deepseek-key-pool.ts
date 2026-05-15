@@ -36,15 +36,48 @@ interface KeyState {
 }
 
 const POOL_FILE = path.resolve(process.cwd(), "system/deepseek-keys.json");
+const BLACKLIST_FILE = path.resolve(process.cwd(), "system/deepseek-blacklist.json");
 
 const QUARANTINE_BASE_MS = 5 * 60 * 1000;   // 5 минут на первую ошибку
 const QUARANTINE_LONG_MS = 60 * 60 * 1000;  // 1 час после 3 подряд
 
 let pool: KeyState[] | null = null;
 
+/**
+ * Загружает список заблокированных last-4 суффиксов из system/deepseek-blacklist.json.
+ * Ключи с совпадающим last-4 игнорируются при загрузке пула (включая env-fallback).
+ */
+function loadBlacklist(): Set<string> {
+  try {
+    if (fs.existsSync(BLACKLIST_FILE)) {
+      const raw = fs.readFileSync(BLACKLIST_FILE, "utf8");
+      const parsed = JSON.parse(raw) as { last4?: unknown };
+      if (Array.isArray(parsed.last4)) {
+        const set = new Set<string>(
+          parsed.last4.filter((x): x is string => typeof x === "string").map((s) => s.toLowerCase())
+        );
+        if (set.size > 0) {
+          console.log(`[deepseek-pool] Blacklist loaded: ${set.size} last-4 pattern(s) — ${[...set].join(", ")}`);
+        }
+        return set;
+      }
+    }
+  } catch (err) {
+    console.warn("[deepseek-pool] Failed to read deepseek-blacklist.json:", err);
+  }
+  return new Set();
+}
+
+function isBlacklisted(key: string, blacklist: Set<string>): boolean {
+  if (blacklist.size === 0) return false;
+  const last4 = key.slice(-4).toLowerCase();
+  return blacklist.has(last4);
+}
+
 function loadPool(): KeyState[] {
   if (pool) return pool;
 
+  const blacklist = loadBlacklist();
   const seen = new Set<string>();
   const loaded: string[] = [];
 
@@ -56,6 +89,10 @@ function loadPool(): KeyState[] {
       if (Array.isArray(parsed.keys)) {
         for (const k of parsed.keys) {
           if (typeof k === "string" && k.startsWith("sk-") && !seen.has(k)) {
+            if (isBlacklisted(k, blacklist)) {
+              console.warn(`[deepseek-pool] Skipping blacklisted key from file (last 4: ${k.slice(-4)})`);
+              continue;
+            }
             seen.add(k);
             loaded.push(k);
           }
@@ -72,8 +109,12 @@ function loadPool(): KeyState[] {
   // 2) Fallback — одиночный ключ из env (legacy)
   const envKey = process.env.DEEPSEEK_API_KEY;
   if (envKey && envKey.startsWith("sk-") && !seen.has(envKey)) {
-    seen.add(envKey);
-    loaded.push(envKey);
+    if (isBlacklisted(envKey, blacklist)) {
+      console.warn(`[deepseek-pool] Skipping blacklisted env key DEEPSEEK_API_KEY (last 4: ${envKey.slice(-4)})`);
+    } else {
+      seen.add(envKey);
+      loaded.push(envKey);
+    }
   }
 
   pool = loaded.map((key) => ({

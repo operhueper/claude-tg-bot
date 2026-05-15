@@ -2,6 +2,23 @@ import type { MemoryGraph, GoalsFile, GoalType } from "./types";
 import { GraphStore } from "./graph";
 import { rankNodesByQuery } from "./relevance";
 
+/**
+ * Регулярка для бизнес-данных (тариф/подписка/цена), которые нельзя
+ * инжектить из памяти — источник истины только UserRegistry.
+ * Совпадение в label или любом data-значении ноды → нода полностью
+ * исключается из memory-контекста.
+ */
+const SUBSCRIPTION_PATTERN =
+  /подписк|тариф|безлимит|499\s*₽|₽\s*\/?\s*мес|subscription|paid\s*tier|trial\s*period/i;
+
+/**
+ * Возвращает true если строка содержит бизнес-данные о тарифе/подписке.
+ * Используется для фильтрации нод из графа памяти перед инжектом в промпт.
+ */
+function containsSubscriptionData(s: string): boolean {
+  return SUBSCRIPTION_PATTERN.test(s);
+}
+
 /** Strip prompt-injection patterns before splicing node content into a system prompt. */
 export function sanitizeForPrompt(s: unknown): string {
   if (typeof s !== "string") return String(s ?? "").slice(0, 100);
@@ -75,8 +92,20 @@ export function buildMemoryContext(
 
     parts.push("### Ключевые факты");
     for (const node of topNodes) {
+      // Не инжектить бизнес-данные о тарифе/подписке из графа памяти.
+      // Источник истины — UserRegistry (user-registry.ts). Устаревшие или
+      // ошибочные данные из памяти иначе заставляют модель отвечать
+      // про «активную подписку» пользователю, у которого её уже нет.
+      if (containsSubscriptionData(node.label)) continue;
+      const dataEntries = Object.entries(node.data).filter(
+        ([, v]) => !containsSubscriptionData(String(v ?? ""))
+      );
+      if (dataEntries.length === 0 && Object.keys(node.data).length > 0) {
+        // Все data-поля содержали бизнес-данные — пропускаем ноду целиком
+        continue;
+      }
       const emoji = typeLabels[node.type] ?? "•";
-      const dataStr = Object.entries(node.data)
+      const dataStr = dataEntries
         .slice(0, 3)
         .map(([k, v]) => `${k}: ${sanitizeForPrompt(v)}`)
         .join(", ");

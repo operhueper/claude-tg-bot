@@ -249,8 +249,11 @@ export class GraphStore {
     const updatedNodes: MemoryNode[] = [];
     const addedEdges: MemoryEdge[] = [];
 
+    // Ensure label_index is always initialized (older persisted graphs may lack it)
+    g.label_index ??= {};
+
     // Upsert nodes
-    for (const n of patch.upsert_nodes) {
+    for (const n of (patch.upsert_nodes ?? [])) {
       const existed = this.findNodeByLabel(g, n.type, n.label);
       const node = this.upsertNode(g, n);
       this.touchNode(g, node.id, sessionId);
@@ -259,13 +262,13 @@ export class GraphStore {
     }
 
     // Touch labels
-    for (const t of patch.touch_labels) {
+    for (const t of (patch.touch_labels ?? [])) {
       const node = this.findNodeByLabel(g, t.type, t.label);
       if (node) this.touchNode(g, node.id, sessionId);
     }
 
     // Upsert edges
-    for (const e of patch.upsert_edges) {
+    for (const e of (patch.upsert_edges ?? [])) {
       const fromNode = this.findNodeByLabel(g, e.from_type, e.from_label);
       const toNode = this.findNodeByLabel(g, e.to_type, e.to_label);
       if (fromNode && toNode) {

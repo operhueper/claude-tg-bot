@@ -19,8 +19,109 @@ import {
 import { getUserProfile } from "../config";
 import { isPathAllowedFor } from "../security";
 import { pickRandomPhrase, pickIdleEmoji } from "../idle-phrases";
-import { initiateGoogleConnections, getComposioApiKey } from "../composio";
+import { initiateGoogleConnections, getComposioApiKey, COMPOSIO_BASE_URL } from "../composio";
 import { replyFriendly } from "../utils";
+
+// Активные polling-задачи: userId → AbortController. Защита от дублей при повторном клике.
+const activeGooglePolling = new Map<number, AbortController>();
+
+async function startGoogleConnectionPolling(
+  userId: number,
+  ctx: Context
+): Promise<void> {
+  // Отменить предыдущий polling для этого юзера
+  activeGooglePolling.get(userId)?.abort();
+  const abort = new AbortController();
+  activeGooglePolling.set(userId, abort);
+
+  const apiKey = getComposioApiKey();
+  if (!apiKey) {
+    activeGooglePolling.delete(userId);
+    return;
+  }
+
+  // Pre-snapshot: запомнить статус каждого коннекшена до OAuth, чтобы не реагировать на старые.
+  const preState = new Map<string, string>(); // id → status
+  try {
+    const preResp = await fetch(
+      `${COMPOSIO_BASE_URL}/api/v3/connected_accounts?user_id=tg_${userId}`,
+      { headers: { "x-api-key": apiKey } }
+    );
+    if (preResp.ok) {
+      const preData = (await preResp.json()) as { items?: Array<{ id?: string; status?: string }> };
+      for (const c of preData.items ?? []) {
+        if (c.id && c.status) preState.set(c.id, c.status);
+      }
+    }
+  } catch {
+    // pre-snapshot не получился — продолжаем, в худшем случае ложно сработает на старом коннекшене
+  }
+
+  const SLUG_TO_NAME: Record<string, string> = {
+    googledocs: "Docs",
+    googledrive: "Drive",
+    googlesheets: "Sheets",
+    gmail: "Gmail",
+    googlecalendar: "Calendar",
+  };
+  const ALL_SLUGS = ["googledocs", "googledrive", "googlesheets", "gmail", "googlecalendar"];
+  const GRACE_MS = 10_000; // после первого нового ACTIVE ждём ещё 10с для остальных toolkits
+  let firstNewActiveAt: number | null = null;
+
+  for (let i = 0; i < 24; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    if (abort.signal.aborted) return;
+    try {
+      const resp = await fetch(
+        `${COMPOSIO_BASE_URL}/api/v3/connected_accounts?user_id=tg_${userId}`,
+        { headers: { "x-api-key": apiKey } }
+      );
+      if (!resp.ok) continue;
+      const data = (await resp.json()) as {
+        items?: Array<{ id?: string; status?: string; toolkit?: { slug?: string } }>;
+      };
+      const newlyActive = (data.items ?? []).filter(
+        (c) => c.status === "ACTIVE" && c.id && preState.get(c.id) !== "ACTIVE"
+      );
+      if (newlyActive.length > 0) {
+        if (firstNewActiveAt === null) firstNewActiveAt = Date.now();
+        if (Date.now() - firstNewActiveAt >= GRACE_MS) {
+          // Grace period истёк — собираем финальный список и отправляем
+          const connectedSlugs = new Set(
+            newlyActive.map((c) => c.toolkit?.slug).filter(Boolean) as string[]
+          );
+          const connectedNames = ALL_SLUGS
+            .filter((s) => connectedSlugs.has(s))
+            .map((s) => SLUG_TO_NAME[s]!);
+          const missingNames = ALL_SLUGS
+            .filter((s) => !connectedSlugs.has(s))
+            .map((s) => SLUG_TO_NAME[s]!);
+
+          let msg: string;
+          if (connectedNames.length === 5) {
+            msg = `✅ Google полностью подключён (${connectedNames.join(", ")}). Можешь работать.`;
+          } else if (connectedNames.length > 0) {
+            msg = `✅ Подключено: ${connectedNames.join(", ")}. Если нужны остальные (${missingNames.join(", ")}) — нажми их кнопки выше ещё раз.`;
+          } else {
+            msg = "✅ Google подключён.";
+          }
+
+          try {
+            await ctx.api.sendMessage(userId, msg);
+          } catch (e) {
+            console.warn(`[google-polling] sendMessage failed for ${userId}:`, e);
+          }
+          activeGooglePolling.delete(userId);
+          return;
+        }
+      }
+    } catch {
+      // сетевые ошибки — продолжаем
+    }
+  }
+  // timeout — silent
+  activeGooglePolling.delete(userId);
+}
 
 /**
  * Create inline keyboard for ask_user options.
@@ -247,6 +348,7 @@ export async function checkPendingConnectGoogleRequests(
             "После авторизации можешь сразу просить меня что-то сделать в Google Docs/Drive/Sheets/Gmail/Calendar.",
           { reply_markup: keyboard }
         );
+        void startGoogleConnectionPolling(userId, ctx);
         buttonsSent = true;
       } catch (e) {
         await replyFriendly(ctx, e, "подключение Google");
@@ -261,14 +363,6 @@ export async function checkPendingConnectGoogleRequests(
 }
 
 /**
- * Render a todo list as HTML for Telegram.
- */
-function renderTodoList(items: TodoItem[]): string {
-  const icon: Record<string, string> = { pending: '◻', in_progress: '⏳', done: '✅' };
-  return '<b>Выполняю:</b>\n' + items.map(i => `${icon[i.status] ?? '•'} ${escapeHtml(i.label)}`).join('\n');
-}
-
-/**
  * Tracks state for streaming message updates.
  */
 export class StreamingState {
@@ -279,46 +373,9 @@ export class StreamingState {
   maxSegmentId: number = -1; // highest segment_id seen so far
   todoMsgId?: number; // message_id of the todo progress message
   todoItems: TodoItem[] = [];
-  // Progress bubble: persistent message that grows one line per tool announce.
-  // Replaces the model's "process diary" that DeepSeek otherwise dumps into the final segment.
-  progressMsgId?: number;
-  progressLines: string[] = [];
-  lastAnnounce?: string;
-  private _progressEditTimer: ReturnType<typeof setTimeout> | null = null;
-  private _lastProgressHtml: string = '';
   private _heartbeat: IdleHeartbeat | null = null;
 
   set heartbeat(h: IdleHeartbeat) { this._heartbeat = h; }
-
-  scheduleProgressEdit(ctx: Context, html: string): void {
-    this._lastProgressHtml = html;
-    if (this._progressEditTimer) clearTimeout(this._progressEditTimer);
-    this._progressEditTimer = setTimeout(() => {
-      this._progressEditTimer = null;
-      void this._editProgressNow(ctx, html);
-    }, 500);
-  }
-
-  async flushProgressEdit(ctx: Context): Promise<void> {
-    if (this._progressEditTimer) {
-      clearTimeout(this._progressEditTimer);
-      this._progressEditTimer = null;
-    }
-    if (!this.progressMsgId || !this._lastProgressHtml) return;
-    await this._editProgressNow(ctx, this._lastProgressHtml);
-  }
-
-  private async _editProgressNow(ctx: Context, html: string): Promise<void> {
-    if (!this.progressMsgId) return;
-    try {
-      await ctx.api.editMessageText(ctx.chat!.id, this.progressMsgId, html, { parse_mode: "HTML" });
-    } catch (err) {
-      const s = String(err);
-      if (!s.includes("not modified")) {
-        console.debug("progress edit failed:", err);
-      }
-    }
-  }
 
   async cleanup(): Promise<void> {
     if (this._heartbeat) {
@@ -577,68 +634,15 @@ export function createStatusCallback(
       }
       return;
     }
-    // "announce" is a permanent step in the progress bubble — emitted before
-    // each tool_use. Replaces the model's tendency to dump the whole "process
-    // diary" into the final assistant message. The bubble survives `done`.
-    if (statusType === "announce") {
-      if (!content) return;
-      // TODO widget already shows progress — don't double-render.
-      if (state.todoMsgId) return;
-
-      // Dedup across the whole bubble — A→B→A→B should collapse, not list
-      // four lines. Match the new announce against the base text of every
-      // existing line (stripping any trailing " ×N" counter).
-      const baseRe = /^(.*?)(?: ×(\d+))?$/;
-      const existingIdx = state.progressLines.findIndex((l) => {
-        const m = l.match(baseRe);
-        return m?.[1] === content;
-      });
-      if (existingIdx !== -1) {
-        const m = state.progressLines[existingIdx]!.match(baseRe)!;
-        const base = m[1]!;
-        const count = m[2] ? parseInt(m[2], 10) + 1 : 2;
-        state.progressLines[existingIdx] = `${base} ×${count}`;
-      } else {
-        state.progressLines.push(content);
-      }
-      state.lastAnnounce = content;
-
-      const html =
-        "<b>Шаги:</b>\n" +
-        state.progressLines.map((l) => `• ${escapeHtml(l)}`).join("\n");
-
-      if (!state.progressMsgId) {
-        try {
-          const msg = await ctx.reply(html, { parse_mode: "HTML" });
-          state.progressMsgId = msg.message_id;
-        } catch (err) {
-          console.debug("progress reply failed:", err);
-        }
-      } else {
-        state.scheduleProgressEdit(ctx, html);
-      }
-      return;
-    }
     heartbeat.tick();
     try {
       if (statusType === "todo_init" || statusType === "todo_update") {
+        // Parse and store todo state for potential future use, but don't render
+        // a separate Telegram message — progress bubble is the single UI widget.
         try {
           const items = JSON.parse(content) as TodoItem[];
           state.todoItems = items;
-          const html = renderTodoList(items);
-          if (!state.todoMsgId) {
-            const msg = await ctx.reply(html, { parse_mode: "HTML" });
-            state.todoMsgId = msg.message_id;
-          } else {
-            try {
-              await ctx.api.editMessageText(ctx.chat!.id, state.todoMsgId, html, { parse_mode: "HTML" });
-            } catch (editErr) {
-              const s = String(editErr);
-              if (!s.includes("not modified")) {
-                console.debug("todo edit failed:", editErr);
-              }
-            }
-          }
+          console.log(`[todo] ${statusType}: ${items.length} items`);
         } catch (parseErr) {
           console.debug("todo parse error:", parseErr);
         }
@@ -773,27 +777,6 @@ export function createStatusCallback(
           }
         }
       } else if (statusType === "done") {
-        // Flush any pending progress-bubble edit so the final state lands.
-        // The bubble itself is INTENTIONALLY kept — it's the "what I did" trace.
-        try {
-          await state.flushProgressEdit(ctx);
-        } catch (err) {
-          console.debug("progress flush failed:", err);
-        }
-        // Delete todo progress message if present
-        if (state.todoMsgId) {
-          try {
-            await ctx.api.deleteMessage(ctx.chat!.id, state.todoMsgId);
-          } catch (err) {
-            const s = String(err);
-            if (s.includes("429") || s.includes("Too Many Requests")) {
-              console.warn("[rate-limit] Telegram 429 deleting todo message, skipping");
-            } else {
-              console.debug("Failed to delete todo message:", err);
-            }
-          }
-          state.todoMsgId = undefined;
-        }
         // Delete tool messages — stop the loop immediately on 429 to avoid
         // making Telegram's rate limit worse (retry_after can reach hours).
         let rateLimited = false;
@@ -811,17 +794,13 @@ export function createStatusCallback(
             }
           }
         }
-        // Delete intermediate text segments.
-        // Keep: the final segment (maxSegmentId) and segment 0 (plan announcement).
-        // Segment 0 is the pre-work announcement Claude writes before the first tool call
-        // per the system prompt instruction — it should stay visible alongside the result.
+        // Delete intermediate text segments — keep only the final segment.
+        // All pre-work narration is replaced by the progress bubble.
         if (!rateLimited) {
-          const totalSegments = state.textMessages.size;
           for (const [sid, textMsg] of state.textMessages) {
             if (rateLimited) break;
             const isFinal = sid === state.maxSegmentId;
-            const isAnnouncement = sid === 0 && totalSegments > 1;
-            if (isFinal || isAnnouncement) continue;
+            if (isFinal) continue;
             try {
               await ctx.api.deleteMessage(textMsg.chat.id, textMsg.message_id);
             } catch (error) {

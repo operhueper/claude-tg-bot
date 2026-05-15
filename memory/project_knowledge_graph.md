@@ -2,6 +2,207 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-16 (вечер) — Batch #2 + #3 на jinru, чеклист отправлен Артёму
+
+Полная передача — этот блок + [docs/smoke-batch3-checklist.md](../docs/smoke-batch3-checklist.md). Прод **@proboiAI_bot** НЕ тронут.
+
+### Batch #2: UI / UID / Composio polling / profiler
+
+| Фикс | Файлы | Что сделано |
+|---|---|---|
+| **A — один пузырь статуса** | `src/handlers/streaming.ts`, `src/announce.ts`, `src/session.ts` | Удалены `progressLines`, дедуп `×N`, маппинг `•`. Дублирующий `statusCallback("announce", ...)` снят — остался только `IdleHeartbeat` с эмодзи. `FALLBACK_PLAN_ANNOUNCEMENT` и `renderTodoList` мёртвые — удалены |
+| **B — info-leak в env-check** | `src/config.ts` | Блок «НА ПРОВЕРЬ ОКРУЖЕНИЕ» в paid и free промптах. Запрет `df`, `free`, `uname`, `cat /proc/*`, `lscpu`, не показывать список скилов/демонов/граф памяти. Заменено `free -m && df -h` → `du -sh ${vaultDir}` |
+| **C — /new instant ack** | `src/handlers/commands.ts` | Порядок: reply → `forceMemoryFlush()` fire-and-forget → kill. Юзер видит «Session cleared» сразу, flush идёт в фон |
+| **E — Write→Bash UID hook** | `src/session.ts` | SDK `PostToolUse` hook: после `Write`/`Edit`/`MultiEdit` в `/opt/vault/<userId>/*` — `chownSync(101000, 101000) + chmodSync(0o644)`. Container sandbox теперь читает/пишет файлы созданные ботом |
+| **D — Composio OAuth polling** | `src/handlers/streaming.ts` | После OAuth-кнопки → polling 24 × 5с к Composio API. При новом ACTIVE coid — сообщение в чат. `AbortController`-дедуп при повторном /google |
+| **F — profiler marks** | `src/handlers/text.ts`, `src/session.ts` | 6 marks слепых зон: `debounce_fired`, `getUserProfile_done`, `vault_quota_done`, `topic_parking_done`, `memory_context_done`, `container_getOrStart_done`. Включается `PROFILER_ENABLED=true` |
+
+### Trace-анализ (10 запросов Артёма, 2026-05-16 ~16:50)
+
+```
+debounce:           ~800 мс  (до старта профайлера)
+lock + rate:           0 мс
+profile + vault:       3 мс
+topic_parking:         4 мс
+container start:      49 мс  (warm)
+claude_cli:           ~0 мс
+─────────────────────────────
+до LLM:             ~850 мс  ← локальная инфра ок
+─────────────────────────────
+LLM до first_tool: 5800-9100 мс  ← DeepSeek round-trip
+LLM до done:       7600-20500 мс ← полная генерация
+```
+
+**Локальный код почти ни при чём**, всё время ест DeepSeek API. Юзер принял скорость как удовлетворительную — оптимизация дебаунса и моделей **отложена**.
+
+### Batch #3: Composio polling correctness + disconnect
+
+| Фикс | Файлы | Что сделано |
+|---|---|---|
+| **Точный текст подключения** | `src/handlers/streaming.ts` | Pre-snapshot теперь `Map<id, status>` (не `Set<id>`). После первого нового ACTIVE — `GRACE_MS = 10_000` (ждём остальные toolkits). Текст: «Подключено: Docs, Sheets. Если нужны остальные (Drive, Gmail, Calendar) — нажми кнопки выше ещё раз», либо «✅ Google полностью подключён (Docs, Drive, Sheets, Gmail, Calendar)». Маппинг `googlecalendar→Calendar` и т.д. |
+| **MCP `disconnect`** | `connect_google_mcp/server.ts`, `src/session.ts` | Новый tool `mcp__connect-google__disconnect`: GET список `connected_accounts` → `DELETE /api/v3/connected_accounts/{id}` каждый. Endpoint протестирован curl'ом → 200 OK `{success:true}`. Добавлен в `PAID_ALLOWED_TOOLS` |
+
+### Что ошибочно посчитали багом и переоценили
+
+- **Composio false-positive ✅** на первом тесте оказался **корректной работой polling** — Артём реально нажал OAuth-кнопки. Реальная проблема: Артём кликнул только Docs+Sheets, остальные 3 toolkit'а ушли в `INITIATED → EXPIRED` через ~10 мин Composio timeout. Бот говорил «всё подключено» — это и фиксили в batch #3 (точный текст по реально-ACTIVE)
+
+### Деплой-статус
+
+| Сервер | Статус |
+|---|---|
+| jinru `5.223.82.96` | ✅ задеплоено 2026-05-16, batch #2 (~16:00 MSK) + batch #3 (~17:30 MSK) |
+| prod `89.167.125.175` | ❌ НЕ тронут — ждём двух волн smoke на jinru |
+
+### Что осталось перед прод-деплоем
+
+- Артём + бесплатный аккаунт прогоняют [docs/smoke-batch3-checklist.md](../docs/smoke-batch3-checklist.md) — 4 группы paid + 4 группы free (включая «зоны дозволения» и попытки обхода)
+- После 2-3 успешных smoke'ов на jinru — деплой batch #2+#3 одной волной на прод
+
+### Артефакты этой сессии
+
+- `docs/smoke-2026-05-16-batch2-checklist.md` — отработан Артёмом, дал диагностику Composio
+- `docs/smoke-batch3-checklist.md` — текущий, включает free-tier зоны дозволения и промпт-инъекции
+
+---
+
+## Состояние: 2026-05-16 (день) — Smoke-batch задеплоен на jinru, 12 из 18 пунктов закрыто
+
+Полная передача в [docs/HANDOFF-2026-05-16-smoke-batch.md](../docs/HANDOFF-2026-05-16-smoke-batch.md). Прод **@proboiAI_bot** НЕ тронут.
+
+### Что вошло в batch (всё на jinru)
+
+| Группа | Файлы | Что сделано |
+|---|---|---|
+| **A** — критичные | `system/deepseek-blacklist.json` (новый), `src/deepseek-key-pool.ts`, `src/memory/inject.ts`, `src/config.ts` | f1a7 в blacklist (`Skipping blacklisted env key` в логах ✅), фильтр памяти про тариф (regex `подписк\|тариф\|безлимит\|499 ₽\|₽/мес\|subscription\|paid tier\|trial period` — ужесточён после code-review), правило «спрашивают про подписку → /status, не из памяти» |
+| **B** — memory | `src/memory/graph.ts`, `src/memory/analyzer.ts`, `src/memory/analyzer-scheduler.ts` (новый), `src/session.ts`, `src/handlers/commands.ts` | `label_index ??= {}` + `?? []` (TypeError'ы закрыты), try/catch на subprocess code 1 (graceful degradation), новый debounce-scheduler 10 мин, `forceMemoryFlush`/`kill` через `flushPendingForUser`-boolean (защита от double/triple-fire), `commands.ts` /new теперь `await` |
+| **C** — UI | `src/session.ts`, `src/handlers/streaming.ts` | Удалена ветка `FALLBACK_PLAN_ANNOUNCEMENT` («Сейчас разберусь, мне нужно несколько шагов»), заголовок «Шаги:» убран, `todo_init`/`todo_update` больше не создают Telegram-сообщение, один пузырь со статус-эмодзи |
+| **D+H** — промпты + профилировщик | `src/config.ts` (3 промпта), `src/profiler.ts` (новый), `src/handlers/text.ts`, `src/session.ts`, `src/engines/openrouter.ts`, `docs/PROFILER-USAGE.md` | Блок «КРАТКОСТЬ И СУТЬ»: не показывать uname/raw output. Профилировщик no-op без `PROFILER_ENABLED=true`, трейсы в `/tmp/perf-trace-<userId>-<startMs>.json` |
+| **F** — threads | `src/index.ts`, `src/handlers/commands.ts`, `src/config.ts`, `src/threads/manager.ts` | `/threads` и `/resume_thread` сняты из меню (10 guest / 13 owner вместо 11/14), `sendMessage` → `console.log` в manager.ts. Auto-park молча в фоне |
+| **G** — Composio | `.env` jinru | `COMPOSIO_API_KEY` скопирован с прода |
+| **E** — Write vs Bash | (только research) | Корень понят: бот root:600, контейнер sandbox(1000)→host 101000. `/tmp` в контейнере ≠ /tmp на хосте. Спека из 3 вариантов фикса — в HANDOFF и в memory `filesystem_write_bash_uid.md`. **Реализация — отдельный батч.** |
+
+### Code-review (Sonnet) нашёл 2 HIGH блокера перед деплоем
+1. **SUBSCRIPTION_PATTERN false positives** — старый regex `профи\|базов\|студи\|оплат[аеёи]` ловил «профиль», «базовый», «студия», «оплатил продукты». Ужесточил до специфичных терминов.
+2. **forceMemoryFlush double/triple-fire** — на /new analyzer стрелял 2-3 раза параллельно. Добавлен boolean из flushPendingForUser, `kill` и `forceMemoryFlush` пропускают standalone-run если pending уже сработал.
+
+### Деплой prod-status
+
+| Сервер | Статус | Что |
+|---|---|---|
+| jinru `5.223.82.96` | ✅ задеплоен 2026-05-16 ~15:36 MSK | Code + Composio key + restart |
+| prod `89.167.125.175` | ❌ НЕ тронут | Ждём прохождения smoke на jinru |
+
+### Что осталось перед прод-деплоем
+- Артём прогоняет smoke по `docs/HANDOFF-2026-05-16-smoke-batch.md` (T-UI-1..T-GOOG-1)
+- Если всё ок — отдельный батч для Group E (post-Write chown или `mcp__container__Write` или shared volume)
+- После 2-3 успешных smoke'ов на jinru — деплой того же пакета на prod
+
+### Файлы памяти, обновлены в этой сессии
+- `memory/paid_acceptedits_fix.md` — деплой-статус 2026-05-16
+- `memory/memory_analyzer_toxic_loop.md` — что починено в этом батче, что осталось
+- `memory/filesystem_write_bash_uid.md` (новый) — корень и спека Group E
+- `memory/deepseek_blacklist_f1a7.md` (новый) — описание `system/deepseek-blacklist.json` и как добавлять битые ключи
+- `memory/MEMORY.md` — индекс
+
+---
+
+## Состояние: 2026-05-15 (ночь) — Bash для paid починен через allowedTools, прод не тронут
+
+Полная передача в [docs/HANDOFF-2026-05-15-night.md](../docs/HANDOFF-2026-05-15-night.md). Артём будет прогонять smoke в новом чате с самого начала.
+
+### Что обнаружено и починено
+- **Главное**: `permissionMode: "acceptEdits"` в SDK 0.1.76 покрывает **только** Write/Edit/MultiEdit/NotebookEdit. **Bash и `mcp__container__Bash`** (через который у paid-гостя идут ВСЕ shell-команды) остаются blocked. CLI возвращает реальный tool_result `"Claude requested permissions to use mcp__container__Bash, but you haven't granted it yet."` (`is_error:true`). Модель честно пересказывает «нажми Разрешить» — это **не галлюцинация**, это tool_result.
+- **Фикс**: в `src/session.ts` для `tier === "paid"` добавлен `allowedTools: PAID_ALLOWED_TOOLS` (17 имён — Bash, BashOutput, KillShell, Read/Write/Edit/MultiEdit/NotebookEdit, Glob, Grep, WebFetch, Task, TodoWrite, `mcp__container__Bash`, `mcp__ask-user__ask`, `mcp__send-file__deliver`, `mcp__parallel__run`, `mcp__pollinations-image__generate`, `mcp__openrouter-image__generate`, `mcp__connect-google__connect`) рядом с `acceptEdits`. SDK тип на строке 745 `agentSdkTypes.d.ts`: «auto-allowed without prompting».
+- **Деплой только session.ts через `scp` на jinru** (`5.223.82.96`), бот рестартанут, active. **Прод НЕ тронут весь день.**
+
+### Токсичная память Артёма
+Параллельно с фиксом обнаружена **самоусиливающаяся петля**: `src/memory/analyzer.ts` записывал инфра-ошибки модели («не смог выполнить из-за отсутствия разрешений») как «факты» в `/opt/vault/5615267984/memory/5615267984/sessions/*.md` → CLAUDE.md гостя инструктирует читать `topics-index.md` и старые саммари → модель читает «ты не смог Bash» → повторяет паттерн → analyzer пишет новое саммари → петля. `topics-index.md` накопил темы `## permissions`, `## ограничения bash`. Память Артёма **очищена дважды** (бэкапы `.bak-toxic-1778819215`, `.bak-postfix-1778820258`); CLI transcript кэш `/root/.claude/projects/-opt-vault-5615267984/` тоже очищен.
+
+### Что ещё ждёт перед прод-деплоем
+- **Фильтр в `src/memory/analyzer.ts`**: не записывать в саммари упоминания `permission_denied`, `"haven't granted"`, `"нажми Разрешить"`, `is_error:true`. Иначе любой инфра-сбой превращается в постоянное искажение поведения.
+- **Smoke на jinru с новым allowedTools** — Артём начнёт с `/new` в `@ORCH7_bot`. Чек-лист в `docs/smoke-jinru-artem-checklist.md`, 49 готовых запросов в `docs/smoke-jinru-artem-requests.md`.
+- **На jinru нет ключей**: `OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `COMPOSIO_API_KEY` — vision/voice/google не тестируются.
+
+---
+
+## Состояние: 2026-05-15 (поздний вечер) — B1/B2/B3 + paid-fix на TEST, прод не тронут
+
+Полная передача в [docs/HANDOFF-2026-05-15-evening.md](../docs/HANDOFF-2026-05-15-evening.md).
+
+### Что починено и работает на jinru `@ORCH7_bot`
+- **B1** (free-tier не просит Approve): расширен `FREE_DISALLOWED_TOOLS` (+WebFetch, Task, mcp__parallel__run, mcp__ask-user__ask) + отдельная короткая функция `buildFreeTierPrompt()` в `config.ts` (раньше free-юзер получал длинный paid-промпт «у тебя есть Bash/WebFetch» → cognitive dissonance → «нажми Approve»).
+- **B2** (dedup прогресс-пузыря): единая строка `"Запускаю помощников параллельно"` в `announce.ts` для Task/parallel (вместо 3-х вариантов с/без числа); дедуп в `streaming.ts` ищет по всему `progressLines` массиву, А→B→A→B схлопывается.
+- **B3** (Mini App открывается на jinru): `export const DASHBOARD_URL` в `config.ts` с fallback `https://proboi.site`; 4 хардкода в `handlers/commands.ts` заменены; на jinru `.env` прописан `DASHBOARD_URL=https://jinru.pro`.
+- **Paid-режим починен** (большое открытие): `permissionMode: "acceptEdits"` в SDK options для `tier === "paid"` в `session.ts`. Раньше SDK 0.1.76 всегда слал `--permission-mode default`, переопределяя `defaultMode: "bypassPermissions"` из settings.json → CLI 2.1.126 блокировал каждый первый Write/Edit/Bash с `"Claude requested permissions to … you haven't granted it yet"`. На проде это маскировалось trust-on-first-use для Ксени (170 ok / 30 denied в её jsonl). `bypassPermissions+allowDangerouslySkipPermissions` в SDK options ломает CLI exit 1 (memory `sdk_standalone_workaround.md` подтверждена); `acceptEdits` идёт чисто.
+
+### Инфраструктурные правки на jinru
+- Docker image `claude-user-sandbox:latest` пересобран **на jinru** через `docker build -f Dockerfile.user .` (sha256:85315f91..., 2.36GB). Старый digest в `.env` (`sha256:5ebde...`) не существовал — заменён на `:latest`.
+- Docker network `claude-guest-net` создан вручную (`docker network create --opt bridge.name=claude-guest0`). iptables на jinru отсутствует — `setup-guest-network.sh` падает, firewall-обвязка пропущена (TEST-среда, ок).
+- `/root/.claude/settings.json` синкнут с прода (`bypassPermissions` + полный allow с `mcp__container__Bash`, `mcp__parallel`, `mcp__google-workspace`).
+
+### Артём (`5615267984`) — paid тестовый профиль на jinru
+- `tier="paid"` в `system/users.json` (был null → resolved as free).
+- **Память полностью очищена** (272 jsonl `/root/.claude/projects/-opt-vault-5615267984/` + memory dir + `/tmp/claude-telegram-session-...json`). Бэкапы в `.bak-toxic-*` и `.bak-*`.
+- Контейнер `claude-user-5615267984` Up. Подтверждено: Write/Bash/send-file работают.
+
+### Состояние прода (НЕ ТРОНУТО в этой сессии)
+- Код отстаёт от main HEAD (706b95b) на 4 коммита (последний rsync был до 6a2f66c) — md5 расходится с локалью. Это закрыло бы регрессию Ксени с `File access blocked` (35 шт в err.log до May 14 21:46, новых нет — её сессия `9a02a838.jsonl` 565КБ уже фрагментирована прошлыми обрывами, ей нужен `/new`).
+- Paid-функции работают только у Ксени через накопленный trust-on-first-use. Любой новый paid-юзер упрётся в тот же permission_denied.
+- НЕ деплоил сам — working tree содержит смесь B1/B2/B3/acceptEdits (безопасно) и большого пакета 2026-05-15 (RF-DB, topic-parking, V-29..V-39 — НЕ ГОТОВО). Простой rsync утащит ВСЁ. Нужна git-операция через ветку либо точечное копирование файлов — подтверждение пользователя обязательно (см. HANDOFF-2026-05-15-evening.md «Безопасный деплой на прод»).
+
+### Удалённые устаревшие docs
+`DEPLOY-pack-2026-05-15.md`, `HANDOFF-2026-05-15-pack-deployed.md`, `SPEC-pack-2026-05-15.md`, `dashboard-broken-2026-05-14.md`, `pending-deploy-progress-bubble-2026-05-15.md`, `capacity-tuning-2026-05-14.md` — всё это либо устарело (B1/B2/B3 закрыли описанные баги), либо неактуально. Оставлены: `arch-migration-rf-db.md`, `arch-gsvisor-container-isolation.md`, `topic-parking-discovery.md`, `rkn/` (всё для следующего цикла).
+
+---
+
+## Состояние: 2026-05-15 (вечер) — Пакет фиксов задеплоен на TEST jinru
+
+Полный пакет из 7 блоков из `docs/SPEC-pack-2026-05-15.md` развёрнут на `jinru 5.223.82.96 @ORCH7_bot`. PROD `proboi-bot @proboiAI_bot` НЕ ТРОНУТ. Все изменения в working tree, **НЕ закоммичено**.
+
+### Что вошло в пакет
+1. **Pending-deploy** прогресс-пузырь (announce-тип в StatusCallback, `progressMsgId`/`progressLines`/`scheduleProgressEdit` в `streaming.ts`)
+2. **Dashboard fix** + V-35 — self-reporting error block в `user-dashboard.ts`, HEAD-роуты в `dashboard-server.ts`, `?v=${BUILD_ID}` cache-bust, dynamic `getAllowedUsers()`
+3. **Capacity P0+P2** — `DEFAULT_GUEST_CPUS=0.5` + `GUEST_CPU_OVERRIDES` в `containers/spec.ts`, ts-fix миграция в `metering.ts`
+4. **P2 Security** V-29 (resume-hijack: `user_id` в `SavedSession`), V-30 (`sanitizeTranscriptLine` в analyzer), V-36 (`vision_daily` лимит в openrouter), V-37 (`safeAppend` mutex в utils), V-38 (per-user cooldown в crashloop-watcher), V-39 (`settled` guard в request-queue)
+5. **Topic-parking MID** — `src/threads/{store,preFilter,triggers,classifier,manager}.ts`, интеграция в `session.ts:425-469`, команды `/threads` и `/resume_thread`
+6. **RF-DB Этап 0+1** — `user-db/{server,users,metering,consent}.ts` + systemd unit, `src/user-db-client.ts` с кешем и fallback. На jinru сервис `user-db.service` запущен на `localhost:3900`, `USER_DB_URL` в `.env` бота **пустой** → бот работает через локальный SQLite/users.json (fallback)
+7. **Capacity P1** — `MAX_CONCURRENT_CONTAINER_SESSIONS=10` в jinru `.env`
+
+### DeepSeek pool на jinru
+6 живых ключей: новый `sk-fe37…576b` от Евгения + 5 локальных. Битый `sk-578…f1a7` (старый env fallback) бот игнорирует.
+
+### Найденные ошибки при smoke-тесте (передано в HANDOFF)
+1. **`new_guest` (free-tier) дёргает Bash/Read/Write/WebFetch/Task** и просит «Approve / Разрешить». Должен по `memory/free_tier_text_only.md` иметь полный `disallowedTools`. Корень: `src/config.ts` `getUserProfile()` для `new_guest`.
+2. **Прогресс-пузырь плохо дедупит**: «Запускаю помощников» и «Запускаю 6 помощников» — разные строки. «Работаю в системе» — generic для Task. Корень: `humanizeToolCall` в `session.ts` + `scheduleProgressEdit` в `streaming.ts`.
+3. **Дашборд не открывается** даже с self-reporting блоком. Гипотеза: cache WebView + `?v=dev` (на jinru rsync без `.git` → BUILD_ID = "dev"). Корень: `src/config.ts` BUILD_ID, `src/templates/user-dashboard.ts` CSP, надо DevTools.
+
+Полная передача в `docs/HANDOFF-2026-05-15-pack-deployed.md`.
+
+### Откат на jinru
+`cp -a /opt/claude-tg-bot.bak-2026-05-15-pre-pack /opt/claude-tg-bot && systemctl restart claude-tg-bot`
+
+---
+
+## Состояние: 2026-05-15 — Аудит графа (без деплоя)
+
+Сверил журнал с кодом и `git log`. Прод не трогали.
+
+### Что выпилено из репо, но всё ещё фигурирует ниже (зомби-пункты)
+
+- ❌ `src/fast-path.ts` — упоминается в God Nodes (2026-05-11), кластере `11-fast-path-deepseek.md`, разделах «Ключевые новые модули» и «Открытые задачи». **Файла нет в репо.** Пункты ниже про деплой fast-path считать закрытыми — деплоить нечего.
+- ❌ `src/openrouter-provisioning.ts` — упоминается в записи 2026-05-13 как «новый файл». **Файла нет в репо.** Per-user OR sub-keys позже выпилили (см. 2026-05-14 «Routing: гости снова через native DeepSeek»). Логика мертва.
+- ❌ Seed-файлы `01-..14-*.md` (на которые ссылается раздел «Что изменилось с 2026-05-07») — **в `memory/` отсутствуют.** Остались только `15-daemons-and-containers.md` и `ROADMAP_CLAUDE_CODE_FEATURES.md`. Seed-флоу заброшен.
+
+### Что подтверждено живым
+
+Все коммиты с 2026-05-11 по 2026-05-14 на месте в `git log`. Все ключевые файлы (`consent.ts`, `deepseek-key-pool.ts`, `idle-phrases.ts`, `subscription.ts`, `composio.ts`, `mcp-filter.ts`, `engines/deepseek-fast.ts`, `connect_google_mcp/`, `parallel_mcp/`, `pollinations_mcp/`, `templates/landing.ts`, `handlers/consent-gate.ts`) присутствуют.
+
+### Автоматизация чтения графа
+
+Добавлен SessionStart-хук в `.claude/settings.local.json` (gitignored) — первые 100 строк этого файла теперь автоматически инжектятся в контекст в начале каждой сессии Claude Code в этом проекте. Раньше я открывал граф вручную по инструкции из `CLAUDE.md`.
+
+---
+
 ## Состояние: 2026-05-14 (EOD+) — Фикс крашей, удаление context compression
 
 ### Итог сессии (commit 6a2f66c)
@@ -385,8 +586,8 @@ Seed-файлы удалены после задачи 1. Следующий gra
 | `src/composio.ts` | OAuth helpers для Composio Google |
 | `src/mcp-filter.ts` | инжект google-workspace для owner и guest |
 | `src/subscription.ts` | гейт подписки |
-| `src/fast-path.ts` | детектор простых запросов |
-| `src/engines/deepseek-fast.ts` | прямой REST к DeepSeek без CLI |
+| ~~`src/fast-path.ts`~~ | детектор простых запросов — **удалён из репо к 2026-05-15** |
+| `src/engines/deepseek-fast.ts` | прямой REST к DeepSeek без CLI (модуль живой, fast-path обвязки нет) |
 | `src/idle-phrases.ts` | 130 heartbeat-фраз |
 | `connect_google_mcp/server.ts` | MCP дроп-бокс для OAuth |
 | `parallel_mcp/server.ts` | MCP параллельной оркестрации |
@@ -425,7 +626,7 @@ Seed-файлы удалены после задачи 1. Следующий gra
 
 ## Открытые задачи
 
-- [ ] Задеплоить uncommitted изменения (fast-path, orchestration hint, parallel mcp, модельные ограничения в промптах) на proboi-bot
+- [ ] ~~Задеплоить uncommitted fast-path~~ — файла больше нет, пункт закрыт
 - [ ] ~~Активировать subscription gate~~ ✅ уже активен на проде
 - [ ] Протестировать mcp__parallel на живых пользователях
 - [ ] AAAA DNS/IPv6 TLS
@@ -476,6 +677,7 @@ Seed-файлы удалены после задачи 1. Следующий gra
 - Метеринг баги H1/H2/H3 (потери токенов при ask-user, stop, memory analyzer)
 - fast-path (uncommitted, src/fast-path.ts + src/engines/deepseek-fast.ts)
 - S-03: параллельные подагенты без sandbox (parallel_mcp — нужен investigation)
+- ~~fast-path (src/fast-path.ts + src/engines/deepseek-fast.ts)~~ — fast-path.ts удалён, deepseek-fast.ts остался без обвязки
 - openrouter.ts execSync → async (блокирует event loop)
 
 Архивированы (закрыто): `archive/NEXT_SESSION_FIXES_2026-05-08.md`, `archive/NEXT_SESSION_CLEANUP_2026-05-08.md`, `archive/SECURITY_AUDIT_REPORT_2026-05-08.md`.

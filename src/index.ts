@@ -249,8 +249,6 @@ bot.command("cancel", handleCancel);
 bot.command("info", handleInfo);
 bot.command("memory", handleMemory);
 bot.command("forget", handleForget);
-bot.command("threads", handleThreads);
-bot.command("resume_thread", handleResumeThread);
 
 // ============== Message Handlers ==============
 

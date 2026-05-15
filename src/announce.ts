@@ -89,10 +89,3 @@ export function humanizeToolCall(
 
   return null;
 }
-
-/**
- * Generic announcement used when the model started a tool call without writing
- * any plan first. Kept short, serious, and free of technical terms.
- */
-export const FALLBACK_PLAN_ANNOUNCEMENT =
-  "Сейчас разберусь, мне нужно несколько шагов.";

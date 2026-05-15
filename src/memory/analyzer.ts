@@ -139,7 +139,7 @@ function containsToxic(value: unknown): boolean {
 }
 
 function filterToxicPatch(patch: AnalysisPatch): AnalysisPatch {
-  const cleanNodes = patch.upsert_nodes.filter(n => {
+  const cleanNodes = (patch.upsert_nodes ?? []).filter(n => {
     if (containsToxic(n.label) || containsToxic(n.data)) {
       console.warn(`[analyzer] Dropped toxic node: type=${n.type} label=${String(n.label).slice(0, 80)}`);
       return false;
@@ -147,7 +147,7 @@ function filterToxicPatch(patch: AnalysisPatch): AnalysisPatch {
     return true;
   });
 
-  const cleanEdges = patch.upsert_edges.filter(e => {
+  const cleanEdges = (patch.upsert_edges ?? []).filter(e => {
     if (containsToxic(e.from_label) || containsToxic(e.to_label)) {
       console.warn(`[analyzer] Dropped toxic edge: ${e.from_label} → ${e.to_label}`);
       return false;
@@ -155,7 +155,7 @@ function filterToxicPatch(patch: AnalysisPatch): AnalysisPatch {
     return true;
   });
 
-  const summary = patch.session_summary;
+  const summary = patch.session_summary ?? { title: "Диалог", summary: "", topics: [] };
   const cleanSummary = (containsToxic(summary.title) || containsToxic(summary.summary))
     ? { title: "Диалог", summary: "", topics: [] }
     : summary;
@@ -167,7 +167,7 @@ function filterToxicPatch(patch: AnalysisPatch): AnalysisPatch {
   return {
     upsert_nodes: cleanNodes,
     upsert_edges: cleanEdges,
-    touch_labels: patch.touch_labels,
+    touch_labels: patch.touch_labels ?? [],
     session_summary: cleanSummary,
   };
 }
@@ -231,50 +231,76 @@ ${transcriptText}
     analyzerOptions.pathToClaudeCodeExecutable = claudePath;
   }
 
-  for await (const event of query({
-    prompt,
-    options: analyzerOptions as Parameters<typeof query>[0]["options"],
-  })) {
-    if (event.type === "assistant" && event.message?.content) {
-      for (const block of event.message.content) {
-        if (block.type === "text") {
-          rawJson += block.text;
+  try {
+    for await (const event of query({
+      prompt,
+      options: analyzerOptions as Parameters<typeof query>[0]["options"],
+    })) {
+      if (event.type === "assistant" && event.message?.content) {
+        for (const block of event.message.content) {
+          if (block.type === "text") {
+            rawJson += block.text;
+          }
         }
-      }
-    } else if (event.type === "result") {
-      // result.subtype is "success" or "error_during_execution"
-      const r = event as unknown as { subtype?: string; result?: string };
-      if (r.subtype === "error_during_execution") {
-        const resultErr = (event as unknown as { errors?: string[] }).errors;
-        console.error(`[analyzer] Query failed: ${resultErr?.join("; ").slice(0, 200)}`);
-      }
-      // Some SDK versions return final text in result.result
-      if (!rawJson && r.result) rawJson = r.result;
+      } else if (event.type === "result") {
+        // result.subtype is "success" or "error_during_execution"
+        const r = event as unknown as { subtype?: string; result?: string };
+        if (r.subtype === "error_during_execution") {
+          const resultErr = (event as unknown as { errors?: string[] }).errors;
+          console.error(`[analyzer] Query failed: ${resultErr?.join("; ").slice(0, 200)}`);
+        }
+        // Some SDK versions return final text in result.result
+        if (!rawJson && r.result) rawJson = r.result;
 
-      // Metering — record analyzer's token usage against the user.
-      // The analyzer fires every 6 turns and on /new, so silently skipping it
-      // hides a non-trivial chunk of cost.
-      if (opts.userId !== undefined && opts.source) {
-        const u = (event as unknown as {
-          usage?: {
-            input_tokens?: number;
-            output_tokens?: number;
-            cache_read_input_tokens?: number;
-            cache_creation_input_tokens?: number;
-          };
-        }).usage;
-        if (u && (u.input_tokens || u.output_tokens)) {
-          recordUsage({
-            userId: opts.userId,
-            source: opts.source,
-            model: opts.model ?? "claude-haiku-4-5",
-            inputTokens: u.input_tokens || 0,
-            outputTokens: u.output_tokens || 0,
-            cacheReadTokens: u.cache_read_input_tokens,
-            cacheCreationTokens: u.cache_creation_input_tokens,
-          });
+        // Metering — record analyzer's token usage against the user.
+        // The analyzer fires every 6 turns and on /new, so silently skipping it
+        // hides a non-trivial chunk of cost.
+        if (opts.userId !== undefined && opts.source) {
+          const u = (event as unknown as {
+            usage?: {
+              input_tokens?: number;
+              output_tokens?: number;
+              cache_read_input_tokens?: number;
+              cache_creation_input_tokens?: number;
+            };
+          }).usage;
+          if (u && (u.input_tokens || u.output_tokens)) {
+            recordUsage({
+              userId: opts.userId,
+              source: opts.source,
+              model: opts.model ?? "claude-haiku-4-5",
+              inputTokens: u.input_tokens || 0,
+              outputTokens: u.output_tokens || 0,
+              cacheReadTokens: u.cache_read_input_tokens,
+              cacheCreationTokens: u.cache_creation_input_tokens,
+            });
+          }
         }
       }
+    }
+  } catch (subprocessErr) {
+    // Claude CLI subprocess exits with code 1 during abort/race conditions.
+    // Gracefully degrade: if we already collected some output, try to parse it.
+    // If not, return an empty patch — do not apply partial/corrupt data to the graph.
+    const errMsg = String(subprocessErr);
+    const isExitCode1 = errMsg.includes("exit code 1") || errMsg.includes("exited with code 1");
+    if (isExitCode1) {
+      console.warn(`[analyzer] Subprocess exited with code 1 — skipping patch application`);
+      if (!rawJson) {
+        return {
+          patch: {
+            upsert_nodes: [],
+            upsert_edges: [],
+            touch_labels: [],
+            session_summary: { title: "Диалог", summary: "", topics: [] },
+          },
+          summary_md: "",
+        };
+      }
+      // rawJson may have partial output — fall through to parse what we got
+    } else {
+      // Non-exit-code-1 errors are unexpected; re-throw so callers can log them
+      throw subprocessErr;
     }
   }
 
@@ -328,7 +354,7 @@ ${transcriptText}
   const { title, summary, topics } = patch.session_summary;
   const date = new Date(transcript.started_at).toLocaleDateString("ru-RU");
   const topicsStr = topics.length > 0 ? `\n\n**Темы:** ${topics.join(", ")}` : "";
-  const nodesAdded = patch.upsert_nodes.map(n => `[${n.type}] ${n.label}`).join(", ");
+  const nodesAdded = (patch.upsert_nodes ?? []).map(n => `[${n.type}] ${n.label}`).join(", ");
   const summary_md = `# ${title} — ${date}\n\n## Краткое содержание\n${summary}${topicsStr}\n\n## Извлечённые сущности\n${nodesAdded || "нет"}`;
 
   return { patch, summary_md };

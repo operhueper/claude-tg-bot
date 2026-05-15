@@ -9,6 +9,8 @@
 import {
   query,
   type Options,
+  type HookInput,
+  type PostToolUseHookInput,
 } from "@anthropic-ai/claude-agent-sdk";
 import { readFileSync, writeFileSync, renameSync } from "fs";
 import * as fs from "fs";
@@ -27,6 +29,7 @@ import {
   getUserProfile,
 } from "./config";
 import { acquireDeepSeekKey } from "./deepseek-key-pool";
+import { getActiveProfiler } from "./profiler";
 
 /**
  * Если в `env.ANTHROPIC_API_KEY` стоит маркер пула (`pool`), захватывает
@@ -62,7 +65,7 @@ function withDeepSeekPoolKey(
   };
 }
 import { formatToolStatus, escapeHtml } from "./formatting";
-import { humanizeToolCall, FALLBACK_PLAN_ANNOUNCEMENT } from "./announce";
+import { humanizeToolCall } from "./announce";
 import { redactSecrets, replyFriendly } from "./utils";
 import {
   checkPendingAskUserRequests,
@@ -73,6 +76,7 @@ import { TranscriptRecorder } from "./memory/transcript";
 import { GraphStore } from "./memory/graph";
 import { GoalsStore } from "./memory/goals";
 import { analyzeSession } from "./memory/analyzer";
+import { scheduleAnalyzerForUser, flushPendingForUser } from "./memory/analyzer-scheduler";
 import { buildMemoryContext } from "./memory/inject";
 import { summaryFile, rebuildTopicsIndex } from "./memory/paths";
 import { heuristicTopicCheck } from "./memory/topic-detector";
@@ -401,6 +405,8 @@ export class ClaudeSession {
     // not reach this live session until the bot restarts or /new is invoked.
     // One getUserProfile call per turn keeps tier/tools/prompt in sync with reality.
     this.profile = getUserProfile(this.profile.userId);
+    const _profiler = getActiveProfiler(userId);
+    _profiler?.mark("getUserProfile_done");
 
     // Deduplication key for metering — shared across retries so only the final
     // token count is billed (INSERT OR REPLACE keyed on user_id+request_id+model).
@@ -429,6 +435,7 @@ export class ClaudeSession {
         return msg;
       }
     }
+    _profiler?.mark("vault_quota_done");
 
     // ============== Topic-parking (guests only; owner always bypassed inside decideAndAct) ==============
     // Run AFTER quota check, BEFORE vision routing and main query.
@@ -475,6 +482,7 @@ export class ClaudeSession {
     }
     // Update lastUserTurnMs for next call
     this.lastUserTurnMs = Date.now();
+    _profiler?.mark("topic_parking_done");
     // ============== End topic-parking ==============
 
     const isNewSession = !this.isActive;
@@ -565,6 +573,7 @@ export class ClaudeSession {
           err
         );
       }
+      _profiler?.mark("memory_context_done");
     }
 
     // ============== Universal vision routing: all users with mediaHint go via OpenRouter Gemini ==============
@@ -582,6 +591,7 @@ export class ClaudeSession {
         await statusCallback("done", "");
         return "";
       }
+      _profiler?.mark("vision_routed");
       const msgs = this.buildConversationHistory(messageToSend, mediaHint);
       let response: string;
       response = await queryOpenRouter(
@@ -671,6 +681,14 @@ export class ClaudeSession {
       "mcp__pollinations-image__generate_image",
       "mcp__openrouter-image__generate_image",
       "mcp__connect-google__connect",
+      "mcp__connect-google__disconnect",
+      // Composio Google Workspace — все ~146 тулов (GMAIL_*, GOOGLEDOCS_*,
+      // GOOGLEDRIVE_*, GOOGLECALENDAR_*, GOOGLESHEETS_*). Server-level allow
+      // rule в формате Claude Code permissions: имя MCP-сервера без суффикса
+      // тула покрывает всё. Без этой строки SDK при `acceptEdits` режет любой
+      // Gmail/Docs-вызов → Claude видит permission_denied → ошибочно решает
+      // что Google не подключён → дёргает connect снова.
+      "mcp__google-workspace",
     ];
     const options: Options = {
       model: this.profile.model,
@@ -688,6 +706,37 @@ export class ClaudeSession {
       ...(needsAcceptEdits
         ? { permissionMode: "acceptEdits" as const, allowedTools: PAID_ALLOWED_TOOLS }
         : {}),
+      hooks: {
+        PostToolUse: [{
+          hooks: [async (input: HookInput, _toolUseID: string | undefined, _opts: { signal: AbortSignal }): Promise<{ continue: boolean }> => {
+            try {
+              const hi = input as PostToolUseHookInput;
+              if (
+                hi.tool_name === "Write" ||
+                hi.tool_name === "Edit" ||
+                hi.tool_name === "MultiEdit"
+              ) {
+                const toolInput = hi.tool_input as Record<string, unknown> | undefined;
+                const fp = toolInput?.file_path as string | undefined;
+                // Only chown files written into this user's vault.
+                // userns-remap offset: host UID = container UID + 100000
+                // Container sandbox runs as uid 1000 → host uid 101000.
+                if (fp && fp.startsWith(`/opt/vault/${this.profile.userId}/`)) {
+                  try {
+                    fs.chownSync(fp, 101000, 101000);
+                    fs.chmodSync(fp, 0o644);
+                  } catch (e) {
+                    console.warn(`[chown-hook] ${fp}: ${(e as Error).message}`);
+                  }
+                }
+              }
+            } catch (e) {
+              console.warn(`[chown-hook] outer: ${(e as Error).message}`);
+            }
+            return { continue: true };
+          }],
+        }],
+      },
     };
 
     // Inject DeepSeek API credentials so Claude CLI routes all LLM calls
@@ -772,6 +821,7 @@ export class ClaudeSession {
           `[${this.profile.label}] container getOrStart failed (will continue, exec will report errors): ${(err as Error).message}`
         );
       }
+      _profiler?.mark("container_getOrStart_done");
     }
 
     this.abortController = new AbortController();
@@ -818,6 +868,7 @@ export class ClaudeSession {
     let planAborted = false;
 
     try {
+      _profiler?.mark("claude_cli_started");
       const queryInstance = query({
         prompt: messageToSend,
         options: {
@@ -826,6 +877,8 @@ export class ClaudeSession {
         },
       });
 
+      let _profilerFirstToken = false;
+      let _profilerFirstTool = false;
       for await (const event of queryInstance) {
         if (this.stopRequested) {
           console.log(`[${this.profile.label}] Query aborted by user`);
@@ -919,6 +972,10 @@ export class ClaudeSession {
             }
 
             if (block.type === "tool_use") {
+              if (!_profilerFirstTool) {
+                _profiler?.mark("first_tool_call");
+                _profilerFirstTool = true;
+              }
               const toolName = block.name;
               const toolInput = block.input as Record<string, unknown>;
 
@@ -990,23 +1047,12 @@ export class ClaudeSession {
                 );
                 currentSegmentId++;
                 currentSegmentText = "";
-              } else if (toolsInSession.length === 0) {
-                await statusCallback(
-                  "segment_end",
-                  FALLBACK_PLAN_ANNOUNCEMENT,
-                  currentSegmentId
-                );
-                currentSegmentId++;
               }
 
-              // Анонс шага в постоянный «прогресс-пузырь» + контекст для
-              // idle-heartbeat (короткая серьёзная фраза о том, что бот
-              // реально сейчас делает). Прогресс-пузырь остаётся в чате после
-              // done — это и есть «что я делал», вместо нарратива модели.
-              // Throttle для context (5с) выполняется внутри IdleHeartbeat.
+              // Контекст для idle-heartbeat (короткая серьёзная фраза о том,
+              // что бот реально сейчас делает). Throttle (5с) внутри IdleHeartbeat.
               const contextPhrase = humanizeToolCall(toolName, toolInput);
               if (contextPhrase) {
-                await statusCallback("announce", contextPhrase);
                 await statusCallback("context", contextPhrase);
               }
 
@@ -1088,6 +1134,10 @@ export class ClaudeSession {
             }
 
             if (block.type === "text") {
+              if (!_profilerFirstToken) {
+                _profiler?.mark("first_token");
+                _profilerFirstToken = true;
+              }
               // Plan parsing (runs first — strips PLAN_START/PLAN_END blocks)
               const cleanFromPlan = planParser.feed(block.text);
 
@@ -1164,6 +1214,7 @@ export class ClaudeSession {
 
         if (event.type === "result") {
           console.log(`[${this.profile.label}] Response complete`);
+          _profiler?.mark("final_text_segment");
           queryCompleted = true;
 
           if ("usage" in event && event.usage) {
@@ -1313,6 +1364,7 @@ export class ClaudeSession {
       );
     }
 
+    _profiler?.mark("done");
     await statusCallback("done", "");
 
     // Record this turn in the transcript
@@ -1324,18 +1376,13 @@ export class ClaudeSession {
         toolsInSession.length > 0 ? toolsInSession : undefined
       );
 
-      // Incremental background analysis every 6 turns (6, 12, 18, ...)
-      const turns = this.transcriptRecorder.turnCount;
-      if (turns >= 6 && turns % 6 === 0) {
-        const snapshot = this.transcriptRecorder.snapshot();
-        const profile = this.profile;
-        runBackgroundAnalysis(snapshot, profile).catch((e) =>
-          console.warn(
-            `[${profile.label}] Incremental background analysis failed:`,
-            e
-          )
-        );
-      }
+      // Schedule incremental background analysis (debounced, 10-min window).
+      // Replaces the per-6-turns eager call that could race with the main query subprocess.
+      const snapshot = this.transcriptRecorder.snapshot();
+      const profile = this.profile;
+      scheduleAnalyzerForUser(this.profile.userId, () =>
+        runBackgroundAnalysis(snapshot, profile)
+      );
     }
 
     return fullResponse || "No response from Claude.";
@@ -1344,25 +1391,37 @@ export class ClaudeSession {
   /**
    * Force background memory analysis now, regardless of turn count.
    * Called before /new so memory is saved even for short sessions.
+   * Flushes any pending debounced scheduler entry first, then falls back
+   * to a direct analysis run if the transcript has enough turns.
    */
   async forceMemoryFlush(): Promise<void> {
+    // Flush any debounced job that hasn't fired yet. If something was pending
+    // and ran, the transcript snapshot is already covered — skip the direct call.
+    const flushed = await flushPendingForUser(this.profile.userId);
+    if (flushed) return;
+
     if (!this.transcriptRecorder) return;
     const transcript = this.transcriptRecorder.snapshot();
     if (transcript.turns.length < 2) return;
-    runBackgroundAnalysis(transcript, this.profile).catch((e) =>
+    await runBackgroundAnalysis(transcript, this.profile).catch((e) =>
       console.warn(`[${this.profile.label}] forceMemoryFlush failed:`, e)
     );
   }
 
   async kill(): Promise<void> {
-    // Run background analysis on the closed transcript before clearing state
+    // Drain any debounced job for this user before clearing state.
+    // If it fired, skip the direct close-time run to avoid double analysis.
+    const flushed = await flushPendingForUser(this.profile.userId);
+
     if (this.transcriptRecorder) {
       const transcript = this.transcriptRecorder.close();
       this.transcriptRecorder = null;
-      const profile = this.profile;
-      runBackgroundAnalysis(transcript, profile).catch((e) =>
-        console.warn(`[${profile.label}] Background analysis failed:`, e)
-      );
+      if (!flushed) {
+        const profile = this.profile;
+        runBackgroundAnalysis(transcript, profile).catch((e) =>
+          console.warn(`[${profile.label}] Background analysis failed:`, e)
+        );
+      }
     }
 
     this.sessionId = null;

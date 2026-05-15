@@ -1,0 +1,4 @@
+{
+  "last4": ["f1a7"],
+  "_comment": "Keys with these last-4 chars are permanently blacklisted (invalid/revoked). Checked at pool load time so they never enter rotation even via env fallback."
+}

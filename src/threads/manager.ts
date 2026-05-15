@@ -148,8 +148,8 @@ export async function decideAndAct(opts: {
     dtSinceLastUserMs,
     currentSessionId,
     profile,
-    botApi,
-    chatId,
+    botApi: _botApi,
+    chatId: _chatId,
   } = opts;
 
   // Owner bypass — always SAME, no classification
@@ -246,15 +246,8 @@ export async function decideAndAct(opts: {
 
     saveThreads(profile.memoryRoot, userId, data.threads, data.currentThreadId);
 
-    // UX message
-    try {
-      await botApi.sendMessage(
-        chatId,
-        `↩️ Продолжаем про «${targetThread.title}». Остановились на: ${targetThread.summary}`
-      );
-    } catch (e) {
-      console.warn(`[threads] Failed to send RETURN UX message: ${e}`);
-    }
+    // Auto-parking is silent — no UX message to the user.
+    console.log(`[threads] RETURN to thread "${targetThread.title}" for userId=${userId}`);
 
     return { thread: targetThread, switched: true, verdict: "RETURN" };
   }
@@ -307,15 +300,8 @@ export async function decideAndAct(opts: {
 
     saveThreads(profile.memoryRoot, userId, data.threads, data.currentThreadId);
 
-    // UX message
-    try {
-      await botApi.sendMessage(
-        chatId,
-        `🔀 Заметил новую тему — «${title}». Переключаюсь. Вернёмся к старой когда будешь готов.`
-      );
-    } catch (e) {
-      console.warn(`[threads] Failed to send NEW UX message: ${e}`);
-    }
+    // Auto-parking is silent — no UX message to the user.
+    console.log(`[threads] NEW thread "${title}" created for userId=${userId}`);
 
     return { thread: newThread, switched: true, verdict: "NEW" };
   }
@@ -350,7 +336,7 @@ export async function resumeThread(opts: {
   botApi: Api;
   chatId: number;
 }): Promise<Thread | null> {
-  const { userId, threadId, profile, botApi, chatId } = opts;
+  const { userId, threadId, profile, botApi: _botApi, chatId: _chatId } = opts;
 
   const data = loadThreads(profile.memoryRoot, userId);
   const target = data.threads.find(t => t.id === threadId);
@@ -367,14 +353,8 @@ export async function resumeThread(opts: {
 
   saveThreads(profile.memoryRoot, userId, data.threads, data.currentThreadId);
 
-  try {
-    await botApi.sendMessage(
-      chatId,
-      `↩️ Продолжаем про «${target.title}». Остановились на: ${target.summary || "(нет резюме)"}`
-    );
-  } catch (e) {
-    console.warn(`[threads] Failed to send resume UX message: ${e}`);
-  }
+  // Silent resume — no UX message.
+  console.log(`[threads] resumeThread: thread "${target.title}" resumed for userId=${userId}`);
 
   return target;
 }

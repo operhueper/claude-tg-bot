@@ -17,6 +17,7 @@ import { escapeHtml } from "../formatting";
 import { checkCommandSafety, isPathAllowedFor } from "../security";
 import { alertSuspiciousCommand } from "../owner-alerts";
 import type { StatusCallback } from "../types";
+import { getActiveProfiler } from "../profiler";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -727,11 +728,14 @@ export async function queryOpenRouter(
   // Anti-loop: track (tool, args_hash) pairs seen in this conversation
   const seenToolCalls = new Set<string>();
 
+  const _profiler = getActiveProfiler(profile.userId);
+
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     if (abortSignal?.aborted) {
       throw new Error("AbortError: queryOpenRouter aborted before round " + round);
     }
     const isLastRound = round === MAX_TOOL_ROUNDS - 1;
+    _profiler?.mark(`openrouter_fetch_sent_r${round}`);
     const { text, toolCalls, promptTokens, completionTokens } =
       await openRouterRequest(
         conversationMessages,
@@ -743,6 +747,7 @@ export async function queryOpenRouter(
         accumulatedText,
         abortSignal
       );
+    _profiler?.mark(`openrouter_fetch_done_r${round}`);
 
     totalPromptTokens += promptTokens;
     totalCompletionTokens += completionTokens;
