@@ -7,7 +7,7 @@ import type { Message } from "grammy/types";
 
 // Status callback for streaming updates
 export type StatusCallback = (
-  type: "thinking" | "tool" | "text" | "segment_end" | "done" | "todo_init" | "todo_update" | "context",
+  type: "thinking" | "tool" | "text" | "segment_end" | "done" | "todo_init" | "todo_update" | "context" | "announce",
   content: string,
   segmentId?: number
 ) => Promise<void>;
@@ -31,6 +31,7 @@ export interface SavedSession {
   saved_at: string;
   working_dir: string;
   title: string; // First message truncated (max ~50 chars)
+  user_id?: number; // V-29: ownership guard, optional for backward-compat with legacy entries
 }
 
 export interface SessionHistory {

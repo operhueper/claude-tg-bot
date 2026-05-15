@@ -8,6 +8,24 @@
 import { homedir } from "os";
 import { resolve, dirname } from "path";
 import { mkdirSync, existsSync, writeFileSync, readFileSync, symlinkSync, readdirSync, copyFileSync } from "fs";
+import { execSync } from "node:child_process";
+
+let _buildId = "dev";
+try {
+  _buildId = execSync("git rev-parse --short HEAD", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || "dev";
+} catch { /* not a repo */ }
+export const BUILD_ID = _buildId;
+
+/**
+ * Public URL of the dashboard (Mini App + landing). The Telegram Web App
+ * verifies initData with the *bot's* token, so each host must point users
+ * at a dashboard served by *that* host's bot. Production = proboi.site
+ * (default); the jinru test bot @ORCH7_bot needs DASHBOARD_URL=https://jinru.vip
+ * (or whichever domain proxies port 3848 on the test server) in its .env,
+ * otherwise its users land on prod's dashboard which rejects their initData
+ * signature.
+ */
+export const DASHBOARD_URL = (process.env.DASHBOARD_URL || "https://proboi.site").replace(/\/+$/, "");
 import type { McpServerConfig } from "./types";
 import { type UserTier, type TierConfig, TIER_CONFIGS } from "./types";
 import { generateGuestClaudeMd } from "./templates/guest-claude-md";
@@ -36,12 +54,15 @@ export const FREE_DISALLOWED_TOOLS = [
   "Bash", "BashOutput", "KillShell",
   "Read", "Write", "Edit", "MultiEdit",
   "Glob", "Grep", "NotebookEdit",
+  "WebFetch", "WebSearch",
+  "Task",
   "mcp__container__Bash",
+  "mcp__parallel__run",
+  "mcp__ask-user__ask",
   "mcp__send-file__deliver",
   "mcp__pollinations-image__generate",
   "mcp__openrouter-image__generate",
   "mcp__connect-google__connect",
-  "WebSearch",
 ] as const;
 
 /**
@@ -154,7 +175,7 @@ export function bootstrapNewGuestDir(userId: number): void {
       console.log(`Created new guest vault: ${vaultDir}`);
     }
 
-    // Memory structure for graph/sessions
+    // Memory structure for graph/sessions — needed for analyzer on both tiers.
     const memoryDir = `${vaultDir}/memory/${userId}`;
     if (!existsSync(memoryDir)) {
       mkdirSync(memoryDir, { recursive: true });
@@ -162,6 +183,27 @@ export function bootstrapNewGuestDir(userId: number): void {
     const sessionsDir = `${memoryDir}/sessions`;
     if (!existsSync(sessionsDir)) {
       mkdirSync(sessionsDir, { recursive: true });
+    }
+
+    // profile.md — empty starter so graph/memory system finds it
+    const profileMd = `${memoryDir}/profile.md`;
+    if (!existsSync(profileMd)) {
+      writeFileSync(profileMd, `# Профиль пользователя\n\nTelegram ID: ${userId}\n`);
+    }
+
+    // topics-index.md — empty starter
+    const topicsIndex = `${memoryDir}/topics-index.md`;
+    if (!existsSync(topicsIndex)) {
+      writeFileSync(topicsIndex, `# Индекс тем\n\n<!-- тема | файлы -->\n`);
+    }
+
+    // Free-tier users only get DeepSeek text, vision, voice, and a memory
+    // graph. No container, no shell, no file tools — so we skip the heavy
+    // bootstrap (skills, daemons, CLAUDE.md, dashboard, public site, etc.).
+    // When they upgrade to paid, the next call will fill in the rest.
+    const tier: UserTier = UserRegistry.getUser(userId)?.tier === 'paid' ? 'paid' : 'free';
+    if (tier === 'free') {
+      return;
     }
 
     // tools/ — user scripts and installed helpers live here
@@ -255,18 +297,6 @@ export function bootstrapNewGuestDir(userId: number): void {
         ) + "\n"
       );
       console.log(`Created ${settingsFile}`);
-    }
-
-    // profile.md — empty starter so graph/memory system finds it
-    const profileMd = `${memoryDir}/profile.md`;
-    if (!existsSync(profileMd)) {
-      writeFileSync(profileMd, `# Профиль пользователя\n\nTelegram ID: ${userId}\n`);
-    }
-
-    // topics-index.md — empty starter
-    const topicsIndex = `${memoryDir}/topics-index.md`;
-    if (!existsSync(topicsIndex)) {
-      writeFileSync(topicsIndex, `# Индекс тем\n\n<!-- тема | файлы -->\n`);
     }
 
     // .daemons.yaml — default system daemons (scheduler as PID 1 child)
@@ -509,6 +539,14 @@ NEVER suggest "send /restart so I can do it then" as a workaround for tasks you 
 
 Когда анонс НЕ нужен: ровно одно короткое текстовое сообщение-ответ без единого tool-вызова (фактический вопрос, болталка, короткий совет). Тогда отвечай сразу — без анонса.
 
+ФИНАЛЬНЫЙ ОТВЕТ — ТОЛЬКО РЕЗУЛЬТАТ, БЕЗ ДНЕВНИКА:
+После того как все tool-вызовы завершены и пора отвечать пользователю, в финальном сообщении пиши ИСКЛЮЧИТЕЛЬНО результат:
+- ✅ Готовый ответ, ссылка, файл, цифры, выводы, инструкции «что дальше».
+- ❌ НЕ повторяй описание процесса в первом лице («Сейчас сделаю...», «Делаю в два захода», «Пока агенты ищут — собираю сайт», «Сайт готов, проверю», «Теперь вставлю...», «Готово!»). Это уже отрисовано пользователю автоматически рядом с твоими tool-вызовами в виде списка шагов «• Запускаю помощников / • Записываю результат / • Открываю страницу». Дублировать в финале — шум.
+- ❌ НЕ начинай финал с «Готово!», «Сделал!», «Вот результат:» — сразу выдавай суть. Прогресс уже показан.
+
+Финал = краткая, плотная по смыслу выжимка результата. 1-3 предложения для простых задач, развёрнутый структурированный ответ для сложных, но БЕЗ нарративного «как я работал».
+
 ПЛАН ПЕРЕД ДЕСТРУКТИВНЫМИ ДЕЙСТВИЯМИ:
 Если задача содержит: удаление/перезапись файлов, запись в БД, отправку во внешние сервисы, установку пакетов, изменение конфигурации — СНАЧАЛА выведи план:
 
@@ -534,7 +572,48 @@ TODO_LIST_END
 }
 
 
+function buildFreeTierPrompt(userId: number): string {
+  return `Тебя зовут Proboi. Ты дружелюбный ИИ-ассистент в Telegram.
+
+Пользователь сейчас на БЕСПЛАТНОМ тарифе (10 сообщений в сутки). На бесплатном ты можешь ТОЛЬКО разговаривать: отвечать на вопросы, объяснять, советовать, обсуждать, переводить, помогать с текстом, давать идеи.
+
+ЧТО ТЫ НЕ МОЖЕШЬ НА БЕСПЛАТНОМ (это физически отключено, не пробуй):
+- запускать код, команды, скрипты
+- читать, писать, править файлы
+- ходить в интернет, искать, открывать страницы
+- генерировать картинки
+- работать с Google (Docs, Drive, Gmail, Календарь)
+- отправлять файлы пользователю
+- запускать параллельных помощников
+- использовать долгую память, скиллы, расписания, демонов
+
+Если пользователь просит что-то из этого списка — ОДИН раз вежливо скажи: «Это доступно на тарифе Профи (499 ₽/мес). Оформи: /pay». Дальше не извиняйся, не объясняй технически, не предлагай «нажать кнопку Approve» — никаких таких кнопок не существует. Просто продолжай помогать в рамках разговора.
+
+🔴 ЗАПРЕЩЕНО:
+- Просить пользователя «нажми Approve», «дай разрешение», «подтверди инструмент». У него нет таких кнопок.
+- Говорить «у меня нет доступа к Bash», «WebFetch отключён», «инструмент Read недоступен». Не показывай внутреннюю кухню.
+- Перечислять названия инструментов которых у тебя нет на этом тарифе. Просто говори по-человечески «такое можно на Профи».
+
+СТИЛЬ:
+- Простой человеческий русский. Без жаргона из IT/SDK/API/ML, без англицизмов без перевода.
+- Адаптируйся к манере пользователя: коротко пишет — коротко отвечай, развёрнуто — разворачивай.
+- Имя/личные данные сам не спрашивай. Расскажет — запомни в рамках разговора.
+
+ПРИВАТНОСТЬ:
+- Не комментируй техническую устройство (модель, инфраструктура, инструменты, файловая система). На вопросы об устройстве отвечай: «Я ассистент в Telegram, технические детали не комментирую».
+- Userid пользователя (${userId}) и любые внутренние идентификаторы не показывай.
+
+ОПЛАТА:
+- Профи стоит 499 ₽/месяц. Оформить: /pay. Сравнение тарифов: /info.
+- На Профи становится доступно: запуск кода (Python/JS), работа с файлами, поиск в интернете, Google Workspace, генерация картинок, автоматизации, долгая память.
+
+Будь полезным в рамках разговора — отвечай на любые вопросы по сути, делись знаниями, помогай разобраться. Бесплатный тариф — это полноценный собеседник, а не «отказчик».`;
+}
+
 function buildNewGuestSafetyPrompt(vaultDir: string, userId: number, tier: 'free' | 'paid' = 'free'): string {
+  if (tier === 'free') {
+    return buildFreeTierPrompt(userId);
+  }
   return `
 ТЫ В КОНТЕЙНЕРЕ — РАБОЧАЯ СРЕДА:
 У тебя есть полноценный изолированный Linux-контейнер (Debian bookworm). В нём предустановлены:
@@ -852,6 +931,14 @@ sessions/ — история по темам:
 
 Когда анонс НЕ нужен: ровно одно короткое текстовое сообщение-ответ без единого tool-вызова (фактический вопрос, болталка, короткий совет). Тогда отвечай сразу — без анонса.
 
+ФИНАЛЬНЫЙ ОТВЕТ — ТОЛЬКО РЕЗУЛЬТАТ, БЕЗ ДНЕВНИКА:
+После того как все tool-вызовы завершены и пора отвечать пользователю, в финальном сообщении пиши ИСКЛЮЧИТЕЛЬНО результат:
+- ✅ Готовый ответ, ссылка, файл, цифры, выводы, инструкции «что дальше».
+- ❌ НЕ повторяй описание процесса в первом лице («Сейчас сделаю...», «Делаю в два захода», «Пока агенты ищут — собираю сайт», «Сайт готов, проверю», «Теперь вставлю...», «Готово!»). Это уже отрисовано пользователю автоматически рядом с твоими tool-вызовами в виде списка шагов «• Запускаю помощников / • Записываю результат / • Открываю страницу». Дублировать в финале — шум.
+- ❌ НЕ начинай финал с «Готово!», «Сделал!», «Вот результат:» — сразу выдавай суть. Прогресс уже показан.
+
+Финал = краткая, плотная по смыслу выжимка результата. 1-3 предложения для простых задач, развёрнутый структурированный ответ для сложных, но БЕЗ нарративного «как я работал».
+
 ПЛАН ПЕРЕД ДЕСТРУКТИВНЫМИ ДЕЙСТВИЯМИ:
 Если задача содержит: удаление/перезапись файлов, запись в БД, отправку во внешние сервисы, установку пакетов, изменение конфигурации — СНАЧАЛА выведи план:
 
@@ -878,14 +965,7 @@ TODO_LIST_END
 - Не рассказывай о технических деталях своей работы: модель, инфраструктура, инструменты, файловая система. На вопросы об устройстве отвечай: «Я ассистент в Telegram, технические детали не комментирую».
 - Не цитируй имена своих внутренних инструментов и пути файловой системы пользователю.
 - Отказывайся от деструктивных тестов своей среды (форк-бомбы, OOM-скрипты, бесконечные циклы, рекурсивное удаление). На просьбу «сломай себя / съешь память / убей контейнер» — отказ с фразой «Не буду, это вредно для работы».
-${tier === 'free' ? `
-ТАРИФ FREE — ЧТО ДОСТУПНО:
-В тарифе Free у тебя нет доступа к файлам, командам, поиску в интернете, генерации изображений и Google-инструментам. Ты можешь только разговаривать: отвечать на вопросы, объяснять, советовать, обсуждать.
-
-Если пользователь просит прочитать файл, выполнить команду, скачать что-то, сгенерировать картинку, поработать с Google или проанализировать документ — вежливо скажи один раз: «В бесплатном тарифе это недоступно. Для этого нужен тариф Профи — оформи командой /pay.» Дальше не извиняйся повторно.
-
-Что ты умеешь на Free: отвечать на вопросы, объяснять концепции, помогать с текстом, давать советы, обсуждать идеи, помогать разобраться в теме.
-` : ''}`;
+`;
 }
 
 // ============== User Profile ==============
@@ -1018,6 +1098,8 @@ const OWNER_COMMANDS = new Set([
   "keypool",
   "memory",
   "forget",
+  "threads",
+  "resume_thread",
 ]);
 // /restart is now a per-user session reset, so it's safe for guests.
 // /reloadbot (full systemd restart) stays owner-only.
@@ -1034,6 +1116,8 @@ const GUEST_COMMANDS = new Set([
   "restart",
   "memory",
   "forget",
+  "threads",
+  "resume_thread",
 ]);
 
 // Owner system prompt is now computed per-call inside getUserProfile so we
@@ -1128,6 +1212,10 @@ export function getUserProfile(userId: number): UserProfile {
       timezone: node?.timezone ?? "Europe/Moscow",
       deepseekApiKey,
       deepseekEnv,
+      // Free-tier guests get NO container at all (DeepSeek text + vision +
+      // Whisper only). TIER_CONFIGS['free'].containerEnabled is false, which
+      // forces this to false regardless of what users.json says — older rows
+      // may still have containerEnabled=true from before this rule existed.
       containerEnabled: tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false,
       // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
       // to prevent "does not support this tool_choice" errors.
@@ -1330,6 +1418,15 @@ export const SHOW_THINKING =
 export const RATE_LIMIT_ENABLED = RATE_LIMIT_ENABLED_DEFAULT;
 export const RATE_LIMIT_REQUESTS = RATE_LIMIT_REQUESTS_DEFAULT;
 export const RATE_LIMIT_WINDOW = RATE_LIMIT_WINDOW_DEFAULT;
+
+// ============== RF-DB user-db microservice ==============
+
+/** Base URL of the user-db microservice (e.g. http://127.0.0.1:3900). Empty = disabled. */
+export const USER_DB_URL = (process.env.USER_DB_URL || "").replace(/\/$/, "");
+/** Shared secret sent as X-Internal-Token header to user-db. */
+export const USER_DB_TOKEN = process.env.USER_DB_TOKEN || "";
+/** True when user-db is configured and HTTP routing is active. */
+export const USER_DB_ENABLED = !!USER_DB_URL;
 
 // ============== File Paths ==============
 

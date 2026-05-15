@@ -24,6 +24,7 @@ import {
   type UserProfile,
   isNewGuest,
   DEEPSEEK_POOL_MARKER,
+  getUserProfile,
 } from "./config";
 import { acquireDeepSeekKey } from "./deepseek-key-pool";
 
@@ -94,6 +95,7 @@ import { mcpServersForProfile } from "./mcp-filter";
 import { recordUsage, type UsageSource } from "./metering";
 import { checkVaultQuota, formatBytes, VAULT_QUOTA_BYTES } from "./containers/vault-quota";
 import { containerManager } from "./containers/manager";
+import { decideAndAct, updateCurrentThreadSessionId } from "./threads/manager";
 
 /**
  * Hint appended to the system prompt for container-sandboxed guests so the
@@ -249,7 +251,7 @@ class PlanMarkerParser {
 // ============== End parsers ==============
 
 export class ClaudeSession {
-  readonly profile: UserProfile;
+  profile: UserProfile;
 
   sessionId: string | null = null;
   lastActivity: Date | null = null;
@@ -266,6 +268,9 @@ export class ClaudeSession {
   pendingPlan: { planText: string; originalMessage: string } | null = null;
   pendingClarification = false;
   lastPartialResponse: string | null = null;
+
+  /** Timestamp of the last user turn (ms). Used for topic-parking pause detection. */
+  lastUserTurnMs: number = 0;
 
   private abortController: AbortController | null = null;
   private isQueryRunning = false;
@@ -390,6 +395,13 @@ export class ClaudeSession {
     systemPromptOverride?: string,
     requestId?: string
   ): Promise<string> {
+    // Pull a fresh profile snapshot on every message. Sessions are long-lived
+    // (cached in session-registry), so any change to the user's row in users.json
+    // — tier upgrade/downgrade, container toggle, model override — would otherwise
+    // not reach this live session until the bot restarts or /new is invoked.
+    // One getUserProfile call per turn keeps tier/tools/prompt in sync with reality.
+    this.profile = getUserProfile(this.profile.userId);
+
     // Deduplication key for metering — shared across retries so only the final
     // token count is billed (INSERT OR REPLACE keyed on user_id+request_id+model).
     const meteringRequestId = requestId ?? crypto.randomUUID();
@@ -417,6 +429,53 @@ export class ClaudeSession {
         return msg;
       }
     }
+
+    // ============== Topic-parking (guests only; owner always bypassed inside decideAndAct) ==============
+    // Run AFTER quota check, BEFORE vision routing and main query.
+    // For guests this may switch sessionId to a different thread.
+    if (!mediaHint && ctx && chatId) {
+      try {
+        const dtSinceLastUserMs = this.lastUserTurnMs > 0
+          ? Date.now() - this.lastUserTurnMs
+          : 0;
+
+        // Build prevTurnsSummary from the last 3 transcript turns (≤500 chars)
+        let prevTurnsSummary = "";
+        if (this.transcriptRecorder) {
+          const recentTurns = this.transcriptRecorder.getRecentTurns(6);
+          prevTurnsSummary = recentTurns
+            .map(t => `${t.role === "user" ? "Пользователь" : "Бот"}: ${t.content}`)
+            .join("\n")
+            .slice(0, 500);
+        }
+
+        const decision = await decideAndAct({
+          userId,
+          text: message,
+          isPhotoBurst: false,
+          prevTurnsSummary,
+          dtSinceLastUserMs,
+          currentSessionId: this.sessionId,
+          profile: this.profile,
+          botApi: ctx.api,
+          chatId,
+        });
+
+        // If we switched to a different thread, update our sessionId
+        if (decision.switched && decision.thread.sessionId) {
+          this.sessionId = decision.thread.sessionId || null;
+          console.log(
+            `[${this.profile.label}] Topic-parking: ${decision.verdict} → thread "${decision.thread.title}" ` +
+            `session=${this.sessionId?.slice(0, 8) ?? "new"}`
+          );
+        }
+      } catch (err) {
+        console.warn(`[${this.profile.label}] Topic-parking failed (non-fatal):`, err);
+      }
+    }
+    // Update lastUserTurnMs for next call
+    this.lastUserTurnMs = Date.now();
+    // ============== End topic-parking ==============
 
     const isNewSession = !this.isActive;
     const thinkingTokens = getThinkingLevel(message);
@@ -575,7 +634,41 @@ export class ClaudeSession {
         )
       : this.profile.disallowedTools ?? [];
 
-    // Build options for Claude CLI query (owner + new guests with DeepSeek key)
+    // Build options for Claude CLI query (owner + new guests with DeepSeek key).
+    // For paid users we pass permissionMode:"acceptEdits". SDK 0.1.76 always
+    // injects --permission-mode default unless overridden, which causes Claude
+    // CLI to ignore the bypassPermissions value in settings.json and emit
+    // "Claude requested permissions … you haven't granted it yet" on every
+    // first-time Write/Edit/Bash. acceptEdits auto-approves file edits without
+    // requiring the allowDangerouslySkipPermissions flag (which IS rejected by
+    // CLI 2.1.126 — observed exit code 1). Free guests stay on default — they
+    // are already locked down via FREE_DISALLOWED_TOOLS on the SDK side.
+    const needsAcceptEdits = this.profile.tier === "paid";
+    // acceptEdits auto-approves only Write/Edit/MultiEdit/NotebookEdit. Bash and
+    // MCP tools (especially mcp__container__Bash, which carries ALL paid shell
+    // access) keep returning `permission_denied` because the bot has no
+    // interactive UI to approve. Pair acceptEdits with an explicit allowedTools
+    // list — SDK 0.1.76 Options.allowedTools auto-allows tools by name without
+    // prompting. Free guests stay on default + FREE_DISALLOWED_TOOLS.
+    // Tool names below must match the actual `name:` declared by each MCP
+    // server (see send_file_mcp/server.ts, ask_user_mcp/server.ts, etc.).
+    // Mismatches silently cost the user a permission prompt the bot cannot
+    // answer — leading to mid-stream stalls and "Claude requested permissions"
+    // narration that looks like a model hallucination.
+    const PAID_ALLOWED_TOOLS = [
+      "Bash", "BashOutput", "KillShell",
+      "Read", "Write", "Edit", "MultiEdit", "NotebookEdit",
+      "Glob", "Grep",
+      "WebFetch",
+      "Task", "TodoWrite",
+      "mcp__container__Bash",
+      "mcp__ask-user__ask_user",
+      "mcp__send-file__send_file",
+      "mcp__parallel__run",
+      "mcp__pollinations-image__generate_image",
+      "mcp__openrouter-image__generate_image",
+      "mcp__connect-google__connect",
+    ];
     const options: Options = {
       model: this.profile.model,
       cwd: this.profile.workingDir,
@@ -588,6 +681,9 @@ export class ClaudeSession {
       ...(disallowedTools.length ? { disallowedTools } : {}),
       ...(this.profile.maxTurns !== undefined
         ? { maxTurns: this.profile.maxTurns }
+        : {}),
+      ...(needsAcceptEdits
+        ? { permissionMode: "acceptEdits" as const, allowedTools: PAID_ALLOWED_TOOLS }
         : {}),
     };
 
@@ -746,6 +842,13 @@ export class ClaudeSession {
             )}...`
           );
           this.saveSession();
+          // Bind the SDK session_id to the current topic-parking thread so
+          // RETURN verdicts can resume the correct session later.
+          updateCurrentThreadSessionId(
+            this.profile.memoryRoot,
+            this.profile.userId,
+            this.sessionId!
+          );
           // Initialize transcript recorder (for both new and resumed sessions)
           try {
             this.transcriptRecorder = new TranscriptRecorder(
@@ -893,11 +996,14 @@ export class ClaudeSession {
                 currentSegmentId++;
               }
 
-              // Контекст для idle-heartbeat: короткая серьёзная фраза о том,
-              // что бот реально сейчас делает. Throttle (5с) и фильтрация
-              // null'ов выполняются внутри IdleHeartbeat.setContext.
+              // Анонс шага в постоянный «прогресс-пузырь» + контекст для
+              // idle-heartbeat (короткая серьёзная фраза о том, что бот
+              // реально сейчас делает). Прогресс-пузырь остаётся в чате после
+              // done — это и есть «что я делал», вместо нарратива модели.
+              // Throttle для context (5с) выполняется внутри IdleHeartbeat.
               const contextPhrase = humanizeToolCall(toolName, toolInput);
               if (contextPhrase) {
+                await statusCallback("announce", contextPhrase);
                 await statusCallback("context", contextPhrase);
               }
 
@@ -1275,6 +1381,7 @@ export class ClaudeSession {
         saved_at: new Date().toISOString(),
         working_dir: this.profile.workingDir,
         title: this.conversationTitle || "Sessione senza titolo",
+        user_id: this.profile.userId,
       };
 
       const existingIndex = history.sessions.findIndex(
@@ -1341,6 +1448,19 @@ export class ClaudeSession {
         false,
         `Sessione per directory diversa: ${sessionData.working_dir}`,
       ];
+    }
+
+    // V-29: strict ownership check. Reject if the saved entry was written by
+    // a different user. Legacy entries without user_id pass through (backward
+    // compat) — they're already gated by the per-user session file.
+    if (
+      sessionData.user_id !== undefined &&
+      sessionData.user_id !== this.profile.userId
+    ) {
+      console.warn(
+        `[${this.profile.label}] V-29 resume rejected: session ${sessionData.session_id.slice(0, 8)} belongs to userId=${sessionData.user_id}, current userId=${this.profile.userId}`
+      );
+      return [false, "Sessione non disponibile"];
     }
 
     const SESSION_ID_RE = /^[0-9a-f-]{36}$/i;

@@ -71,6 +71,11 @@ export class GraphStore {
     }
     try {
       const raw = JSON.parse(fs.readFileSync(file, "utf8")) as MemoryGraph;
+      // Older graphs (pre-label_index migration) may lack this field —
+      // forceMemoryFlush crashes on `g.label_index[key]` if it's undefined.
+      raw.label_index ??= {};
+      raw.nodes ??= {};
+      raw.edges ??= {};
       return sanitizeGraphNodes(raw);
     } catch {
       return {

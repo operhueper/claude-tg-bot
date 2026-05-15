@@ -79,6 +79,99 @@ person=0.9, project/goal=0.8, trip=0.7, place/purchase=0.6, preference/health=0.
 - Если факт не помещается в 12 типов — выбирай ближайший, никогда не выдумывай новый тип
 `;
 
+// ---------------------------------------------------------------------------
+// Prompt-injection sanitizer (V-30)
+// ---------------------------------------------------------------------------
+
+/**
+ * Sanitize a single transcript line before including it in the analyzer prompt.
+ * Removes code blocks, role-spoofing prefixes, and common prompt-injection phrases
+ * so a malicious user message cannot hijack the DeepSeek analysis call.
+ */
+function sanitizeTranscriptLine(s: string): string {
+  return s
+    .replace(/```[\s\S]*?```/g, "[code block removed]")
+    .replace(/^\s*(system|assistant)\s*:/gim, "user:")
+    .replace(/ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?)/gi, "[redacted]")
+    .replace(/(disregard|forget)\s+(all\s+)?(previous|prior|above)/gi, "[redacted]")
+    .replace(/new\s+instructions?:/gi, "[redacted]")
+    .slice(0, 500);
+}
+
+// ---------------------------------------------------------------------------
+// Toxic-loop output filter
+// ---------------------------------------------------------------------------
+// The analyzer's output is injected back into the next session's systemPrompt.
+// If a transient infra failure (permission_denied, container exited, CLI bug)
+// leaks into the analyzer summary, the model picks it up as "a fact about this
+// user's setup" and starts repeating it to the user as if it were true — a
+// self-reinforcing hallucination loop. Strip these phrases at the output
+// boundary so transient errors never become "memories".
+const TOXIC_SUBSTRINGS = [
+  "permission denied",
+  "haven't granted",
+  "havent granted",
+  "is_error",
+  "unsafe command",
+  "python3 -c",
+  "container exited",
+  "container is unstable",
+  "tool_choice",
+  "enoent",
+  "anthropic_api_key",
+  "deepseek key",
+  "deepseek_api_key",
+  "cli exit",
+  "exit code 1",
+  "claude requested permissions",
+  "blocked:",
+  "blocked_pattern",
+  "rate_limit",
+  "401 unauthorized",
+  "no such file or directory",
+];
+
+function containsToxic(value: unknown): boolean {
+  if (value == null) return false;
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  const lower = text.toLowerCase();
+  return TOXIC_SUBSTRINGS.some(s => lower.includes(s));
+}
+
+function filterToxicPatch(patch: AnalysisPatch): AnalysisPatch {
+  const cleanNodes = patch.upsert_nodes.filter(n => {
+    if (containsToxic(n.label) || containsToxic(n.data)) {
+      console.warn(`[analyzer] Dropped toxic node: type=${n.type} label=${String(n.label).slice(0, 80)}`);
+      return false;
+    }
+    return true;
+  });
+
+  const cleanEdges = patch.upsert_edges.filter(e => {
+    if (containsToxic(e.from_label) || containsToxic(e.to_label)) {
+      console.warn(`[analyzer] Dropped toxic edge: ${e.from_label} → ${e.to_label}`);
+      return false;
+    }
+    return true;
+  });
+
+  const summary = patch.session_summary;
+  const cleanSummary = (containsToxic(summary.title) || containsToxic(summary.summary))
+    ? { title: "Диалог", summary: "", topics: [] }
+    : summary;
+
+  if (cleanSummary !== summary) {
+    console.warn(`[analyzer] Wiped toxic session_summary`);
+  }
+
+  return {
+    upsert_nodes: cleanNodes,
+    upsert_edges: cleanEdges,
+    touch_labels: patch.touch_labels,
+    session_summary: cleanSummary,
+  };
+}
+
 export async function analyzeSession(
   transcript: SessionTranscript,
   existingGraph: MemoryGraph,
@@ -112,7 +205,7 @@ export async function analyzeSession(
     .join(", ");
 
   const transcriptText = transcript.turns
-    .map(t => `${t.role === "user" ? "Пользователь" : "Ассистент"}: ${t.content.slice(0, 500)}`)
+    .map(t => `${t.role === "user" ? "Пользователь" : "Ассистент"}: ${sanitizeTranscriptLine(t.content)}`)
     .join("\n\n");
 
   const prompt = `Уже известные сущности в графе: ${graphSummary || "нет"}
@@ -211,20 +304,26 @@ ${transcriptText}
 
     patch = JSON.parse(jsonStr) as AnalysisPatch;
   } catch (e) {
+    // Logging captures the full error/raw for debugging; the summary stays
+    // empty so a parse failure never leaks infra strings into the next
+    // session's systemPrompt (see toxic-loop filter below).
     const errMsg = String(e).slice(0, 100);
-    const rawPreview = rawJson.slice(0, 500);
-    console.error(`[analyzer] Failed to parse JSON: ${errMsg}\nRaw response: ${rawPreview}`);
+    console.error(`[analyzer] Failed to parse JSON: ${errMsg}\nRaw response: ${rawJson.slice(0, 500)}`);
     patch = {
       upsert_nodes: [],
       upsert_edges: [],
       touch_labels: [],
       session_summary: {
         title: "Диалог",
-        summary: `Парсинг не удался: ${errMsg}. Raw response (первые 500 символов): ${rawPreview}`,
+        summary: "",
         topics: [],
       },
     };
   }
+
+  // Strip transient infra failures before they become "memories"
+  // injected back into the next session's systemPrompt.
+  patch = filterToxicPatch(patch);
 
   const { title, summary, topics } = patch.session_summary;
   const date = new Date(transcript.started_at).toLocaleDateString("ru-RU");

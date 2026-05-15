@@ -68,6 +68,13 @@ const DEFAULT_GUEST_MEMORY_MB = 512;
 const GUEST_PIDS_OVERRIDES: Record<number, number> = {};
 const DEFAULT_GUEST_PIDS = 512;
 
+// Per-user CPU overrides. Lower for noisy free-tier neighbours, raise for paid
+// users with heavy workloads. Free guests don't actually receive a container
+// (see config.ts: containerEnabled=false for tier="free"), so this default
+// only governs paid containers.
+const GUEST_CPU_OVERRIDES: Record<number, number> = {};
+const DEFAULT_GUEST_CPUS = 1.0;
+
 export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean }): string[] {
   const userId = profile.userId;
   const isOwner = profile.isOwner;
@@ -133,8 +140,9 @@ export function buildRunArgs(profile: UserProfile, opts?: { skipLxcfs?: boolean 
     args.push("--memory", `${memMb}m`);
     args.push("--memory-swap", `${memMb}m`);
 
-    // CPU: capped at 1 full core (bursting within the ceiling is fine).
-    args.push("--cpus", "1.0");
+    // CPU: capped at DEFAULT_GUEST_CPUS (bursting within the ceiling is fine).
+    const cpus = GUEST_CPU_OVERRIDES[userId] ?? DEFAULT_GUEST_CPUS;
+    args.push("--cpus", String(cpus));
 
     // Drop ALL Linux capabilities — guests don't need any (no raw sockets,
     // no mknod, no sys_admin). Prevents privilege escalation via capabilities.
