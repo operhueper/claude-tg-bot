@@ -13,6 +13,7 @@ import { promisify } from "node:util";
 import path from "path";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TEMP_DIR, inboxDirFor, getUserProfile, OWNER_USER_ID } from "../config";
+import { checkSubscriptionExpiry, markDowngradeAnnounced } from "../payments";
 import { containerManager } from "../containers/manager";
 import { acquireUserLock, isUserBusy } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
@@ -698,6 +699,17 @@ export async function handleDocument(ctx: Context): Promise<void> {
   if (!isAuthorized(userId, ALLOWED_USERS)) {
     await ctx.reply("Unauthorized. Contact the bot owner for access.");
     return;
+  }
+
+  // Мгновенный downgrade при истечении подписки — не ждём 6h cron.
+  if (userId !== OWNER_USER_ID) {
+    const freshDowngrade = checkSubscriptionExpiry(userId);
+    if (freshDowngrade) {
+      markDowngradeAnnounced(userId);
+      await ctx.reply(
+        'Подписка истекла, переключил тебя на бесплатный тариф (10 сообщений в день).\n\nПродлить: /pay'
+      );
+    }
   }
 
   // 1b. Daily message limit — enforced only when tierConfig specifies a finite cap

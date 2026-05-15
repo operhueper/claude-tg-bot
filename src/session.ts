@@ -63,7 +63,7 @@ function withDeepSeekPoolKey(
 }
 import { formatToolStatus, escapeHtml } from "./formatting";
 import { humanizeToolCall, FALLBACK_PLAN_ANNOUNCEMENT } from "./announce";
-import { redactSecrets } from "./utils";
+import { redactSecrets, replyFriendly } from "./utils";
 import {
   checkPendingAskUserRequests,
   checkPendingSendFileRequests,
@@ -574,10 +574,13 @@ export class ClaudeSession {
       );
       const openrouterKey = process.env.OPENROUTER_API_KEY;
       if (!openrouterKey) {
-        const errMsg = "⚠️ OpenRouter ключ не настроен — обработка изображений недоступна.";
-        await statusCallback("segment_end", errMsg, 0);
+        // Ключ пропал после запуска — молча закрываем, пользователь получит ctx.reply
+        console.warn(`[${this.profile.label}] OPENROUTER_API_KEY disappeared at runtime`);
+        if (ctx) {
+          await replyFriendly(ctx, new Error("OPENROUTER_API_KEY not set"), "обработка изображения");
+        }
         await statusCallback("done", "");
-        return errMsg;
+        return "";
       }
       const msgs = this.buildConversationHistory(messageToSend, mediaHint);
       let response: string;
@@ -601,11 +604,11 @@ export class ClaudeSession {
       console.warn(
         `[${this.profile.label}] Vision request but OPENROUTER_API_KEY is not set`
       );
-      const errMsg =
-        "⚠️ OpenRouter ключ не настроен — обработка изображений недоступна.";
-      await statusCallback("segment_end", errMsg, 0);
+      if (ctx) {
+        await replyFriendly(ctx, new Error("OPENROUTER_API_KEY not set"), "обработка изображения");
+      }
       await statusCallback("done", "");
-      return errMsg;
+      return "";
     }
     // ============== End universal vision routing ==============
 

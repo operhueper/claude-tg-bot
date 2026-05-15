@@ -279,9 +279,46 @@ export class StreamingState {
   maxSegmentId: number = -1; // highest segment_id seen so far
   todoMsgId?: number; // message_id of the todo progress message
   todoItems: TodoItem[] = [];
+  // Progress bubble: persistent message that grows one line per tool announce.
+  // Replaces the model's "process diary" that DeepSeek otherwise dumps into the final segment.
+  progressMsgId?: number;
+  progressLines: string[] = [];
+  lastAnnounce?: string;
+  private _progressEditTimer: ReturnType<typeof setTimeout> | null = null;
+  private _lastProgressHtml: string = '';
   private _heartbeat: IdleHeartbeat | null = null;
 
   set heartbeat(h: IdleHeartbeat) { this._heartbeat = h; }
+
+  scheduleProgressEdit(ctx: Context, html: string): void {
+    this._lastProgressHtml = html;
+    if (this._progressEditTimer) clearTimeout(this._progressEditTimer);
+    this._progressEditTimer = setTimeout(() => {
+      this._progressEditTimer = null;
+      void this._editProgressNow(ctx, html);
+    }, 500);
+  }
+
+  async flushProgressEdit(ctx: Context): Promise<void> {
+    if (this._progressEditTimer) {
+      clearTimeout(this._progressEditTimer);
+      this._progressEditTimer = null;
+    }
+    if (!this.progressMsgId || !this._lastProgressHtml) return;
+    await this._editProgressNow(ctx, this._lastProgressHtml);
+  }
+
+  private async _editProgressNow(ctx: Context, html: string): Promise<void> {
+    if (!this.progressMsgId) return;
+    try {
+      await ctx.api.editMessageText(ctx.chat!.id, this.progressMsgId, html, { parse_mode: "HTML" });
+    } catch (err) {
+      const s = String(err);
+      if (!s.includes("not modified")) {
+        console.debug("progress edit failed:", err);
+      }
+    }
+  }
 
   async cleanup(): Promise<void> {
     if (this._heartbeat) {
@@ -540,6 +577,48 @@ export function createStatusCallback(
       }
       return;
     }
+    // "announce" is a permanent step in the progress bubble — emitted before
+    // each tool_use. Replaces the model's tendency to dump the whole "process
+    // diary" into the final assistant message. The bubble survives `done`.
+    if (statusType === "announce") {
+      if (!content) return;
+      // TODO widget already shows progress — don't double-render.
+      if (state.todoMsgId) return;
+
+      // Dedup across the whole bubble — A→B→A→B should collapse, not list
+      // four lines. Match the new announce against the base text of every
+      // existing line (stripping any trailing " ×N" counter).
+      const baseRe = /^(.*?)(?: ×(\d+))?$/;
+      const existingIdx = state.progressLines.findIndex((l) => {
+        const m = l.match(baseRe);
+        return m?.[1] === content;
+      });
+      if (existingIdx !== -1) {
+        const m = state.progressLines[existingIdx]!.match(baseRe)!;
+        const base = m[1]!;
+        const count = m[2] ? parseInt(m[2], 10) + 1 : 2;
+        state.progressLines[existingIdx] = `${base} ×${count}`;
+      } else {
+        state.progressLines.push(content);
+      }
+      state.lastAnnounce = content;
+
+      const html =
+        "<b>Шаги:</b>\n" +
+        state.progressLines.map((l) => `• ${escapeHtml(l)}`).join("\n");
+
+      if (!state.progressMsgId) {
+        try {
+          const msg = await ctx.reply(html, { parse_mode: "HTML" });
+          state.progressMsgId = msg.message_id;
+        } catch (err) {
+          console.debug("progress reply failed:", err);
+        }
+      } else {
+        state.scheduleProgressEdit(ctx, html);
+      }
+      return;
+    }
     heartbeat.tick();
     try {
       if (statusType === "todo_init" || statusType === "todo_update") {
@@ -694,6 +773,13 @@ export function createStatusCallback(
           }
         }
       } else if (statusType === "done") {
+        // Flush any pending progress-bubble edit so the final state lands.
+        // The bubble itself is INTENTIONALLY kept — it's the "what I did" trace.
+        try {
+          await state.flushProgressEdit(ctx);
+        } catch (err) {
+          console.debug("progress flush failed:", err);
+        }
         // Delete todo progress message if present
         if (state.todoMsgId) {
           try {

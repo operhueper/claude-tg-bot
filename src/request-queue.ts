@@ -50,16 +50,19 @@ export function isUserBusy(userId: number): boolean {
  */
 export async function acquireContainerSlot(timeoutMs = 60_000): Promise<() => void> {
   if (activeContainerSessions >= MAX_CONCURRENT_WITH_CONTAINER) {
-    const waitPromise = new Promise<void>((resolve) => {
-      containerQueue.push(resolve);
-    });
-    const timeoutPromise = new Promise<never>((_, reject) =>
+    // V-39: guard against double-resolve — timeout and queue-drain can both
+    // try to settle the same promise, which would double-decrement the counter.
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const safeResolve = () => { if (!settled) { settled = true; resolve(); } };
+      const safeReject = (e: Error) => { if (!settled) { settled = true; reject(e); } };
+
+      containerQueue.push(safeResolve);
       setTimeout(
-        () => reject(new Error("acquireContainerSlot: timeout after " + timeoutMs + "ms")),
+        () => safeReject(new Error("acquireContainerSlot: timeout after " + timeoutMs + "ms")),
         timeoutMs
-      )
-    );
-    await Promise.race([waitPromise, timeoutPromise]);
+      );
+    });
   }
   activeContainerSessions++;
 

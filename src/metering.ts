@@ -63,6 +63,17 @@ try {
   } catch (_e) {
     // Index already exists — ignore
   }
+  // Idempotent migration: convert unix-seconds timestamps to milliseconds.
+  // Rows written before 2026-05-15 stored Math.floor(Date.now()/1000) (seconds).
+  // The threshold 10_000_000_000 is safe: in seconds that is year ~2286; in
+  // milliseconds it is year ~2001 — so any real ms value will be above it and
+  // will NOT be touched on a second run.
+  try {
+    db.exec("UPDATE usage SET ts = ts * 1000 WHERE ts < 10000000000");
+  } catch (_e) {
+    // Non-critical — log and continue
+    console.error("[metering] ts migration failed:", _e);
+  }
 } catch (e) {
   console.error("[metering] Failed to open database:", e);
   // Assign a no-op stub so the rest of the module degrades gracefully
@@ -179,7 +190,7 @@ export function recordUsage(rec: UsageRecord): void {
           cacheRead,
           cacheCreation,
           cost,
-          Math.floor(Date.now() / 1000),
+          Date.now(),
           rec.requestId,
         ]
       );
@@ -199,7 +210,7 @@ export function recordUsage(rec: UsageRecord): void {
           cacheRead,
           cacheCreation,
           cost,
-          Math.floor(Date.now() / 1000),
+          Date.now(),
         ]
       );
     }
@@ -217,7 +228,7 @@ export interface UserTotals {
 }
 
 /**
- * Returns the unix timestamp (seconds) of the most recent 00:00 Europe/Moscow.
+ * Returns the unix timestamp (milliseconds) of the most recent 00:00 Europe/Moscow.
  * Moscow is UTC+3 with no DST.
  */
 export function moscowDayStartUtcSeconds(): number {
@@ -225,7 +236,7 @@ export function moscowDayStartUtcSeconds(): number {
   const nowSec = Math.floor(Date.now() / 1000);
   const localSec = nowSec + offsetSec;
   const dayStartLocal = Math.floor(localSec / 86400) * 86400;
-  return dayStartLocal - offsetSec;
+  return (dayStartLocal - offsetSec) * 1000;
 }
 
 /**
@@ -373,6 +384,65 @@ export function incrementDocCount(userId: number): void {
     );
   } catch (e) {
     console.error("[metering] incrementDocCount failed:", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Vision daily limit helpers (V-36)
+// ---------------------------------------------------------------------------
+
+// Ensure vision_daily table exists (idempotent — runs once at module load).
+if (db) {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS vision_daily (
+        user_id TEXT NOT NULL,
+        day TEXT NOT NULL,
+        count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, day)
+      )
+    `);
+  } catch (e) {
+    console.error("[metering] vision_daily table init failed:", e);
+  }
+}
+
+function todayUtc(): string {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD UTC
+}
+
+/**
+ * Returns the number of vision requests made today (UTC) for the given user.
+ */
+export function getVisionUsageToday(userId: number | string): number {
+  if (!db) return 0;
+  try {
+    const row = db
+      .query<{ count: number }, [string, string]>(
+        "SELECT count FROM vision_daily WHERE user_id=? AND day=?"
+      )
+      .get(String(userId), todayUtc());
+    return row?.count ?? 0;
+  } catch (e) {
+    console.error("[metering] getVisionUsageToday failed:", e);
+    return 0;
+  }
+}
+
+/**
+ * Increment the vision request counter for today (UTC).
+ */
+export function incrementVisionUsage(userId: number | string): void {
+  if (!db) return;
+  try {
+    db.run(
+      `INSERT INTO vision_daily (user_id, day, count)
+       VALUES (?, ?, 1)
+       ON CONFLICT(user_id, day) DO UPDATE SET count = count + 1`,
+      [String(userId), todayUtc()]
+    );
+  } catch (e) {
+    console.error("[metering] incrementVisionUsage failed:", e);
   }
 }
 

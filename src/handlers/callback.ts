@@ -176,6 +176,20 @@ export async function handleCallback(ctx: Context): Promise<void> {
     return;
   }
 
+  // 2b-threads. Thread resume callback: thread_resume:{thread_id}
+  if (callbackData.startsWith("thread_resume:")) {
+    await ctx.answerCallbackQuery();
+    const threadId = callbackData.slice("thread_resume:".length);
+    if (!chatId) return;
+    const profile = getUserProfile(userId);
+    const { resumeThread } = await import("../threads/manager");
+    const thread = await resumeThread({ userId, threadId, profile, botApi: ctx.api, chatId });
+    if (!thread) {
+      await ctx.reply("Тред не найден. Список тредов: /threads");
+    }
+    return;
+  }
+
   // 2b. Task confirmation callbacks
   if (callbackData.startsWith("task_confirm:")) {
     await handleTaskConfirmCallback(ctx, callbackData);

@@ -18,6 +18,8 @@ export {
   handleMemory,
   handleForget,
   handleKeypool,
+  handleThreads,
+  handleResumeThread,
   GUEST_MENU_COMMANDS,
 } from "./commands";
 export { handleText } from "./text";

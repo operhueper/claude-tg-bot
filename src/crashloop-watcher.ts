@@ -46,6 +46,11 @@ async function processOnce(): Promise<void> {
       continue;
     }
 
+    // V-38: cooldown key is per-userId, not per-daemon-name.
+    // A single sentinel file tracks the last alert time for the whole user
+    // so renaming a daemon cannot reset the 1-hour cooldown.
+    const userCooldownPath = join(eventsDir, "alert-cooldown.handled.json");
+
     for (const name of entries) {
       if (!name.endsWith("-crashloop.json")) continue;
       const path = join(eventsDir, name);
@@ -54,11 +59,11 @@ async function processOnce(): Promise<void> {
 
       const handledPath = path.replace(/\.json$/, ".handled.json");
 
-      // Кулдаун: если по этому же демону уже алертили < 1 ч назад,
+      // Кулдаун: если по этому пользователю уже алертили < 1 ч назад,
       // просто помечаем событие как обработанное, не дублируем шум.
-      if (existsSync(handledPath)) {
+      if (existsSync(userCooldownPath)) {
         try {
-          const ageMs = Date.now() - statSync(handledPath).mtimeMs;
+          const ageMs = Date.now() - statSync(userCooldownPath).mtimeMs;
           if (ageMs < ALERT_COOLDOWN_MS) {
             try {
               renameSync(path, handledPath);
@@ -91,6 +96,11 @@ async function processOnce(): Promise<void> {
 
       try {
         renameSync(path, handledPath);
+        // V-38: update the per-user cooldown sentinel (touch = overwrite with same content).
+        // This ensures the cooldown clock resets on the latest alert, regardless of
+        // which daemon triggered it.
+        const { writeFileSync } = await import("fs");
+        writeFileSync(userCooldownPath, JSON.stringify({ userId, daemon: ev.daemon, ts: Date.now() }));
       } catch (e) {
         console.error(`[crashloop-watcher] cannot rename ${path}:`, e);
       }

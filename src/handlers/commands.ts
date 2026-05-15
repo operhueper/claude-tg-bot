@@ -15,6 +15,8 @@ import * as fs from "fs";
 import { getSession } from "../session-registry";
 import {
   ALLOWED_USERS,
+  BUILD_ID,
+  DASHBOARD_URL,
   RESTART_FILE,
   getUserProfile,
   isNewGuest,
@@ -43,6 +45,7 @@ export const GUEST_MENU_COMMANDS = [
   { command: "status", description: "Мой тариф и статус" },
   { command: "dashboard", description: "🧠 Second Brain — задачи и память" },
   { command: "new", description: "Начать новый чат" },
+  { command: "threads", description: "📂 Мои темы разговора" },
   { command: "stop", description: "Остановить выполнение" },
   { command: "retry", description: "Повторить последнее сообщение" },
   { command: "memory", description: "Что бот помнит обо мне" },
@@ -117,7 +120,7 @@ export async function handleStart(ctx: Context): Promise<void> {
     const guestKeyboard = new InlineKeyboard()
       .url("📖 Как использовать", "https://proboi.site/how-to-setup")
       .row()
-      .webApp("📊 Дашборд", "https://proboi.site/dashboard")
+      .webApp("📊 Дашборд", `${DASHBOARD_URL}/dashboard?v=${BUILD_ID}`)
       .row();
     if (!isPaid) {
       guestKeyboard.text("⭐ Оформить Профи — 499 ₽/мес", "pay_upgrade").row();
@@ -241,7 +244,7 @@ export async function handleStatus(ctx: Context): Promise<void> {
     const keyboard = new InlineKeyboard()
       .url("📖 Возможности", "https://proboi.site/how-to-setup")
       .row()
-      .webApp("📊 Дашборд", "https://proboi.site/dashboard")
+      .webApp("📊 Дашборд", `${DASHBOARD_URL}/dashboard?v=${BUILD_ID}`)
       .row();
     if (profile.tier === "free") {
       keyboard.text("⭐ Оформить Профи — 499 ₽/мес", "pay_upgrade").row();
@@ -323,7 +326,7 @@ export async function handleStatus(ctx: Context): Promise<void> {
   const keyboard = new InlineKeyboard()
     .url("📖 Как использовать на полную →", "https://proboi.site/how-to-setup")
     .row()
-    .webApp("📊 Дашборд", "https://proboi.site/dashboard")
+    .webApp("📊 Дашборд", `${DASHBOARD_URL}/dashboard?v=${BUILD_ID}`)
     .row();
 
   if (profile.tier === "free") {
@@ -578,7 +581,7 @@ export async function handleDashboard(ctx: Context): Promise<void> {
       inline_keyboard: [[
         {
           text: "📱 Открыть дашборд",
-          web_app: { url: "https://proboi.site/dashboard" },
+          web_app: { url: `${DASHBOARD_URL}/dashboard?v=${BUILD_ID}` },
         },
       ]],
     },
@@ -637,21 +640,35 @@ export async function handleInfo(ctx: Context): Promise<void> {
   const profile = getUserProfile(userId);
   const isPaid = profile.tier === "paid";
 
-  const text =
-    `*Proboi — что умею*\n\n` +
-    `*Всегда доступно:*\n` +
-    `• Отвечаю на вопросы — объясняю, анализирую, советую\n` +
-    `• Пишу тексты: письма, посты, резюме, скрипты\n` +
-    `• Анализирую фото: что на картинке, текст с фото\n` +
-    `• Транскрибирую голосовые сообщения\n` +
-    `• Ищу информацию в интернете\n\n` +
-    `*На тарифе Профи:*\n` +
-    `• Запускаю код: Python, JavaScript, bash\n` +
-    `• Работаю с файлами: PDF, Word, Excel, архивы\n` +
-    `• Подключаю Google: Docs, Drive, Gmail, Календарь\n` +
-    `• Генерирую изображения по описанию\n` +
-    `• Помню контекст между сессиями\n\n` +
-    `*Твой тариф:* ${isPaid ? "✅ Профи" : "⬜ Бесплатный (10 сообщений/день)"}`;
+  // Текст зависит от тарифа: free-юзер не должен видеть обещания интернета/кода/файлов.
+  const text = isPaid
+    ? `*Proboi — что умею*\n\n` +
+      `*Всегда доступно:*\n` +
+      `• Отвечаю на вопросы — объясняю, анализирую, советую\n` +
+      `• Пишу тексты: письма, посты, резюме, скрипты\n` +
+      `• Анализирую фото: что на картинке, текст с фото\n` +
+      `• Транскрибирую голосовые сообщения\n` +
+      `• Ищу информацию в интернете\n` +
+      `• Запускаю код: Python, JavaScript, bash\n` +
+      `• Работаю с файлами: PDF, Word, Excel, архивы\n` +
+      `• Подключаю Google: Docs, Drive, Gmail, Календарь\n` +
+      `• Генерирую изображения по описанию\n` +
+      `• Помню контекст между сессиями\n\n` +
+      `*Твой тариф:* ✅ Профи`
+    : `*Proboi — что умею*\n\n` +
+      `*На бесплатном тарифе доступно:*\n` +
+      `• Отвечаю на вопросы — объясняю, анализирую, советую\n` +
+      `• Пишу тексты: письма, посты, резюме, скрипты\n` +
+      `• Анализирую фото: что на картинке, текст с фото\n` +
+      `• Транскрибирую голосовые сообщения\n\n` +
+      `*На тарифе Профи дополнительно:*\n` +
+      `• Запускаю код: Python, JavaScript, bash\n` +
+      `• Работаю с файлами: PDF, Word, Excel, архивы\n` +
+      `• Ищу информацию в интернете\n` +
+      `• Подключаю Google: Docs, Drive, Gmail, Календарь\n` +
+      `• Генерирую изображения по описанию\n` +
+      `• Помню контекст между сессиями\n\n` +
+      `*Твой тариф:* ⬜ Бесплатный (10 сообщений/день)`;
 
   const keyboard = new InlineKeyboard()
     .url("📖 Полный гайд", "https://proboi.site/how-to-setup")
@@ -835,6 +852,89 @@ export async function handleCancel(ctx: Context): Promise<void> {
  * (живой/карантин), число активных запросов и причина последней ошибки.
  * Owner-only. Ключи всегда маскируются (sk-xxxx…last4).
  */
+/**
+ * /threads — list active conversation threads with resume buttons.
+ */
+export async function handleThreads(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
+    await ctx.reply("Unauthorized.");
+    return;
+  }
+
+  const profile = getUserProfile(userId);
+  const { listActiveThreads, loadThreads } = await import("../threads/store");
+  const threads = listActiveThreads(profile.memoryRoot, userId);
+  const { currentThreadId } = loadThreads(profile.memoryRoot, userId);
+
+  if (threads.length === 0) {
+    await ctx.reply("Треды ещё не созданы. Начни разговор — и бот автоматически создаст первый тред.");
+    return;
+  }
+
+  const kb = new InlineKeyboard();
+
+  const lines: string[] = ["<b>Активные треды:</b>\n"];
+
+  for (const t of threads) {
+    const isCurrent = t.id === currentThreadId;
+    const status = isCurrent ? "▶️" : (t.status === "parked" ? "⏸" : "•");
+    const lastActive = new Date(t.lastActiveAt).toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "short",
+    });
+    lines.push(`${status} <b>${escapeHtml(t.title)}</b> — ${lastActive}`);
+    if (t.summary) {
+      lines.push(`  <i>${escapeHtml(t.summary.slice(0, 120))}</i>`);
+    }
+    if (!isCurrent) {
+      kb.text(`↩️ ${t.title.slice(0, 25)}`, `thread_resume:${t.id}`).row();
+    }
+  }
+
+  await ctx.reply(lines.join("\n"), {
+    parse_mode: "HTML",
+    reply_markup: threads.some(t => t.id !== currentThreadId) ? kb : undefined,
+  });
+}
+
+/**
+ * /resume_thread <id> — resume a thread by id (text command variant).
+ */
+export async function handleResumeThread(ctx: Context): Promise<void> {
+  const userId = ctx.from?.id;
+  if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {
+    await ctx.reply("Unauthorized.");
+    return;
+  }
+
+  const text = ctx.message?.text ?? "";
+  const parts = text.trim().split(/\s+/);
+  const threadId = parts[1];
+
+  if (!threadId) {
+    await ctx.reply("Укажи id треда: /resume_thread <id>\n\nСписок тредов: /threads");
+    return;
+  }
+
+  const profile = getUserProfile(userId);
+  const chatId = ctx.chat?.id;
+  if (!chatId) return;
+
+  const { resumeThread } = await import("../threads/manager");
+  const thread = await resumeThread({
+    userId,
+    threadId,
+    profile,
+    botApi: ctx.api,
+    chatId,
+  });
+
+  if (!thread) {
+    await ctx.reply("Тред не найден. Список тредов: /threads");
+  }
+}
+
 export async function handleKeypool(ctx: Context): Promise<void> {
   const userId = ctx.from?.id;
   if (!isAuthorized(userId, ALLOWED_USERS) || !userId) {

@@ -48,6 +48,12 @@ export interface UserNode {
   day4_push_sent?: boolean;
   /** ISO timestamp until which the user is in grace period after failed charge. */
   grace_period_until?: string;
+  /** True if the "3 days until expiry" warning was sent for the current subscription period. */
+  expiry_warned_3d?: boolean;
+  /** True if the "1 day until expiry" warning was sent for the current subscription period. */
+  expiry_warned_1d?: boolean;
+  /** Флаг: downgrade уже объявлен пользователю (чтобы не дублировать). */
+  downgrade_announced?: boolean;
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");

@@ -253,6 +253,52 @@ export async function chargeExpiredTrials(bot: any): Promise<void> {
 }
 
 /**
+ * Уведомить пользователей, у которых подписка истекает через ~3 дня или ~1 день.
+ * Отправляет сообщение напрямую пользователю (не владельцу).
+ * Флаги expiry_warned_3d / expiry_warned_1d сбрасываются при каждом новом
+ * списании (activateSubscription), поэтому за один период не приходит больше
+ * двух уведомлений.
+ * Вызывать из chargeExpiredTrials или отдельным setInterval.
+ */
+export async function warnExpiringSubscriptions(bot: any): Promise<void> {
+  const users = UserRegistry.getAllUsers();
+  const now = new Date();
+
+  for (const user of users) {
+    if (user.tier !== 'paid' || !user.subscription_expires) continue;
+    const expiry = new Date(user.subscription_expires);
+    if (expiry <= now) continue; // уже истекла — chargeExpiredTrials разберётся
+
+    const msLeft = expiry.getTime() - now.getTime();
+    const daysLeft = msLeft / (24 * 60 * 60 * 1000);
+
+    const expiryDateStr = expiry.toLocaleDateString('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+
+    // 3-дневное предупреждение (за 3±0.5 дней)
+    if (daysLeft <= 3 && daysLeft > 1 && !user.expiry_warned_3d) {
+      await bot.api.sendMessage(user.userId,
+        `Подписка истекает ${expiryDateStr}. После этого бот переключится на бесплатный тариф.\n\nПродлить: /pay`
+      ).catch(() => {});
+      const updated = UserRegistry.getUser(user.userId);
+      if (updated) UserRegistry.saveUser({ ...updated, expiry_warned_3d: true });
+    }
+
+    // 1-дневное предупреждение (за 1±0.5 дня)
+    if (daysLeft <= 1 && !user.expiry_warned_1d) {
+      await bot.api.sendMessage(user.userId,
+        `Подписка истекает завтра (${expiryDateStr}). После истечения бот перейдёт на бесплатный тариф (10 сообщений в день).\n\nПродлить сейчас: /pay`
+      ).catch(() => {});
+      const updated = UserRegistry.getUser(user.userId);
+      if (updated) UserRegistry.saveUser({ ...updated, expiry_warned_1d: true });
+    }
+  }
+}
+
+/**
  * Idempotent safety net: any user currently on the free tier (or owner,
  * who is exempt by design) should not own a running Docker sandbox. Sweep
  * Docker for `claude-user-<id>` containers whose users.json tier is not 'paid'

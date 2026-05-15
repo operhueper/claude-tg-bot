@@ -38,7 +38,15 @@ export async function activateSubscription(userId: number, days: number, usernam
   const newExpiry = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
 
   if (existing) {
-    UserRegistry.saveUser({ ...existing, tier: 'paid', subscription_expires: newExpiry.toISOString() });
+    // Сбрасываем предупреждения об истечении — новый период, новый отсчёт.
+    UserRegistry.saveUser({
+      ...existing,
+      tier: 'paid',
+      subscription_expires: newExpiry.toISOString(),
+      expiry_warned_3d: undefined,
+      expiry_warned_1d: undefined,
+      downgrade_announced: undefined,
+    });
   }
   await alertNewSubscriber(userId, username ?? String(userId)).catch(() => {});
 }
@@ -64,6 +72,15 @@ export function isTrialUsed(userId: number): boolean {
   return UserRegistry.getUser(userId)?.trial_used === true;
 }
 
+/**
+ * Пометить что сообщение о downgrade уже отправлено пользователю.
+ * После этого checkSubscriptionExpiry вернёт false для того же периода.
+ */
+export function markDowngradeAnnounced(userId: number): void {
+  const user = UserRegistry.getUser(userId);
+  if (user) UserRegistry.saveUser({ ...user, downgrade_announced: true });
+}
+
 /** Downgrade user to free tier. */
 export function downgradeToFree(userId: number): void {
   const user = UserRegistry.getUser(userId);
@@ -73,6 +90,10 @@ export function downgradeToFree(userId: number): void {
     subscription_expires: undefined,
     payment_method_id: undefined,
     grace_period_until: undefined,
+    expiry_warned_3d: undefined,
+    expiry_warned_1d: undefined,
+    // downgrade_announced сбрасываем: при следующей подписке флаг будет чистым
+    downgrade_announced: undefined,
   });
 }
 
@@ -181,16 +202,22 @@ export async function handleYuKassaWebhook(event: YuKassaWebhookEvent, bot: any)
 /**
  * Check if a user's paid subscription has expired and downgrade to free if so.
  * Call at the start of each message handler or from a cron job.
+ * Returns true if a NEW downgrade happened (not yet announced to the user).
  * @deprecated Prefer chargeExpiredTrials in tasks.ts for proper recurring logic.
  */
-export function checkSubscriptionExpiry(userId: number): void {
+export function checkSubscriptionExpiry(userId: number): boolean {
   const user = UserRegistry.getUser(userId);
-  if (!user) return;
-  if (user.tier !== 'paid' || !user.subscription_expires) return;
+  if (!user) return false;
+  if (user.tier !== 'paid' || !user.subscription_expires) return false;
 
   const expiry = new Date(user.subscription_expires);
   if (expiry <= new Date()) {
     downgradeToFree(userId);
     console.log(`[payments] Subscription expired for user ${userId}, downgraded to free`);
+    // downgrade_announced сбрасывается при переходе на free в downgradeToFree,
+    // поэтому возвращаем true только если флаг ещё не выставлен.
+    const updated = UserRegistry.getUser(userId);
+    return !(updated?.downgrade_announced);
   }
+  return false;
 }

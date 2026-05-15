@@ -7,6 +7,7 @@ import { InlineKeyboard } from "grammy";
 import { unlinkSync, mkdirSync } from "fs";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, TRANSCRIPTION_AVAILABLE, getUserProfile, OWNER_USER_ID, inboxDirFor } from "../config";
+import { checkSubscriptionExpiry, markDowngradeAnnounced } from "../payments";
 import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
 import { isAuthorized, rateLimiter } from "../security";
 import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
@@ -37,6 +38,17 @@ export async function handleVoice(ctx: Context): Promise<void> {
   if (!isAuthorized(userId, ALLOWED_USERS)) {
     await ctx.reply("Unauthorized. Contact the bot owner for access.");
     return;
+  }
+
+  // Мгновенный downgrade при истечении подписки — не ждём 6h cron.
+  if (userId !== OWNER_USER_ID) {
+    const freshDowngrade = checkSubscriptionExpiry(userId);
+    if (freshDowngrade) {
+      markDowngradeAnnounced(userId);
+      await ctx.reply(
+        'Подписка истекла, переключил тебя на бесплатный тариф (10 сообщений в день).\n\nПродлить: /pay'
+      );
+    }
   }
 
   // 2. Check if transcription is available

@@ -42,6 +42,8 @@ import {
   handleMemory,
   handleForget,
   handleKeypool,
+  handleThreads,
+  handleResumeThread,
   handleText,
   handleVoice,
   handlePhoto,
@@ -57,7 +59,7 @@ import { containerManager } from "./containers/manager";
 import { startDashboardServer, registerDashboardBot } from "./dashboard-server";
 import { registerAlertBot, notifyOwnerDM } from "./owner-alerts";
 import { startCrashloopWatcher } from "./crashloop-watcher";
-import { chargeExpiredTrials } from "./tasks";
+import { chargeExpiredTrials, warnExpiringSubscriptions } from "./tasks";
 
 // Last-resort error handlers.
 // grammY catches handler errors via bot.catch; these handle anything that escapes.
@@ -114,10 +116,66 @@ bot.on("channel_post", async (ctx) => {
   console.log(`[channel-post] chat_id=${chat.id} title=${chat.title}`);
 });
 
+// Sequentialize non-command messages per user (prevents race conditions)
+// Commands bypass sequentialization so they work immediately
+bot.use(
+  sequentialize((ctx) => {
+    // Commands are not sequentialized - they work immediately
+    if (ctx.message?.text?.startsWith("/")) {
+      return undefined;
+    }
+    // Messages with ! prefix bypass queue (interrupt)
+    if (ctx.message?.text?.startsWith("!")) {
+      return undefined;
+    }
+    // Callback queries (button clicks) are not sequentialized
+    if (ctx.callbackQuery) {
+      return undefined;
+    }
+    // Other messages are sequentialized per chat
+    return ctx.chat?.id.toString();
+  })
+);
+
+// ============== Consent Gate ==============
+// Согласие идёт ПЕРВЫМ — до подписки и до любых действий. По 152-ФЗ нельзя
+// предпринимать любые действия (включая проверку подписки) до получения согласия.
+// Must run after sequentialize but before any command/message handlers.
+// Blocks all interaction until the user accepts the legal documents.
+//
+// Pass-through cases:
+//   1. No userId — downstream handlers will reject.
+//   2. consent_accept callback — the handler itself records consent.
+//   3. /start — handleStart shows the gate inline so onboarding flow is intact.
+//   4. Already consented — pass through immediately.
+bot.use(async (ctx, next) => {
+  const userId = ctx.from?.id;
+  if (!userId) return next();
+
+  // Let the consent_accept callback through so the user can give consent.
+  if (ctx.callbackQuery?.data === "consent_accept") {
+    return next();
+  }
+
+  if (hasConsented(userId)) {
+    return next();
+  }
+
+  // /start handles the gate itself — forward so it can run its normal flow.
+  const text = ctx.message?.text;
+  if (text === "/start" || text?.startsWith("/start ")) {
+    return next();
+  }
+
+  // Block everything else and show the gate.
+  await sendConsentGate(ctx);
+});
+
 // ============== Subscription Gate ==============
+// Идёт ПОСЛЕ consent — пользователь должен сначала дать согласие (152-ФЗ),
+// только потом проверяем подписку на канал.
 // Authorized non-owner users must be members of REQUIRED_CHANNEL_ID before
-// the bot will respond. Runs before sequentialize so the "I subscribed"
-// button doesn't queue behind other work.
+// the bot will respond.
 //
 // Order of checks:
 //   1. Gate disabled → pass.
@@ -174,59 +232,6 @@ bot.use(async (ctx, next) => {
   // No next() — request stops here.
 });
 
-// Sequentialize non-command messages per user (prevents race conditions)
-// Commands bypass sequentialization so they work immediately
-bot.use(
-  sequentialize((ctx) => {
-    // Commands are not sequentialized - they work immediately
-    if (ctx.message?.text?.startsWith("/")) {
-      return undefined;
-    }
-    // Messages with ! prefix bypass queue (interrupt)
-    if (ctx.message?.text?.startsWith("!")) {
-      return undefined;
-    }
-    // Callback queries (button clicks) are not sequentialized
-    if (ctx.callbackQuery) {
-      return undefined;
-    }
-    // Other messages are sequentialized per chat
-    return ctx.chat?.id.toString();
-  })
-);
-
-// ============== Consent Gate ==============
-// Must run after sequentialize but before any command/message handlers.
-// Blocks all interaction until the user accepts the legal documents.
-//
-// Pass-through cases:
-//   1. No userId — downstream handlers will reject.
-//   2. consent_accept callback — the handler itself records consent.
-//   3. /start — handleStart shows the gate inline so onboarding flow is intact.
-//   4. Already consented — pass through immediately.
-bot.use(async (ctx, next) => {
-  const userId = ctx.from?.id;
-  if (!userId) return next();
-
-  // Let the consent_accept callback through so the user can give consent.
-  if (ctx.callbackQuery?.data === "consent_accept") {
-    return next();
-  }
-
-  if (hasConsented(userId)) {
-    return next();
-  }
-
-  // /start handles the gate itself — forward so it can run its normal flow.
-  const text = ctx.message?.text;
-  if (text === "/start" || text?.startsWith("/start ")) {
-    return next();
-  }
-
-  // Block everything else and show the gate.
-  await sendConsentGate(ctx);
-});
-
 // ============== Command Handlers ==============
 
 bot.command("start", handleStart);
@@ -244,6 +249,8 @@ bot.command("cancel", handleCancel);
 bot.command("info", handleInfo);
 bot.command("memory", handleMemory);
 bot.command("forget", handleForget);
+bot.command("threads", handleThreads);
+bot.command("resume_thread", handleResumeThread);
 
 // ============== Message Handlers ==============
 
@@ -511,6 +518,10 @@ startCrashloopWatcher();
 // are cleaned up immediately, not just after the first 6h interval.
 chargeExpiredTrials(bot).catch(console.error);
 setInterval(() => chargeExpiredTrials(bot).catch(console.error), 6 * 60 * 60 * 1000);
+
+// Уведомления об истечении подписки за 3 дня и 1 день — проверяем каждые 12 часов.
+warnExpiringSubscriptions(bot).catch(console.error);
+setInterval(() => warnExpiringSubscriptions(bot).catch(console.error), 12 * 60 * 60 * 1000);
 
 // Start with concurrent runner (commands work immediately)
 const runner = run(bot);

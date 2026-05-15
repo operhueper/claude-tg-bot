@@ -467,6 +467,12 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
 </div>
 
 <script>
+  window.addEventListener('error', function(e) {
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:12px;background:#b00;color:#fff;font:12px monospace;z-index:99999;white-space:pre-wrap';
+    box.textContent = 'JS error: ' + (e.message || 'unknown') + '\nfile: ' + (e.filename || '?') + ':' + (e.lineno || '?');
+    document.body && document.body.appendChild(box);
+  });
   // ─── MOCK DATA ────────────────────────────────────────────────────────────
   const ALLOW_MOCK = ${allowMock ? "true" : "false"};
   const MOCK = ALLOW_MOCK && location.search.includes('mock=1');

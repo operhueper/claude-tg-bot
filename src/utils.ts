@@ -61,6 +61,23 @@ export function redactSecrets(text: string): string {
 // Внутренний алиас для обратной совместимости со старыми вызовами в этом файле.
 const maskSecrets = redactSecrets;
 
+// V-37: in-process mutex for audit log writes.
+// Serializes concurrent appendFile calls within one process so that large
+// records (> 4 KB) cannot interleave on a busy bot.
+let auditWriteChain: Promise<void> = Promise.resolve();
+
+async function safeAppend(filePath: string, data: string): Promise<void> {
+  auditWriteChain = auditWriteChain
+    .then(async () => {
+      const fsp = await import("fs/promises");
+      await fsp.appendFile(filePath, data, "utf8");
+    })
+    .catch((e: unknown) => {
+      console.error("[audit] append failed:", e);
+    });
+  return auditWriteChain;
+}
+
 async function writeAuditLog(event: AuditEvent): Promise<void> {
   try {
     let content: string;
@@ -85,9 +102,7 @@ async function writeAuditLog(event: AuditEvent): Promise<void> {
       content = lines.join("\n") + "\n";
     }
 
-    // Append to audit log file
-    const fs = await import("fs/promises");
-    await fs.appendFile(AUDIT_LOG_PATH, content);
+    await safeAppend(AUDIT_LOG_PATH, content);
   } catch (error) {
     console.error("Failed to write audit log:", error);
   }
@@ -250,6 +265,11 @@ const FRIENDLY_MESSAGES: Record<string, string> = {
   "распаковка архива": "Не удалось обработать архив — проверь файл и попробуй ещё раз.",
   "обработка документа": "Не удалось обработать документ — попробуй ещё раз.",
   "перезапуск сервиса": "Не удалось перезапустить сервис — проверь права и попробуй вручную.",
+  "обработка видео": "Не получилось обработать видео. Можешь прислать его как файл или попробовать позже.",
+  "обработка отложенного контекста": "Не получилось дочитать предыдущее сообщение. Скинь его ещё раз пожалуйста.",
+  "подключение Google": "Не удалось подключить Google. Попробуй ещё раз через /google или напиши, если повторяется.",
+  "pay": "Не получилось открыть оплату. Попробуй ещё раз через /pay или напиши мне.",
+  "обработка изображения": "Не получилось обработать изображение — попробуй ещё раз.",
 };
 
 export async function replyFriendly(

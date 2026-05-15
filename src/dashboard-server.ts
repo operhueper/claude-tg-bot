@@ -57,13 +57,10 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 // Default is 127.0.0.1 (safe for dev); prod MUST set GUEST_BRIDGE_IP=172.18.0.1.
 const GUEST_BRIDGE_IP = process.env.GUEST_BRIDGE_IP || "127.0.0.1";
 
-// Allowed users cache for notify-bridge validation
-let _allowedUsers: Set<number> | null = null;
+// Allowed users — rebuilt on each call so newly approved guests are recognised
+// without a bot restart. ALLOWED_USERS is a live array updated by user-registry.
 function getAllowedUsers(): Set<number> {
-  if (!_allowedUsers) {
-    _allowedUsers = new Set(ALLOWED_USERS);
-  }
-  return _allowedUsers;
+  return new Set(ALLOWED_USERS);
 }
 
 // ---------------------------------------------------------------------------
@@ -389,7 +386,8 @@ async function handleApiMe(req: Request): Promise<Response> {
       id: userId,
       label: profile.label || "",
       role,
-      model: profile.model,
+      // model намеренно не включаем — free-пользователь не должен видеть
+      // имя провайдера в DevTools. Для admin-таблицы есть /api/admin/all.
       publicUrl: `https://proboi.site/u/${userId}/`,
     },
     today: {
@@ -467,7 +465,11 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
         if (!isNaN(uid) && ALLOWED_USERS.includes(uid)) {
           const p = getUserProfile(uid);
           label = p.label || label;
-          model = p.model || "";
+          // Для admin-таблицы показываем провайдер, а не сырое имя модели.
+          const rawModel = p.model || "";
+          model = rawModel.startsWith("deepseek") ? "DeepSeek"
+            : rawModel.startsWith("claude") ? "Claude"
+            : rawModel || "";
         }
       } catch {}
 
@@ -695,27 +697,29 @@ export function startDashboardServer(): void {
       }
 
       try {
-        if (method === "GET" && pathname === "/") {
+        const safeRead = method === "GET" || method === "HEAD";
+
+        if (safeRead && pathname === "/") {
           return htmlResponse(renderLanding());
         }
 
         if (
-          method === "GET" &&
+          safeRead &&
           (pathname === "/how-to-setup.html" || pathname === "/how-to-setup")
         ) {
           return htmlResponse(renderHowToSetup());
         }
 
-        if (method === "GET" && pathname.startsWith("/assets/")) {
+        if (safeRead && pathname.startsWith("/assets/")) {
           const filename = pathname.slice("/assets/".length);
           return await assetResponse(filename);
         }
 
-        if (method === "GET" && pathname === "/dashboard") {
+        if (safeRead && pathname === "/dashboard") {
           return htmlResponse(renderDashboard({ allowMock: process.env.DASHBOARD_ALLOW_MOCK === "1" }));
         }
 
-        if (method === "GET" && pathname === "/healthz") {
+        if (safeRead && pathname === "/healthz") {
           return new Response("OK", { status: 200 });
         }
 
@@ -731,23 +735,23 @@ export function startDashboardServer(): void {
           return await handleYuKassaWebhookRoute(req);
         }
 
-        if (method === "GET" && pathname === "/subscribe") {
+        if (safeRead && pathname === "/subscribe") {
           return handleSubscribePage(req);
         }
 
-        if (method === "GET" && pathname === "/oferta") {
+        if (safeRead && pathname === "/oferta") {
           return new Response(renderOferta(), {
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });
         }
 
-        if (method === "GET" && pathname === "/privacy") {
+        if (safeRead && pathname === "/privacy") {
           return new Response(renderPrivacy(), {
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });
         }
 
-        if (method === "GET" && pathname === "/terms") {
+        if (safeRead && pathname === "/terms") {
           return new Response(renderTerms(), {
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });

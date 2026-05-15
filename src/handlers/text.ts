@@ -8,6 +8,7 @@ import { InlineKeyboard } from "grammy";
 import type { StatusCallback } from "../types";
 import { getSession } from "../session-registry";
 import { ALLOWED_USERS, getUserProfile, OWNER_USER_ID, isNewGuest, isNewGuestOnboarded, markNewGuestOnboarded } from "../config";
+import { checkSubscriptionExpiry, markDowngradeAnnounced } from "../payments";
 import { isAuthorized, rateLimiter } from "../security";
 import { isDailyLimitReached, getDailyUsage, incrementDailyUsage } from "../daily-limit";
 import { acquireUserLock, isUserBusy, acquireContainerSlot, getQueueStatus } from "../request-queue";
@@ -365,6 +366,18 @@ export async function handleText(ctx: Context): Promise<void> {
   if (!isAuthorized(userId, ALLOWED_USERS)) {
     await requestAccess(ctx, message);
     return;
+  }
+
+  // Мгновенный downgrade при истечении подписки — не ждём 6h cron.
+  // Возвращает true если это первый вызов после истечения (ещё не объявляли).
+  if (userId !== OWNER_USER_ID) {
+    const freshDowngrade = checkSubscriptionExpiry(userId);
+    if (freshDowngrade) {
+      markDowngradeAnnounced(userId);
+      await ctx.reply(
+        'Подписка истекла, переключил тебя на бесплатный тариф (10 сообщений в день).\n\nПродлить: /pay'
+      );
+    }
   }
 
   // Show onboarding for new guests who type text instead of /start after approval

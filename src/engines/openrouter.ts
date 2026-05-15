@@ -11,7 +11,7 @@ import * as path from "path";
 import { execSync, execFileSync } from "child_process";
 import { STREAMING_THROTTLE_MS } from "../config";
 import type { UserProfile } from "../config";
-import { recordUsage } from "../metering";
+import { recordUsage, getVisionUsageToday, incrementVisionUsage } from "../metering";
 import { containerManager } from "../containers/manager";
 import { escapeHtml } from "../formatting";
 import { checkCommandSafety, isPathAllowedFor } from "../security";
@@ -697,6 +697,24 @@ export async function queryOpenRouter(
   chatId?: number,
   abortSignal?: AbortSignal
 ): Promise<string> {
+  // V-36: per-user vision daily limit.
+  // A vision call is detected by the presence of image_url parts in messages.
+  const isVisionCall = messages.some(
+    (m) =>
+      Array.isArray(m.content) &&
+      m.content.some((p) => typeof p === "object" && "image_url" in p)
+  );
+  const OWNER_USER_ID = 292228713;
+  if (isVisionCall && profile.userId !== OWNER_USER_ID) {
+    const visionLimit = parseInt(process.env.VISION_DAILY_LIMIT || "50", 10);
+    const visionUsed = getVisionUsageToday(profile.userId);
+    if (visionUsed >= visionLimit) {
+      throw new Error(
+        `Дневной лимит на анализ изображений (${visionLimit}/сутки) исчерпан, попробуй завтра`
+      );
+    }
+  }
+
   const MAX_TOOL_ROUNDS = 10;
   let conversationMessages = [...messages];
   let accumulatedText = "";
@@ -796,6 +814,11 @@ export async function queryOpenRouter(
       break;
     }
     // Continue loop — model will respond after seeing tool results
+  }
+
+  // V-36: increment vision daily counter after a successful vision call.
+  if (isVisionCall && profile.userId !== OWNER_USER_ID) {
+    incrementVisionUsage(profile.userId);
   }
 
   // Record metering for the entire agentic loop (V-30M: requestId deduplicates on retry)

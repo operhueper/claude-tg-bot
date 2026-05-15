@@ -31,11 +31,10 @@ export function humanizeToolCall(
   // TodoWrite has its own dedicated widget — don't duplicate the signal.
   if (toolName === "TodoWrite") return null;
 
-  // Parallel agents — show count, no task descriptions
+  // Parallel agents — single normalized line so dedup collapses repeats.
+  // Counting subtasks adds little value to the user; multiple invocations
+  // get a "×N" counter via the dedup logic in streaming.ts.
   if (toolName === "mcp__parallel__run" || toolName === "Task") {
-    const n = countParallelTasks(input);
-    if (n > 1) return `Запускаю ${n} помощников параллельно`;
-    if (n === 1) return "Запускаю помощника";
     return "Запускаю помощников параллельно";
   }
 
