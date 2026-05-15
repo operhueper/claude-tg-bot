@@ -1,0 +1,11 @@
+{
+  "name": "user-db",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "bun run server.ts"
+  },
+  "dependencies": {
+    "bun-types": "latest"
+  }
+}

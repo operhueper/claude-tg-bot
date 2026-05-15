@@ -1,0 +1,16 @@
+[Unit]
+Description=user-db (RF-DB Этап 1) localhost storage for users/metering/consent
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/claude-tg-bot/user-db
+EnvironmentFile=/opt/claude-tg-bot/user-db/.env
+ExecStart=/usr/local/bin/bun run server.ts
+Restart=on-failure
+RestartSec=3
+StandardOutput=append:/var/log/user-db.log
+StandardError=append:/var/log/user-db.err.log
+
+[Install]
+WantedBy=multi-user.target
