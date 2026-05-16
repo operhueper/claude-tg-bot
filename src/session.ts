@@ -519,7 +519,7 @@ export class ClaudeSession {
     // via profile.disallowedTools (FREE_DISALLOWED_TOOLS in config.ts), not via
     // container isolation. This is intentional — free = text-only chat.
     const useContainer =
-      this.profile.containerEnabled && !this.profile.isOwner;
+      this.profile.containerEnabled;
     if (useContainer) {
       systemPromptWithMemory =
         (systemPromptWithMemory || "") + CONTAINER_BASH_PROMPT;
@@ -700,12 +700,9 @@ export class ClaudeSession {
       "mcp__openrouter-image__generate_image",
       "mcp__connect-google__connect",
       "mcp__connect-google__disconnect",
-      // Composio Google Workspace — все ~146 тулов (GMAIL_*, GOOGLEDOCS_*,
-      // GOOGLEDRIVE_*, GOOGLECALENDAR_*, GOOGLESHEETS_*). Server-level allow
-      // rule в формате Claude Code permissions: имя MCP-сервера без суффикса
-      // тула покрывает всё. Без этой строки SDK при `acceptEdits` режет любой
-      // Gmail/Docs-вызов → Claude видит permission_denied → ошибочно решает
-      // что Google не подключён → дёргает connect снова.
+      // Composio Google Workspace (63 tools: Gmail, Docs, Drive, Sheets, Calendar).
+      // Server-level allow rule: MCP name without tool suffix covers all tools.
+      // Without this, SDK blocks any Google call under acceptEdits → Claude retries connect.
       "mcp__google-workspace",
     ];
     const options: Options = {

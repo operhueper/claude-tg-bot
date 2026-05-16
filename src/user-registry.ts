@@ -56,9 +56,9 @@ export interface UserNode {
   downgrade_announced?: boolean;
   /**
    * True if user has at least one active Google Workspace connection via Composio.
-   * Controls whether the google-workspace MCP (146 tools, ~50K tokens) is loaded.
+   * Controls whether the google-workspace MCP (63 tools) is loaded.
    * Set to true when polling detects ACTIVE connection; false on disconnect.
-   * Undefined = never connected → MCP is NOT loaded (saves ~50K tokens per request).
+   * Undefined = never connected → MCP is NOT loaded.
    */
   googleConnected?: boolean;
 }

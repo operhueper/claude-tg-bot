@@ -1,7 +1,37 @@
 {
   "directed": false,
   "multigraph": false,
-  "graph": {},
+  "graph": {
+    "hyperedges": [
+      {
+        "id": "he_stream_marker_pattern",
+        "label": "Stream Marker Pattern: ring buffer + debounce + marker parsers used by Plan Mode and Todo-list",
+        "nodes": [
+          "stream_marker_buffer",
+          "todo_marker_parser",
+          "plan_marker_parser",
+          "telegram_edit_debounce"
+        ],
+        "relation": "participate_in",
+        "confidence": "INFERRED",
+        "confidence_score": 0.8,
+        "source_file": "graphify-input/ROADMAP_CLAUDE_CODE_FEATURES.md"
+      },
+      {
+        "id": "he_session_compaction_memory",
+        "label": "Session summarization shared pattern: compactSession + save_session_memory + buildSummaryPrompt",
+        "nodes": [
+          "compaction_compact_session",
+          "save_session_memory",
+          "compaction_summary_prompt"
+        ],
+        "relation": "participate_in",
+        "confidence": "INFERRED",
+        "confidence_score": 0.85,
+        "source_file": "graphify-input/ROADMAP_CLAUDE_CODE_FEATURES.md"
+      }
+    ]
+  },
   "nodes": [
     {
       "label": "Prod Server proboi-bot (89.167.125.175)",
@@ -12,7 +42,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "prod server proboi-bot (89.167.125.175)",
       "id": "pkg_server_prod"
     },
@@ -25,7 +55,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "test server jinru (5.223.82.96, @orch7_bot)",
       "id": "pkg_server_jinru"
     },
@@ -38,7 +68,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "telegram bot @proboiai_bot",
       "id": "pkg_bot_proboiai"
     },
@@ -51,7 +81,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "telegram bot @orch7_bot",
       "id": "pkg_bot_orch7"
     },
@@ -64,7 +94,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "user \u0430\u0440\u0442\u0435\u043c (telegram id 5615267984)",
       "id": "pkg_user_artem"
     },
@@ -77,7 +107,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "batch #2: ui / uid / composio polling / profiler",
       "id": "pkg_batch2"
     },
@@ -90,7 +120,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "batch #3: composio polling correctness + disconnect",
       "id": "pkg_batch3"
     },
@@ -103,7 +133,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "fix a \u2014 single status bubble (\u0434\u0435\u0434\u0443\u043f \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441-\u043f\u0443\u0437\u044b\u0440\u044f)",
       "id": "pkg_fix_a_one_bubble"
     },
@@ -116,7 +146,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "fix b \u2014 env-check info-leak block in prompts",
       "id": "pkg_fix_b_info_leak"
     },
@@ -129,7 +159,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 5,
       "norm_label": "fix c \u2014 /new instant ack (reply \u2192 flush \u2192 kill)",
       "id": "pkg_fix_c_new_ack"
     },
@@ -142,7 +172,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "fix e \u2014 posttooluse write\u2192bash uid chown hook",
       "id": "pkg_fix_e_write_bash_uid"
     },
@@ -155,7 +185,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "fix d \u2014 composio oauth polling (24\u00d75s, abortcontroller dedup)",
       "id": "pkg_fix_d_composio_polling"
     },
@@ -168,7 +198,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "fix f \u2014 profiler marks (6 blindspot marks, profiler_enabled)",
       "id": "pkg_fix_f_profiler"
     },
@@ -181,7 +211,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "batch #3 fix \u2014 \u0442\u043e\u0447\u043d\u044b\u0438 \u0442\u0435\u043a\u0441\u0442 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f composio (map<id,status> snapshot)",
       "id": "pkg_fix_batch3_accurate_text"
     },
@@ -194,7 +224,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "batch #3 fix \u2014 mcp__connect-google__disconnect tool",
       "id": "pkg_fix_batch3_disconnect"
     },
@@ -207,7 +237,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "trace \u0430\u043d\u0430\u043b\u0438\u0437 (10 \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432 \u0430\u0440\u0442\u0435\u043c\u0430, deepseek bottleneck)",
       "id": "pkg_trace_analysis"
     },
@@ -220,7 +250,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "docs/smoke-batch3-checklist.md: 4 paid + 4 free test groups",
       "id": "pkg_smoke_batch3_checklist"
     },
@@ -233,7 +263,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 5,
       "norm_label": "smoke-batch 2026-05-16: 12 of 18 items closed",
       "id": "pkg_batch_smoke_16"
     },
@@ -246,7 +276,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "smoke group a \u2014 \u043a\u0440\u0438\u0442\u0438\u0447\u043d\u044b\u0435 (blacklist, memory filter, subscription pattern)",
       "id": "pkg_fix_group_a_smoke"
     },
@@ -259,7 +289,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "smoke group b \u2014 memory (label_index, try/catch, debounce scheduler, forcememoryflush)",
       "id": "pkg_fix_group_b_memory"
     },
@@ -272,7 +302,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "smoke group c \u2014 ui (fallback_plan_announcement \u0443\u0434\u0430\u043b\u0435\u043d, \u043e\u0434\u0438\u043d \u043f\u0443\u0437\u044b\u0440\u044c \u0441\u0442\u0430\u0442\u0443\u0441\u0430)",
       "id": "pkg_fix_group_c_ui"
     },
@@ -285,7 +315,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "smoke group d+h \u2014 \u043f\u0440\u043e\u043c\u043f\u0442\u044b + \u043f\u0440\u043e\u0444\u0438\u043b\u0438\u0440\u043e\u0432\u0449\u0438\u043a (\u043a\u0440\u0430\u0442\u043a\u043e\u0441\u0442\u044c \u0438 \u0441\u0443\u0442\u044c, profiler.ts)",
       "id": "pkg_fix_group_d_prompts"
     },
@@ -298,7 +328,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 5,
       "norm_label": "smoke group f \u2014 threads (/threads /resume_thread \u0441\u043d\u044f\u0442\u044b \u0438\u0437 \u043c\u0435\u043d\u044e)",
       "id": "pkg_fix_group_f_threads"
     },
@@ -311,7 +341,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 5,
       "norm_label": "smoke group g \u2014 composio_api_key \u0441\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d \u043d\u0430 jinru",
       "id": "pkg_fix_group_g_composio_key"
     },
@@ -324,7 +354,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 5,
       "norm_label": "smoke group e \u2014 write vs bash uid research (only research, no impl)",
       "id": "pkg_fix_group_e_research"
     },
@@ -337,7 +367,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 5,
       "norm_label": "code-review (sonnet): 2 high blockers (subscription pattern, memory flush double-fire)",
       "id": "pkg_code_review_blockers"
     },
@@ -350,7 +380,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-15 \u043d\u043e\u0447\u044c \u2014 allowedtools paid fix, toxic memory loop",
       "id": "pkg_state_night_0515"
     },
@@ -363,7 +393,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "fix acceptedits + allowedtools for paid tier (paid_allowed_tools 17 names)",
       "id": "pkg_fix_accepted_edits"
     },
@@ -376,7 +406,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "toxic memory loop: analyzer writes infra errors as facts \u2192 injected back \u2192 loop",
       "id": "pkg_toxic_memory_loop"
     },
@@ -389,7 +419,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-15 \u043f\u043e\u0437\u0434\u043d\u0438\u0438 \u0432\u0435\u0447\u0435\u0440 \u2014 b1/b2/b3 + paid-fix \u043d\u0430 test",
       "id": "pkg_state_eve_0515"
     },
@@ -402,7 +432,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "fix b1 \u2014 free-tier \u043d\u0435 \u043f\u0440\u043e\u0441\u0438\u0442 approve (free_disallowed_tools + buildfreetierprompt)",
       "id": "pkg_fix_b1_free_tier"
     },
@@ -415,7 +445,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "fix b2 \u2014 dedup \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441-\u043f\u0443\u0437\u044b\u0440\u044f (\u0435\u0434\u0438\u043d\u0430\u044f \u0441\u0442\u0440\u043e\u043a\u0430 announce.ts, progresslines \u043f\u043e\u0438\u0441\u043a)",
       "id": "pkg_fix_b2_dedup_bubble"
     },
@@ -428,7 +458,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "fix b3 \u2014 mini app \u043e\u0442\u043a\u0440\u044b\u0432\u0430\u0435\u0442\u0441\u044f \u043d\u0430 jinru (dashboard_url env + config.ts export)",
       "id": "pkg_fix_b3_mini_app"
     },
@@ -441,7 +471,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "fix paid permissionmode: acceptedits (sdk options \u0434\u043b\u044f tier=paid \u0432 session.ts)",
       "id": "pkg_fix_paid_permission"
     },
@@ -454,7 +484,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 6,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-15 \u0432\u0435\u0447\u0435\u0440 \u2014 \u043f\u0430\u043a\u0435\u0442 \u0438\u0437 7 \u0431\u043b\u043e\u043a\u043e\u0432 \u0437\u0430\u0434\u0435\u043f\u043b\u043e\u0435\u043d \u043d\u0430 test jinru",
       "id": "pkg_state_eve_pack_0515"
     },
@@ -467,7 +497,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 6,
       "norm_label": "pack item 1 \u2014 pending-deploy \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441-\u043f\u0443\u0437\u044b\u0440\u044c (announce, progressmsgid, streaming.ts)",
       "id": "pkg_pack_pending_deploy"
     },
@@ -480,7 +510,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 6,
       "norm_label": "pack item 2 \u2014 dashboard fix + v-35 (self-reporting, head-\u0440\u043e\u0443\u0442\u044b, cache-bust)",
       "id": "pkg_pack_dashboard_fix"
     },
@@ -493,7 +523,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 6,
       "norm_label": "pack item 3 \u2014 capacity p0+p2 (default_guest_cpus=0.5, guest_cpu_overrides)",
       "id": "pkg_pack_capacity"
     },
@@ -506,7 +536,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 6,
       "norm_label": "pack item 4 \u2014 p2 security (v-29 resume-hijack, v-30 transcript sanitize, v-36..v-39)",
       "id": "pkg_pack_security_p2"
     },
@@ -519,7 +549,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 5,
       "norm_label": "pack item 5 \u2014 topic-parking mid (threads store/prefilter/triggers/classifier/manager)",
       "id": "pkg_pack_topic_parking"
     },
@@ -532,7 +562,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 6,
       "norm_label": "pack item 6 \u2014 rf-db \u044d\u0442\u0430\u043f 0+1 (user-db server, users, metering, consent + client)",
       "id": "pkg_pack_rf_db"
     },
@@ -545,7 +575,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 6,
       "norm_label": "pack item 7 \u2014 capacity p1 (max_concurrent_container_sessions=10)",
       "id": "pkg_pack_capacity_p1"
     },
@@ -558,7 +588,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-14 eod+ \u2014 \u0444\u0438\u043a\u0441 \u043a\u0440\u0430\u0448\u0435\u0438, \u0443\u0434\u0430\u043b\u0435\u043d\u0438\u0435 context compression",
       "id": "pkg_state_0514_eod_plus"
     },
@@ -571,7 +601,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "fix: \u0443\u0434\u0430\u043b\u0435\u043d\u0430 context compression (compactifneeded + sanitizecompactionsummary)",
       "id": "pkg_fix_context_compression"
     },
@@ -584,7 +614,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "fix: file access blocked \u2014 3 \u043a\u043b\u0430\u0441\u0441\u0430 \u043f\u0443\u0442\u0435\u0438 \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u044b \u0434\u043b\u044f read-tool \u0433\u043e\u0441\u0442\u0435\u0438",
       "id": "pkg_fix_file_access_blocked"
     },
@@ -597,7 +627,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-14 eod \u2014 security hardening \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d, \u0432\u0435\u0442\u043a\u0430 \u0441\u043c\u0435\u0440\u0436\u0435\u043d\u0430",
       "id": "pkg_state_0514_eod"
     },
@@ -610,7 +640,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "branch feature/legal-docs-consent-gate (25 commits, 3e0b1d6..fc6edb8)",
       "id": "pkg_branch_legal_consent"
     },
@@ -623,7 +653,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 8,
       "norm_label": "consent gate: src/consent.ts + src/handlers/consent-gate.ts",
       "id": "pkg_consent_gate"
     },
@@ -636,7 +666,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "deepseek key pool (src/deepseek-key-pool.ts, least-busy selector)",
       "id": "pkg_deepseek_key_pool"
     },
@@ -649,7 +679,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "legal docs: oferta.ts, privacy.ts, terms.ts (ip enbom k.i., inn 631609033320)",
       "id": "pkg_legal_docs"
     },
@@ -662,7 +692,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "\u0440\u043e\u0442\u0430\u0446\u0438\u044f \u043a\u043b\u044e\u0447\u0435\u0438 2026-05-14 (tg, openai, openrouter, deepseek\u00d75, composio)",
       "id": "pkg_key_rotation"
     },
@@ -675,7 +705,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "pre-rotation security pack (23 commits, v--2..v-34, 14 \u0437\u043e\u043d)",
       "id": "pkg_security_pack_0514"
     },
@@ -688,7 +718,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "v-26 userns-remap docker user namespace isolation",
       "id": "pkg_v26_userns_remap"
     },
@@ -701,7 +731,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-13 \u2014 reliability hardening \u043d\u0430 prod",
       "id": "pkg_state_0513"
     },
@@ -714,7 +744,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 0,
       "norm_label": "fix: request timeouts openrouter/deepseek + claude subprocess (90s/600s)",
       "id": "pkg_fix_request_timeouts"
     },
@@ -727,7 +757,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "fix: per-user openrouter sub-keys (createguestsubkey, $2 limit)",
       "id": "pkg_fix_per_user_or_keys"
     },
@@ -740,7 +770,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "fix: memory cap 1024 mb (node_options systemd conf)",
       "id": "pkg_fix_memory_cap"
     },
@@ -753,7 +783,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-12 \u2014 containerenabled bugfix \u043d\u0430 prod",
       "id": "pkg_state_0512_container"
     },
@@ -766,7 +796,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "fix containerenabled per-user priority over tier config (config.ts:1159)",
       "id": "pkg_fix_container_enabled"
     },
@@ -779,7 +809,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 16,
+      "community": 20,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-12 \u2014 ux hardening \u043d\u0430 prod (4 \u0430\u0433\u0435\u043d\u0442\u0430 \u0430\u0443\u0434\u0438\u0442)",
       "id": "pkg_state_0512_ux"
     },
@@ -792,7 +822,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 16,
+      "community": 20,
       "norm_label": "ux hardening (commit e562cb0): resume/pay/invites/voice/text/video/tasks/index",
       "id": "pkg_ux_hardening"
     },
@@ -805,7 +835,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "\u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 2026-05-12 \u2014 claude code features \u043d\u0430 test jinru",
       "id": "pkg_state_0512_cc_features"
     },
@@ -818,7 +848,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "feat: todo-list + plan mode (todomarkerparser, planmarkerparser, plan_confirm/cancel)",
       "id": "pkg_feat_todo_plan"
     },
@@ -831,7 +861,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "feat: \u043a\u043e\u043c\u043f\u0430\u043a\u0446\u0438\u044f + redirect + /memory /forget (commit 633c634)",
       "id": "pkg_feat_compact_redirect_memory"
     },
@@ -896,7 +926,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 17,
+      "community": 21,
       "norm_label": "god node: daemon-runner (go pid 1, 12 edges)",
       "id": "pkg_god_node_daemon_runner"
     },
@@ -909,7 +939,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 1,
       "norm_label": "god node: parallel_mcp/server.ts mcp__parallel__run (7 edges)",
       "id": "pkg_god_node_parallel_mcp"
     },
@@ -922,7 +952,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "god node: buildnewguestsafetyprompt(userid, vaultdir) (6 edges)",
       "id": "pkg_god_node_guest_safety_prompt"
     },
@@ -935,7 +965,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "cluster 09: composio oauth \u0434\u043b\u044f google workspace (seed 09-composio-google.md)",
       "id": "pkg_cluster_composio_google"
     },
@@ -948,7 +978,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 1,
       "norm_label": "cluster 10: parallel_mcp mcp__parallel__run \u0434\u043b\u044f deepseek-\u0441\u0435\u0441\u0441\u0438\u0438 (seed 10)",
       "id": "pkg_cluster_parallel_mcp"
     },
@@ -961,7 +991,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 18,
+      "community": 22,
       "norm_label": "cluster 12: subscription gate src/subscription.ts (seed 12)",
       "id": "pkg_cluster_subscription_gate"
     },
@@ -974,7 +1004,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 21,
+      "community": 26,
       "norm_label": "cluster 13: idleheartbeat + idle-phrases.ts (seed 13)",
       "id": "pkg_cluster_idle_heartbeat"
     },
@@ -987,7 +1017,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 22,
+      "community": 27,
       "norm_label": "cluster 14: \u043b\u0435\u043d\u0434\u0438\u043d\u0433 proboi.site (seed 14, commit 3c046db)",
       "id": "pkg_cluster_landing"
     },
@@ -1000,7 +1030,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 17,
+      "community": 21,
       "norm_label": "cluster 15: always-on \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0437\u0430\u0446\u0438\u0438 daemon-runner + .daemons.yaml (seed 15)",
       "id": "pkg_cluster_daemons_always_on"
     },
@@ -1013,7 +1043,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "metering bugs h1/h2/h3 (token losses on ask-user, stop, memory analyzer)",
       "id": "pkg_metering_bugs"
     },
@@ -1026,7 +1056,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 23,
+      "community": 28,
       "norm_label": "open tasks: parallel_mcp testing, aaaa dns, hf_llm_mcp, openrouter execsync\u2192async",
       "id": "pkg_open_tasks"
     },
@@ -1039,7 +1069,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "security hardening 2026-05-10 (56 \u043a\u043e\u043c\u043c\u0438\u0442\u043e\u0432, s-01..s-53 \u0437\u0430\u043a\u0440\u044b\u0442\u044b)",
       "id": "pkg_security_hardening_0510"
     },
@@ -1052,7 +1082,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "rationale: \u043e\u043f\u0442\u0438\u043c\u0438\u0437\u0430\u0446\u0438\u044f \u0434\u0435\u0431\u0430\u0443\u043d\u0441\u0430 \u043e\u0442\u043b\u043e\u0436\u0435\u043d\u0430 \u2014 deepseek api \u0435\u0441\u0442 \u0432\u0441\u0435 \u0432\u0440\u0435\u043c\u044f, \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0438 \u043a\u043e\u0434 \u043d\u0435 \u043f\u0440\u0438\u0447\u0435\u043c",
       "id": "pkg_rationale_deepseek_bottleneck"
     },
@@ -1065,7 +1095,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "rationale: \u043f\u0440\u043e\u0434 \u043d\u0435 \u0434\u0435\u043f\u043b\u043e\u0438\u043c \u2014 \u0436\u0434\u0435\u043c 2-3 \u0443\u0441\u043f\u0435\u0448\u043d\u044b\u0445 smoke \u043d\u0430 jinru",
       "id": "pkg_rationale_no_prod_deploy"
     },
@@ -1078,7 +1108,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 6,
       "norm_label": "rationale: soft quota chosen over kernel quotas (ext4 mount lacks prjquota, remounting risky on live server)",
       "id": "pkg_rationale_soft_quota"
     },
@@ -1091,7 +1121,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "rationale: acceptedits \u0432\u043c\u0435\u0441\u0442\u043e bypasspermissions+allowdangerouslyskippermissions \u2014 exit 1 \u043f\u0440\u0438 \u0432\u0442\u043e\u0440\u043e\u0438 \u043a\u043e\u043c\u0431\u0438\u043d\u0430\u0446\u0438\u0438",
       "id": "pkg_rationale_acceptedits_only"
     },
@@ -1104,7 +1134,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "rationale: \u0444\u0438\u043b\u044c\u0442\u0440 \u0432 memory/analyzer.ts \u2014 \u043b\u044e\u0431\u043e\u0438 \u0438\u043d\u0444\u0440\u0430-\u0441\u0431\u043e\u0438 \u043f\u0440\u0435\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0441\u044f \u0432 \u043f\u043e\u0441\u0442\u043e\u044f\u043d\u043d\u043e\u0435 \u0438\u0441\u043a\u0430\u0436\u0435\u043d\u0438\u0435 \u043f\u043e\u0432\u0435\u0434\u0435\u043d\u0438\u044f",
       "id": "pkg_rationale_memory_filter"
     },
@@ -1117,7 +1147,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "rationale: \u0443\u0436\u0435\u0441\u0442\u043e\u0447\u0435\u043d subscription_pattern regex \u2014 \u0441\u0442\u0430\u0440\u044b\u0438 \u043b\u043e\u0432\u0438\u043b '\u043f\u0440\u043e\u0444\u0438\u043b\u044c', '\u0441\u0442\u0443\u0434\u0438\u044f', '\u043e\u043f\u043b\u0430\u0442\u0438\u043b \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u044b'",
       "id": "pkg_rationale_subscription_pattern"
     },
@@ -1130,7 +1160,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "src/handlers/streaming.ts",
       "id": "pkg_src_streaming"
     },
@@ -1143,7 +1173,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "src/session.ts",
       "id": "pkg_src_session"
     },
@@ -1156,7 +1186,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "src/config.ts",
       "id": "pkg_src_config"
     },
@@ -1169,7 +1199,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 5,
       "norm_label": "src/handlers/commands.ts",
       "id": "pkg_src_commands"
     },
@@ -1182,7 +1212,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "src/handlers/text.ts",
       "id": "pkg_src_text"
     },
@@ -1195,7 +1225,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "src/announce.ts",
       "id": "pkg_src_announce"
     },
@@ -1208,7 +1238,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "src/memory/analyzer.ts",
       "id": "pkg_src_memory_analyzer"
     },
@@ -1221,7 +1251,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "src/memory/graph.ts",
       "id": "pkg_src_memory_graph"
     },
@@ -1234,7 +1264,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "src/memory/inject.ts",
       "id": "pkg_src_memory_inject"
     },
@@ -1247,7 +1277,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "src/memory/analyzer-scheduler.ts (\u043d\u043e\u0432\u044b\u0438)",
       "id": "pkg_src_analyzer_scheduler"
     },
@@ -1260,7 +1290,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "src/profiler.ts (\u043d\u043e\u0432\u044b\u0438)",
       "id": "pkg_src_profiler"
     },
@@ -1273,7 +1303,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 5,
       "norm_label": "src/threads/manager.ts",
       "id": "pkg_src_threads_manager"
     },
@@ -1286,7 +1316,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 9,
+      "community": 0,
       "norm_label": "src/engines/openrouter.ts",
       "id": "pkg_src_openrouter"
     },
@@ -1299,7 +1329,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 8,
       "norm_label": "src/deepseek-key-pool.ts",
       "id": "pkg_src_deepseek_key_pool"
     },
@@ -1312,7 +1342,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 8,
       "norm_label": "src/consent.ts",
       "id": "pkg_src_consent"
     },
@@ -1325,7 +1355,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 8,
       "norm_label": "src/handlers/consent-gate.ts",
       "id": "pkg_src_consent_gate"
     },
@@ -1351,7 +1381,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 18,
+      "community": 22,
       "norm_label": "src/subscription.ts",
       "id": "pkg_src_subscription"
     },
@@ -1364,7 +1394,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 5,
       "norm_label": "src/index.ts",
       "id": "pkg_src_index"
     },
@@ -1377,7 +1407,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "src/composio.ts",
       "id": "pkg_src_composio"
     },
@@ -1390,7 +1420,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "src/mcp-filter.ts",
       "id": "pkg_src_mcp_filter"
     },
@@ -1403,7 +1433,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "connect_google_mcp/server.ts: mcp__connect-google__disconnect tool",
       "id": "pkg_connect_google_mcp"
     },
@@ -1416,7 +1446,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 1,
       "norm_label": "parallel_mcp/server.ts: mcp__parallel__run for deepseek sessions instead of task",
       "id": "pkg_parallel_mcp"
     },
@@ -1429,7 +1459,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 6,
+      "community": 5,
       "norm_label": "system/deepseek-blacklist.json: f1a7 blacklisted key filter",
       "id": "pkg_deepseek_blacklist"
     },
@@ -1442,7 +1472,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "mcp tool mcp__connect-google__connect",
       "id": "pkg_cmd_google"
     },
@@ -1455,7 +1485,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 5,
+      "community": 3,
       "norm_label": "mcp tool mcp__connect-google__disconnect",
       "id": "pkg_cmd_disconnect"
     },
@@ -1468,7 +1498,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 2,
+      "community": 1,
       "norm_label": "mcp tool mcp__parallel__run",
       "id": "pkg_cmd_parallel_run"
     },
@@ -1481,7 +1511,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "mcp tool mcp__container__bash",
       "id": "pkg_cmd_container_bash"
     },
@@ -1494,7 +1524,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 5,
       "norm_label": "\u043a\u043e\u043c\u0430\u043d\u0434\u0430 /new",
       "id": "pkg_cmd_new"
     },
@@ -1507,7 +1537,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 8,
+      "community": 5,
       "norm_label": "\u043a\u043e\u043c\u0430\u043d\u0434\u044b /threads \u0438 /resume_thread (\u0441\u043d\u044f\u0442\u044b \u0438\u0437 \u043c\u0435\u043d\u044e)",
       "id": "pkg_cmd_threads"
     },
@@ -1520,7 +1550,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 0,
       "norm_label": "\u043a\u043e\u043c\u0430\u043d\u0434\u044b /memory \u0438 /forget",
       "id": "pkg_cmd_memory"
     },
@@ -1533,7 +1563,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 1,
+      "community": 5,
       "norm_label": "docs/handoff-2026-05-16-smoke-batch.md",
       "id": "pkg_handoff_0516_smoke"
     },
@@ -1546,7 +1576,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 4,
+      "community": 10,
       "norm_label": "docs/handoff-2026-05-15-night.md",
       "id": "pkg_handoff_0515_night"
     },
@@ -1559,7 +1589,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 12,
+      "community": 0,
       "norm_label": "docs/handoff-2026-05-15-evening.md",
       "id": "pkg_handoff_0515_evening"
     },
@@ -1572,7 +1602,7 @@
       "captured_at": "2026-05-08",
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "15-daemons-and-containers: always-on container design decisions",
       "id": "daemons_and_containers_doc"
     },
@@ -1585,7 +1615,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "daemon-runner: go binary pid 1 in claude-user-sandbox, ~5-10 mb",
       "id": "daemon_runner_go"
     },
@@ -1598,7 +1628,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": ".daemons.yaml: manifest file for daemon registration, limit 3 per user",
       "id": "daemons_yaml_manifest"
     },
@@ -1611,7 +1641,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "oom policy: 3 crashes in 10 min \u2192 stop daemon + notify user + notify owner",
       "id": "oom_policy"
     },
@@ -1624,7 +1654,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "src/crashloop-watcher.ts: polls <vault>/.daemons-events/*-crashloop.json every 30s",
       "id": "crashloop_watcher"
     },
@@ -1637,7 +1667,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "src/owner-alerts.ts: notifyownerproblemchannel(text)",
       "id": "owner_alerts_ts"
     },
@@ -1650,7 +1680,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "owner problem channel: owner_problem_channel_id = -1003914293039",
       "id": "owner_problem_channel"
     },
@@ -1663,7 +1693,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "scripts/firewall/*: iptables egress rules \u2014 block port 25, rate-limit 465/587, 20gb/day + tc throttle",
       "id": "egress_firewall_scripts"
     },
@@ -1676,7 +1706,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "scripts/monitoring/*: docker stats every minute, 60-point history, alert if avg >70% for 1hr",
       "id": "cpu_monitoring_scripts"
     },
@@ -1689,7 +1719,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "--restart=unless-stopped: containers survive host reboot and docker daemon restart",
       "id": "container_restart_policy"
     },
@@ -1702,7 +1732,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "rationale: 3 daemon limit per user aligns with future \u0431\u0430\u0437\u043e\u0432\u044b\u0438=1/\u043f\u0440\u043e\u0444\u0438=3/\u0441\u0442\u0443\u0434\u0438\u044f=10 tiers",
       "id": "daemon_limit_rationale"
     },
@@ -1715,7 +1745,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "design decision: no user-hosted sites on proboi.site infrastructure \u2014 legal risk 149-\u0444\u0437",
       "id": "no_user_sites_decision"
     },
@@ -1728,7 +1758,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "mental model shift: container = ephemeral workspace \u2192 personal 24/7 slot",
       "id": "container_mental_model_shift"
     },
@@ -1741,7 +1771,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "network policy: block port 25 (smtp), allow 465/587 rate-limited, http/https open",
       "id": "smtp_egress_policy"
     },
@@ -1754,7 +1784,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "koen-assistant migration: systemd on host \u2192 inside container 946882308 under daemon-runner",
       "id": "koen_assistant_migration"
     },
@@ -1767,7 +1797,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 7,
+      "community": 11,
       "norm_label": "pause/stop container skip when .daemons.yaml has enabled:true daemons",
       "id": "pause_stop_skip_active_daemons"
     },
@@ -1780,7 +1810,7 @@
       "captured_at": "2026-05-11",
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "roadmap: claude code features for proboi bot (5 features)",
       "id": "roadmap_claude_code_features"
     },
@@ -1793,7 +1823,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "feature 1: plan mode \u2014 pre-execution plan with plan_start/plan_end markers and confirm/cancel/clarify buttons",
       "id": "feature_plan_mode"
     },
@@ -1806,7 +1836,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "feature 2: todo-list \u2014 live progress tracking with todo_list_start/todo_item/todo_start/todo_done markers",
       "id": "feature_todo_list"
     },
@@ -1819,7 +1849,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "feature 3: context compaction \u2014 auto-summarize old messages when approaching token limit",
       "id": "feature_context_compaction"
     },
@@ -1832,7 +1862,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "feature 4: guest memory \u2014 persistent session summaries in /opt/vault/{userid}/memory/",
       "id": "feature_guest_memory"
     },
@@ -1845,7 +1875,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "feature 5: redirect interrupt \u2014 !<text> aborts current execution and relaunches with new instruction",
       "id": "feature_redirect_interrupt"
     },
@@ -1858,7 +1888,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "sessionstate.pendingplan: stores plantext + originalmessage + abortedat",
       "id": "plan_mode_session_state"
     },
@@ -1871,7 +1901,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "plan mode: abortcontroller stops stream after plan_end, plan stored in pendingplan",
       "id": "plan_mode_abort_controller"
     },
@@ -1884,7 +1914,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "streamingstate extended: todomessageid + todoitems array with pending/in_progress/done",
       "id": "todo_streaming_state"
     },
@@ -1897,7 +1927,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "parsetodomarkers(chunk, state): parses todo_list_start/todo_start/todo_done in stream",
       "id": "todo_parse_markers"
     },
@@ -1910,7 +1940,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "estimatecontextsize(): reads sessionfile, counts json bytes, approximates tokens",
       "id": "compaction_estimate_context"
     },
@@ -1923,7 +1953,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "compactsession(): summarizes old messages via llm, replaces with summary block, rewrites sessionfile",
       "id": "compaction_compact_session"
     },
@@ -1936,7 +1966,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "buildsummaryprompt(): prompt for summarizing dialog history, max 2000 words",
       "id": "compaction_summary_prompt"
     },
@@ -1949,7 +1979,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "guest memory structure: /opt/vault/{userid}/memory/ with index.json, sessions/, facts.json, memory.md",
       "id": "guest_memory_structure"
     },
@@ -1962,7 +1992,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "savesessionmemory(): called on session end, generates summary, appends to day file, rebuilds memory.md",
       "id": "save_session_memory"
     },
@@ -1975,7 +2005,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "injectmemorycontext(): reads memory.md, injects as first system message if >50 chars",
       "id": "inject_memory_context"
     },
@@ -1988,7 +2018,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "rebuildmemorymd(): builds readable memory.md from last 14 days sessions + facts, max 50kb",
       "id": "rebuild_memory_md"
     },
@@ -2001,7 +2031,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "savepartialcontext(): appends partial assistant response to sessionfile on abort",
       "id": "save_partial_context"
     },
@@ -2014,7 +2044,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "interruptresult type: isinterrupt + isredirect + redirectmessage",
       "id": "interrupt_result_type"
     },
@@ -2027,7 +2057,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "stream marker ring buffer: last n chars buffered to detect markers split across chunks",
       "id": "stream_marker_buffer"
     },
@@ -2040,7 +2070,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "telegram editmessagetext debounce: max 1 edit/second per message",
       "id": "telegram_edit_debounce"
     },
@@ -2053,7 +2083,7 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "community": 3,
+      "community": 4,
       "norm_label": "rationale: compaction is top priority because sessions break now \u2014 only existing-bug fix in the roadmap",
       "id": "rationale_compaction_first"
     },
@@ -2066,9 +2096,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_project_state_2026_05_16_night",
-      "community": 11,
-      "norm_label": "project state 2026-05-16 night (owner\u2192paid, timeweb deploy)"
+      "community": 3,
+      "norm_label": "project state 2026-05-16 night (owner\u2192paid, timeweb deploy)",
+      "id": "pkg_project_state_2026_05_16_night"
     },
     {
       "label": "Timeweb prod server 5.42.126.60 (proboi-bot-msk)",
@@ -2079,9 +2109,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_timeweb_prod_server",
-      "community": 11,
-      "norm_label": "timeweb prod server 5.42.126.60 (proboi-bot-msk)"
+      "community": 3,
+      "norm_label": "timeweb prod server 5.42.126.60 (proboi-bot-msk)",
+      "id": "pkg_timeweb_prod_server"
     },
     {
       "label": "Hetzner server 89.167.125.175 (proboi-bot, retired)",
@@ -2092,9 +2122,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_hetzner_server",
-      "community": 11,
-      "norm_label": "hetzner server 89.167.125.175 (proboi-bot, retired)"
+      "community": 3,
+      "norm_label": "hetzner server 89.167.125.175 (proboi-bot, retired)",
+      "id": "pkg_hetzner_server"
     },
     {
       "label": "Owner profile merged into unified guest code-path",
@@ -2105,9 +2135,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_owner_profile_unification",
-      "community": 11,
-      "norm_label": "owner profile merged into unified guest code-path"
+      "community": 1,
+      "norm_label": "owner profile merged into unified guest code-path",
+      "id": "pkg_owner_profile_unification"
     },
     {
       "label": "src/config.ts",
@@ -2118,9 +2148,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_src_config_ts",
-      "community": 10,
-      "norm_label": "src/config.ts"
+      "community": 1,
+      "norm_label": "src/config.ts",
+      "id": "pkg_src_config_ts"
     },
     {
       "label": "HTTPS_PROXY for DeepSeek via Hetzner EU tinyproxy (WireGuard 10.200.0.1:3128)",
@@ -2131,9 +2161,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_https_proxy_deepseek",
-      "community": 10,
-      "norm_label": "https_proxy for deepseek via hetzner eu tinyproxy (wireguard 10.200.0.1:3128)"
+      "community": 1,
+      "norm_label": "https_proxy for deepseek via hetzner eu tinyproxy (wireguard 10.200.0.1:3128)",
+      "id": "pkg_https_proxy_deepseek"
     },
     {
       "label": "DeepSeek API 9-min hang on Timeweb IP (possible throttle)",
@@ -2144,9 +2174,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_timeout_issue",
-      "community": 0,
-      "norm_label": "deepseek api 9-min hang on timeweb ip (possible throttle)"
+      "community": 2,
+      "norm_label": "deepseek api 9-min hang on timeweb ip (possible throttle)",
+      "id": "pkg_deepseek_timeout_issue"
     },
     {
       "label": "src/session.ts",
@@ -2157,9 +2187,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_session_ts",
-      "community": 0,
-      "norm_label": "src/session.ts"
+      "community": 2,
+      "norm_label": "src/session.ts",
+      "id": "pkg_session_ts"
     },
     {
       "label": "queryTimeoutMs = 600_000 (10 min DeepSeek timeout)",
@@ -2170,9 +2200,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_query_timeout_ms",
-      "community": 0,
-      "norm_label": "querytimeoutms = 600_000 (10 min deepseek timeout)"
+      "community": 2,
+      "norm_label": "querytimeoutms = 600_000 (10 min deepseek timeout)",
+      "id": "pkg_query_timeout_ms"
     },
     {
       "label": "Owner exit code 1 bug (orphan process with wrong flags)",
@@ -2183,9 +2213,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_owner_exit_code_1",
-      "community": 11,
-      "norm_label": "owner exit code 1 bug (orphan process with wrong flags)"
+      "community": 1,
+      "norm_label": "owner exit code 1 bug (orphan process with wrong flags)",
+      "id": "pkg_owner_exit_code_1"
     },
     {
       "label": "commit c24994e: refactor owner profile merged into unified guest code-path",
@@ -2196,9 +2226,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_commit_c24994e",
-      "community": 11,
-      "norm_label": "commit c24994e: refactor owner profile merged into unified guest code-path"
+      "community": 1,
+      "norm_label": "commit c24994e: refactor owner profile merged into unified guest code-path",
+      "id": "pkg_commit_c24994e"
     },
     {
       "label": "commit 01341ca: docs RKN notifications and security article",
@@ -2209,9 +2239,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_commit_01341ca",
-      "community": 24,
-      "norm_label": "commit 01341ca: docs rkn notifications and security article"
+      "community": 29,
+      "norm_label": "commit 01341ca: docs rkn notifications and security article",
+      "id": "pkg_commit_01341ca"
     },
     {
       "label": "commit b629b39: docs update prod address in CLAUDE.md",
@@ -2222,9 +2252,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_commit_b629b39",
-      "community": 25,
-      "norm_label": "commit b629b39: docs update prod address in claude.md"
+      "community": 30,
+      "norm_label": "commit b629b39: docs update prod address in claude.md",
+      "id": "pkg_commit_b629b39"
     },
     {
       "label": "Open task: Subscription gate activation (REQUIRED_CHANNEL_ID)",
@@ -2235,9 +2265,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_subscription_gate_task",
-      "community": 26,
-      "norm_label": "open task: subscription gate activation (required_channel_id)"
+      "community": 31,
+      "norm_label": "open task: subscription gate activation (required_channel_id)",
+      "id": "pkg_subscription_gate_task"
     },
     {
       "label": "Batch #2: UI / UID / Composio polling / profiler fixes",
@@ -2248,9 +2278,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_batch2_ui_uid_composio",
-      "community": 11,
-      "norm_label": "batch #2: ui / uid / composio polling / profiler fixes"
+      "community": 3,
+      "norm_label": "batch #2: ui / uid / composio polling / profiler fixes",
+      "id": "pkg_batch2_ui_uid_composio"
     },
     {
       "label": "jinru test server 5.223.82.96 (@ORCH7_bot)",
@@ -2261,9 +2291,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_jinru_test_server",
-      "community": 11,
-      "norm_label": "jinru test server 5.223.82.96 (@orch7_bot)"
+      "community": 3,
+      "norm_label": "jinru test server 5.223.82.96 (@orch7_bot)",
+      "id": "pkg_jinru_test_server"
     },
     {
       "label": "src/handlers/streaming.ts",
@@ -2274,9 +2304,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_streaming_ts",
-      "community": 0,
-      "norm_label": "src/handlers/streaming.ts"
+      "community": 2,
+      "norm_label": "src/handlers/streaming.ts",
+      "id": "pkg_streaming_ts"
     },
     {
       "label": "src/announce.ts",
@@ -2287,9 +2317,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_announce_ts",
-      "community": 0,
-      "norm_label": "src/announce.ts"
+      "community": 2,
+      "norm_label": "src/announce.ts",
+      "id": "pkg_announce_ts"
     },
     {
       "label": "Single status bubble (deduplicated, fallback plan announcement removed)",
@@ -2300,9 +2330,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_status_bubble_dedup",
-      "community": 0,
-      "norm_label": "single status bubble (deduplicated, fallback plan announcement removed)"
+      "community": 2,
+      "norm_label": "single status bubble (deduplicated, fallback plan announcement removed)",
+      "id": "pkg_status_bubble_dedup"
     },
     {
       "label": "Info-leak fix: env-check block in paid/free prompts, ban df/free/uname",
@@ -2313,9 +2343,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_info_leak_env_check",
-      "community": 10,
-      "norm_label": "info-leak fix: env-check block in paid/free prompts, ban df/free/uname"
+      "community": 1,
+      "norm_label": "info-leak fix: env-check block in paid/free prompts, ban df/free/uname",
+      "id": "pkg_info_leak_env_check"
     },
     {
       "label": "src/handlers/commands.ts",
@@ -2326,9 +2356,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_commands_ts",
-      "community": 10,
-      "norm_label": "src/handlers/commands.ts"
+      "community": 1,
+      "norm_label": "src/handlers/commands.ts",
+      "id": "pkg_commands_ts"
     },
     {
       "label": "/new instant ack: reply \u2192 forceMemoryFlush fire-and-forget \u2192 kill",
@@ -2339,9 +2369,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_new_instant_ack",
-      "community": 10,
-      "norm_label": "/new instant ack: reply \u2192 forcememoryflush fire-and-forget \u2192 kill"
+      "community": 1,
+      "norm_label": "/new instant ack: reply \u2192 forcememoryflush fire-and-forget \u2192 kill",
+      "id": "pkg_new_instant_ack"
     },
     {
       "label": "Write\u2192Bash UID hook: PostToolUse chown 101000:101000 after Write/Edit in /opt/vault/",
@@ -2352,9 +2382,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_write_bash_uid_hook",
-      "community": 0,
-      "norm_label": "write\u2192bash uid hook: posttooluse chown 101000:101000 after write/edit in /opt/vault/"
+      "community": 2,
+      "norm_label": "write\u2192bash uid hook: posttooluse chown 101000:101000 after write/edit in /opt/vault/",
+      "id": "pkg_write_bash_uid_hook"
     },
     {
       "label": "Composio OAuth polling: 24\u00d75s polling after OAuth button, GRACE_MS=10000",
@@ -2365,9 +2395,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_composio_oauth_polling",
-      "community": 0,
-      "norm_label": "composio oauth polling: 24\u00d75s polling after oauth button, grace_ms=10000"
+      "community": 2,
+      "norm_label": "composio oauth polling: 24\u00d75s polling after oauth button, grace_ms=10000",
+      "id": "pkg_composio_oauth_polling"
     },
     {
       "label": "Profiler marks: 6 blind-spot marks (debounce_fired, getUserProfile_done, etc.)",
@@ -2378,9 +2408,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_profiler_marks",
-      "community": 0,
-      "norm_label": "profiler marks: 6 blind-spot marks (debounce_fired, getuserprofile_done, etc.)"
+      "community": 2,
+      "norm_label": "profiler marks: 6 blind-spot marks (debounce_fired, getuserprofile_done, etc.)",
+      "id": "pkg_profiler_marks"
     },
     {
       "label": "src/handlers/text.ts",
@@ -2391,9 +2421,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_text_ts",
-      "community": 0,
-      "norm_label": "src/handlers/text.ts"
+      "community": 2,
+      "norm_label": "src/handlers/text.ts",
+      "id": "pkg_text_ts"
     },
     {
       "label": "Trace analysis: local infra ~850ms, DeepSeek LLM 5800-20500ms",
@@ -2404,9 +2434,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_latency_trace",
-      "community": 27,
-      "norm_label": "trace analysis: local infra ~850ms, deepseek llm 5800-20500ms"
+      "community": 32,
+      "norm_label": "trace analysis: local infra ~850ms, deepseek llm 5800-20500ms",
+      "id": "pkg_deepseek_latency_trace"
     },
     {
       "label": "Batch #3: Composio polling correctness + disconnect MCP tool",
@@ -2417,9 +2447,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_batch3_composio_disconnect",
-      "community": 0,
-      "norm_label": "batch #3: composio polling correctness + disconnect mcp tool"
+      "community": 3,
+      "norm_label": "batch #3: composio polling correctness + disconnect mcp tool",
+      "id": "pkg_batch3_composio_disconnect"
     },
     {
       "label": "State 2026-05-16 day: smoke-batch deployed on jinru, 12/18 items closed",
@@ -2430,9 +2460,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_smoke_batch_day_state",
-      "community": 5,
-      "norm_label": "state 2026-05-16 day: smoke-batch deployed on jinru, 12/18 items closed"
+      "community": 3,
+      "norm_label": "state 2026-05-16 day: smoke-batch deployed on jinru, 12/18 items closed",
+      "id": "pkg_smoke_batch_day_state"
     },
     {
       "label": "src/deepseek-key-pool.ts",
@@ -2443,9 +2473,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_key_pool_ts",
-      "community": 6,
-      "norm_label": "src/deepseek-key-pool.ts"
+      "community": 5,
+      "norm_label": "src/deepseek-key-pool.ts",
+      "id": "pkg_deepseek_key_pool_ts"
     },
     {
       "label": "src/memory/inject.ts",
@@ -2456,9 +2486,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_memory_inject_ts",
-      "community": 19,
-      "norm_label": "src/memory/inject.ts"
+      "community": 23,
+      "norm_label": "src/memory/inject.ts",
+      "id": "pkg_memory_inject_ts"
     },
     {
       "label": "SUBSCRIPTION_PATTERN false-positive fix: regex tightened to specific terms",
@@ -2469,9 +2499,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_subscription_pattern_fix",
-      "community": 10,
-      "norm_label": "subscription_pattern false-positive fix: regex tightened to specific terms"
+      "community": 1,
+      "norm_label": "subscription_pattern false-positive fix: regex tightened to specific terms",
+      "id": "pkg_subscription_pattern_fix"
     },
     {
       "label": "forceMemoryFlush double/triple-fire fix: boolean guard flushPendingForUser",
@@ -2482,9 +2512,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_force_memory_flush_fix",
-      "community": 10,
-      "norm_label": "forcememoryflush double/triple-fire fix: boolean guard flushpendingforuser"
+      "community": 1,
+      "norm_label": "forcememoryflush double/triple-fire fix: boolean guard flushpendingforuser",
+      "id": "pkg_force_memory_flush_fix"
     },
     {
       "label": "src/memory/analyzer.ts",
@@ -2495,9 +2525,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_memory_analyzer_ts",
-      "community": 4,
-      "norm_label": "src/memory/analyzer.ts"
+      "community": 10,
+      "norm_label": "src/memory/analyzer.ts",
+      "id": "pkg_memory_analyzer_ts"
     },
     {
       "label": "src/memory/graph.ts",
@@ -2508,9 +2538,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_memory_graph_ts",
-      "community": 19,
-      "norm_label": "src/memory/graph.ts"
+      "community": 23,
+      "norm_label": "src/memory/graph.ts",
+      "id": "pkg_memory_graph_ts"
     },
     {
       "label": "src/memory/analyzer-scheduler.ts: 10-min debounce scheduler",
@@ -2521,9 +2551,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_analyzer_scheduler_ts",
-      "community": 4,
-      "norm_label": "src/memory/analyzer-scheduler.ts: 10-min debounce scheduler"
+      "community": 10,
+      "norm_label": "src/memory/analyzer-scheduler.ts: 10-min debounce scheduler",
+      "id": "pkg_analyzer_scheduler_ts"
     },
     {
       "label": "State 2026-05-15 night: Bash for paid fixed via allowedTools",
@@ -2534,9 +2564,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_paid_allowedtools_fix",
-      "community": 0,
-      "norm_label": "state 2026-05-15 night: bash for paid fixed via allowedtools"
+      "community": 2,
+      "norm_label": "state 2026-05-15 night: bash for paid fixed via allowedtools",
+      "id": "pkg_paid_allowedtools_fix"
     },
     {
       "label": "permissionMode acceptEdits covers only Write/Edit/MultiEdit/NotebookEdit (not Bash)",
@@ -2547,9 +2577,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_permission_mode_accept_edits",
-      "community": 0,
-      "norm_label": "permissionmode acceptedits covers only write/edit/multiedit/notebookedit (not bash)"
+      "community": 3,
+      "norm_label": "permissionmode acceptedits covers only write/edit/multiedit/notebookedit (not bash)",
+      "id": "pkg_permission_mode_accept_edits"
     },
     {
       "label": "PAID_ALLOWED_TOOLS: 17 tool names in allowedTools for paid tier",
@@ -2560,9 +2590,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_paid_allowed_tools",
-      "community": 0,
-      "norm_label": "paid_allowed_tools: 17 tool names in allowedtools for paid tier"
+      "community": 3,
+      "norm_label": "paid_allowed_tools: 17 tool names in allowedtools for paid tier",
+      "id": "pkg_paid_allowed_tools"
     },
     {
       "label": "Artem user (5615267984): paid test profile on jinru",
@@ -2573,9 +2603,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_artem_user",
-      "community": 4,
-      "norm_label": "artem user (5615267984): paid test profile on jinru"
+      "community": 10,
+      "norm_label": "artem user (5615267984): paid test profile on jinru",
+      "id": "pkg_artem_user"
     },
     {
       "label": "B1: free-tier no longer requests Approve (FREE_DISALLOWED_TOOLS expanded + buildFreeTierPrompt)",
@@ -2586,9 +2616,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_b1_free_tier_fix",
-      "community": 10,
-      "norm_label": "b1: free-tier no longer requests approve (free_disallowed_tools expanded + buildfreetierprompt)"
+      "community": 1,
+      "norm_label": "b1: free-tier no longer requests approve (free_disallowed_tools expanded + buildfreetierprompt)",
+      "id": "pkg_b1_free_tier_fix"
     },
     {
       "label": "B2: progress bubble dedup (single string, full-array search)",
@@ -2599,9 +2629,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_b2_progress_dedup",
-      "community": 28,
-      "norm_label": "b2: progress bubble dedup (single string, full-array search)"
+      "community": 33,
+      "norm_label": "b2: progress bubble dedup (single string, full-array search)",
+      "id": "pkg_b2_progress_dedup"
     },
     {
       "label": "B3: Mini App Dashboard URL per-host config (DASHBOARD_URL env)",
@@ -2612,9 +2642,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_b3_dashboard_url",
-      "community": 10,
-      "norm_label": "b3: mini app dashboard url per-host config (dashboard_url env)"
+      "community": 1,
+      "norm_label": "b3: mini app dashboard url per-host config (dashboard_url env)",
+      "id": "pkg_b3_dashboard_url"
     },
     {
       "label": "Paid mode fixed: permissionMode acceptEdits in session.ts for paid tier",
@@ -2625,9 +2655,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_paid_mode_accept_edits",
-      "community": 0,
-      "norm_label": "paid mode fixed: permissionmode acceptedits in session.ts for paid tier"
+      "community": 2,
+      "norm_label": "paid mode fixed: permissionmode acceptedits in session.ts for paid tier",
+      "id": "pkg_paid_mode_accept_edits"
     },
     {
       "label": "Context compression removed (compactIfNeeded + sanitizeCompactionSummary deleted)",
@@ -2638,9 +2668,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_context_compression_removal",
-      "community": 0,
-      "norm_label": "context compression removed (compactifneeded + sanitizecompactionsummary deleted)"
+      "community": 2,
+      "norm_label": "context compression removed (compactifneeded + sanitizecompactionsummary deleted)",
+      "id": "pkg_context_compression_removal"
     },
     {
       "label": "File access blocked fix: /root/.claude/projects/ + /root/.claude/plans/ + /tmp/ allowed for Read",
@@ -2651,9 +2681,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_file_access_blocked_fix",
-      "community": 0,
-      "norm_label": "file access blocked fix: /root/.claude/projects/ + /root/.claude/plans/ + /tmp/ allowed for read"
+      "community": 2,
+      "norm_label": "file access blocked fix: /root/.claude/projects/ + /root/.claude/plans/ + /tmp/ allowed for read",
+      "id": "pkg_file_access_blocked_fix"
     },
     {
       "label": "commit 6a2f66c: fix crashes + remove context compression",
@@ -2664,9 +2694,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_commit_6a2f66c",
-      "community": 0,
-      "norm_label": "commit 6a2f66c: fix crashes + remove context compression"
+      "community": 2,
+      "norm_label": "commit 6a2f66c: fix crashes + remove context compression",
+      "id": "pkg_commit_6a2f66c"
     },
     {
       "label": "Security hardening complete: 27 fixes V-2..V-34 deployed, keys rotated",
@@ -2677,9 +2707,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_security_hardening_complete",
-      "community": 2,
-      "norm_label": "security hardening complete: 27 fixes v-2..v-34 deployed, keys rotated"
+      "community": 1,
+      "norm_label": "security hardening complete: 27 fixes v-2..v-34 deployed, keys rotated",
+      "id": "pkg_security_hardening_complete"
     },
     {
       "label": "src/consent.ts: SQLite consent store in metering.sqlite, DOC_VERSION",
@@ -2690,9 +2720,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_consent_ts",
-      "community": 2,
-      "norm_label": "src/consent.ts: sqlite consent store in metering.sqlite, doc_version"
+      "community": 8,
+      "norm_label": "src/consent.ts: sqlite consent store in metering.sqlite, doc_version",
+      "id": "pkg_consent_ts"
     },
     {
       "label": "src/handlers/consent-gate.ts",
@@ -2703,9 +2733,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_consent_gate_ts",
-      "community": 2,
-      "norm_label": "src/handlers/consent-gate.ts"
+      "community": 8,
+      "norm_label": "src/handlers/consent-gate.ts",
+      "id": "pkg_consent_gate_ts"
     },
     {
       "label": "DeepSeek Key Pool: least-busy selector from system/deepseek-keys.json",
@@ -2716,9 +2746,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_key_pool_feature",
-      "community": 6,
-      "norm_label": "deepseek key pool: least-busy selector from system/deepseek-keys.json"
+      "community": 5,
+      "norm_label": "deepseek key pool: least-busy selector from system/deepseek-keys.json",
+      "id": "pkg_deepseek_key_pool_feature"
     },
     {
       "label": "src/templates/oferta.ts: 16 sections, liability cap 2000 RUB",
@@ -2729,9 +2759,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_oferta_ts",
-      "community": 6,
-      "norm_label": "src/templates/oferta.ts: 16 sections, liability cap 2000 rub"
+      "community": 8,
+      "norm_label": "src/templates/oferta.ts: 16 sections, liability cap 2000 rub",
+      "id": "pkg_oferta_ts"
     },
     {
       "label": "src/templates/privacy.ts: 14 sections, 152-FZ, transborder transfer consent",
@@ -2742,9 +2772,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_privacy_ts",
-      "community": 6,
-      "norm_label": "src/templates/privacy.ts: 14 sections, 152-fz, transborder transfer consent"
+      "community": 8,
+      "norm_label": "src/templates/privacy.ts: 14 sections, 152-fz, transborder transfer consent",
+      "id": "pkg_privacy_ts"
     },
     {
       "label": "src/templates/terms.ts: 10 sections, container liability block",
@@ -2755,9 +2785,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_terms_ts",
-      "community": 6,
-      "norm_label": "src/templates/terms.ts: 10 sections, container liability block"
+      "community": 8,
+      "norm_label": "src/templates/terms.ts: 10 sections, container liability block",
+      "id": "pkg_terms_ts"
     },
     {
       "label": "V-26: userns-remap (Docker user namespace isolation), UID 1000 \u2192 host 101000",
@@ -2768,9 +2798,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_userns_remap_v26",
-      "community": 0,
-      "norm_label": "v-26: userns-remap (docker user namespace isolation), uid 1000 \u2192 host 101000"
+      "community": 2,
+      "norm_label": "v-26: userns-remap (docker user namespace isolation), uid 1000 \u2192 host 101000",
+      "id": "pkg_userns_remap_v26"
     },
     {
       "label": "overlay2 storage driver (after userns-remap migration on both servers)",
@@ -2781,9 +2811,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_overlay2_storage",
-      "community": 0,
-      "norm_label": "overlay2 storage driver (after userns-remap migration on both servers)"
+      "community": 2,
+      "norm_label": "overlay2 storage driver (after userns-remap migration on both servers)",
+      "id": "pkg_overlay2_storage"
     },
     {
       "label": "Pre-rotation security hardening 2026-05-14: 23 atomic commits, all zones covered",
@@ -2794,9 +2824,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_security_hardening_2026_05_14",
-      "community": 2,
-      "norm_label": "pre-rotation security hardening 2026-05-14: 23 atomic commits, all zones covered"
+      "community": 1,
+      "norm_label": "pre-rotation security hardening 2026-05-14: 23 atomic commits, all zones covered",
+      "id": "pkg_security_hardening_2026_05_14"
     },
     {
       "label": "Trigger: TELEGRAM_BOT_TOKEN leaked via free guest (cat /opt/claude-tg-bot/.env)",
@@ -2807,9 +2837,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_token_leak_trigger",
-      "community": 2,
-      "norm_label": "trigger: telegram_bot_token leaked via free guest (cat /opt/claude-tg-bot/.env)"
+      "community": 1,
+      "norm_label": "trigger: telegram_bot_token leaked via free guest (cat /opt/claude-tg-bot/.env)",
+      "id": "pkg_token_leak_trigger"
     },
     {
       "label": "FREE_DISALLOWED_TOOLS: blocks Bash/Read/Write/WebFetch/Task for free tier",
@@ -2820,9 +2850,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_free_disallowed_tools",
-      "community": 10,
-      "norm_label": "free_disallowed_tools: blocks bash/read/write/webfetch/task for free tier"
+      "community": 1,
+      "norm_label": "free_disallowed_tools: blocks bash/read/write/webfetch/task for free tier",
+      "id": "pkg_free_disallowed_tools"
     },
     {
       "label": "Reliability hardening 2026-05-13: timeouts, OR sub-keys, memory cap",
@@ -2833,9 +2863,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_reliability_hardening_2026_05_13",
-      "community": 0,
-      "norm_label": "reliability hardening 2026-05-13: timeouts, or sub-keys, memory cap"
+      "community": 2,
+      "norm_label": "reliability hardening 2026-05-13: timeouts, or sub-keys, memory cap",
+      "id": "pkg_reliability_hardening_2026_05_13"
     },
     {
       "label": "src/engines/openrouter.ts",
@@ -2846,9 +2876,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_openrouter_ts",
-      "community": 0,
-      "norm_label": "src/engines/openrouter.ts"
+      "community": 2,
+      "norm_label": "src/engines/openrouter.ts",
+      "id": "pkg_openrouter_ts"
     },
     {
       "label": "AbortSignal.any + timeout(90_000) on main OpenRouter/DeepSeek fetch",
@@ -2859,9 +2889,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_abort_signal_timeout",
-      "community": 0,
-      "norm_label": "abortsignal.any + timeout(90_000) on main openrouter/deepseek fetch"
+      "community": 2,
+      "norm_label": "abortsignal.any + timeout(90_000) on main openrouter/deepseek fetch",
+      "id": "pkg_abort_signal_timeout"
     },
     {
       "label": "Memory cap 1024 MB via NODE_OPTIONS=--max-old-space-size=1024",
@@ -2872,9 +2902,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_memory_cap_1024mb",
-      "community": 0,
-      "norm_label": "memory cap 1024 mb via node_options=--max-old-space-size=1024"
+      "community": 2,
+      "norm_label": "memory cap 1024 mb via node_options=--max-old-space-size=1024",
+      "id": "pkg_memory_cap_1024mb"
     },
     {
       "label": "containerEnabled bugfix: per-user setting takes priority over tier config",
@@ -2885,9 +2915,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_container_enabled_bugfix",
-      "community": 10,
-      "norm_label": "containerenabled bugfix: per-user setting takes priority over tier config"
+      "community": 1,
+      "norm_label": "containerenabled bugfix: per-user setting takes priority over tier config",
+      "id": "pkg_container_enabled_bugfix"
     },
     {
       "label": "commit 10c83d0: fix containerEnabled per-user priority",
@@ -2898,9 +2928,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_commit_10c83d0",
-      "community": 10,
-      "norm_label": "commit 10c83d0: fix containerenabled per-user priority"
+      "community": 1,
+      "norm_label": "commit 10c83d0: fix containerenabled per-user priority",
+      "id": "pkg_commit_10c83d0"
     },
     {
       "label": "YuKassa payment flow: src/payments.ts, webhook, subscription, trial, /cancel",
@@ -2911,9 +2941,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_yukassa_payment_flow",
-      "community": 2,
-      "norm_label": "yukassa payment flow: src/payments.ts, webhook, subscription, trial, /cancel"
+      "community": 8,
+      "norm_label": "yukassa payment flow: src/payments.ts, webhook, subscription, trial, /cancel",
+      "id": "pkg_yukassa_payment_flow"
     },
     {
       "label": "src/payments.ts: sendYuKassaBindingLink, handleYuKassaWebhook, activateSubscription",
@@ -2924,9 +2954,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_payments_ts",
-      "community": 2,
-      "norm_label": "src/payments.ts: sendyukassabindinglink, handleyukassawebhook, activatesubscription"
+      "community": 8,
+      "norm_label": "src/payments.ts: sendyukassabindinglink, handleyukassawebhook, activatesubscription",
+      "id": "pkg_payments_ts"
     },
     {
       "label": "Daily limit gate + free doc gate with upsell CTA",
@@ -2937,9 +2967,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_daily_limit_gate",
-      "community": 0,
-      "norm_label": "daily limit gate + free doc gate with upsell cta"
+      "community": 2,
+      "norm_label": "daily limit gate + free doc gate with upsell cta",
+      "id": "pkg_daily_limit_gate"
     },
     {
       "label": "God Nodes (top connectivity): daemon-runner, Test Server State, fast-path, parallel_mcp",
@@ -2950,9 +2980,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_god_nodes",
-      "community": 2,
-      "norm_label": "god nodes (top connectivity): daemon-runner, test server state, fast-path, parallel_mcp"
+      "community": 1,
+      "norm_label": "god nodes (top connectivity): daemon-runner, test server state, fast-path, parallel_mcp",
+      "id": "pkg_god_nodes"
     },
     {
       "label": "daemon-runner (Go PID 1 supervisor): 12 edges, top god node",
@@ -2963,9 +2993,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_daemon_runner",
-      "community": 2,
-      "norm_label": "daemon-runner (go pid 1 supervisor): 12 edges, top god node"
+      "community": 1,
+      "norm_label": "daemon-runner (go pid 1 supervisor): 12 edges, top god node",
+      "id": "pkg_daemon_runner"
     },
     {
       "label": "buildNewGuestSafetyPrompt(userId, vaultDir): 6 edges, god node",
@@ -2976,9 +3006,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_build_new_guest_safety_prompt",
-      "community": 2,
-      "norm_label": "buildnewguestsafetyprompt(userid, vaultdir): 6 edges, god node"
+      "community": 1,
+      "norm_label": "buildnewguestsafetyprompt(userid, vaultdir): 6 edges, god node",
+      "id": "pkg_build_new_guest_safety_prompt"
     },
     {
       "label": "Cluster 09: Composio OAuth for Google Workspace (mcp__connect-google)",
@@ -2989,9 +3019,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_composio_google_cluster",
-      "community": 5,
-      "norm_label": "cluster 09: composio oauth for google workspace (mcp__connect-google)"
+      "community": 3,
+      "norm_label": "cluster 09: composio oauth for google workspace (mcp__connect-google)",
+      "id": "pkg_composio_google_cluster"
     },
     {
       "label": "src/composio.ts: OAuth helpers for Composio Google",
@@ -3002,9 +3032,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_composio_ts",
-      "community": 5,
-      "norm_label": "src/composio.ts: oauth helpers for composio google"
+      "community": 3,
+      "norm_label": "src/composio.ts: oauth helpers for composio google",
+      "id": "pkg_composio_ts"
     },
     {
       "label": "src/mcp-filter.ts: inject google-workspace for owner and guest",
@@ -3015,9 +3045,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_mcp_filter_ts",
-      "community": 5,
-      "norm_label": "src/mcp-filter.ts: inject google-workspace for owner and guest"
+      "community": 3,
+      "norm_label": "src/mcp-filter.ts: inject google-workspace for owner and guest",
+      "id": "pkg_mcp_filter_ts"
     },
     {
       "label": "src/subscription.ts: subscription gate for @ProBoiAI channel",
@@ -3028,9 +3058,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_subscription_ts",
-      "community": 10,
-      "norm_label": "src/subscription.ts: subscription gate for @proboiai channel"
+      "community": 1,
+      "norm_label": "src/subscription.ts: subscription gate for @proboiai channel",
+      "id": "pkg_subscription_ts"
     },
     {
       "label": "src/engines/deepseek-fast.ts: direct REST to DeepSeek without CLI",
@@ -3041,9 +3071,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_deepseek_fast_ts",
-      "community": 0,
-      "norm_label": "src/engines/deepseek-fast.ts: direct rest to deepseek without cli"
+      "community": 2,
+      "norm_label": "src/engines/deepseek-fast.ts: direct rest to deepseek without cli",
+      "id": "pkg_deepseek_fast_ts"
     },
     {
       "label": "src/idle-phrases.ts: 130 heartbeat phrases",
@@ -3054,9 +3084,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_idle_phrases_ts",
-      "community": 0,
-      "norm_label": "src/idle-phrases.ts: 130 heartbeat phrases"
+      "community": 2,
+      "norm_label": "src/idle-phrases.ts: 130 heartbeat phrases",
+      "id": "pkg_idle_phrases_ts"
     },
     {
       "label": "LXCFS: 7 /proc bind-mounts for cgroup-aware free/top (512MB shown as limit)",
@@ -3067,9 +3097,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_lxcfs_bind_mount",
-      "community": 14,
-      "norm_label": "lxcfs: 7 /proc bind-mounts for cgroup-aware free/top (512mb shown as limit)"
+      "community": 17,
+      "norm_label": "lxcfs: 7 /proc bind-mounts for cgroup-aware free/top (512mb shown as limit)",
+      "id": "pkg_lxcfs_bind_mount"
     },
     {
       "label": "src/containers/spec.ts: buildRunArgs with skipLxcfs option",
@@ -3080,9 +3110,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_spec_ts",
-      "community": 14,
-      "norm_label": "src/containers/spec.ts: buildrunargs with skiplxcfs option"
+      "community": 17,
+      "norm_label": "src/containers/spec.ts: buildrunargs with skiplxcfs option",
+      "id": "pkg_spec_ts"
     },
     {
       "label": "src/containers/manager.ts: getOrStartUnlocked, lxcfs fallback",
@@ -3093,9 +3123,9 @@
       "captured_at": null,
       "author": null,
       "competitor": null,
-      "id": "pkg_manager_ts",
-      "community": 14,
-      "norm_label": "src/containers/manager.ts: getorstartunlocked, lxcfs fallback"
+      "community": 17,
+      "norm_label": "src/containers/manager.ts: getorstartunlocked, lxcfs fallback",
+      "id": "pkg_manager_ts"
     },
     {
       "label": "Metering bugs detail: H1 askUserTriggered break, H2 stopRequested break, H3 background analyzer",
@@ -3106,9 +3136,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_metering_bugs_detail",
-      "community": 4,
-      "norm_label": "metering bugs detail: h1 askusertriggered break, h2 stoprequested break, h3 background analyzer"
+      "community": 10,
+      "norm_label": "metering bugs detail: h1 askusertriggered break, h2 stoprequested break, h3 background analyzer",
+      "id": "pkg_metering_bugs_detail"
     },
     {
       "label": "Security audit 2026-05-10: 56 commits, 17 HIGH + 22 MEDIUM + 14 LOW closed",
@@ -3119,9 +3149,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_security_audit_2026_05_10",
-      "community": 15,
-      "norm_label": "security audit 2026-05-10: 56 commits, 17 high + 22 medium + 14 low closed"
+      "community": 18,
+      "norm_label": "security audit 2026-05-10: 56 commits, 17 high + 22 medium + 14 low closed",
+      "id": "pkg_security_audit_2026_05_10"
     },
     {
       "label": "Skill pack: 7 recipes in skills/, bootstrap, migrate-skills.ts",
@@ -3132,9 +3162,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_skill_pack",
-      "community": 15,
-      "norm_label": "skill pack: 7 recipes in skills/, bootstrap, migrate-skills.ts"
+      "community": 18,
+      "norm_label": "skill pack: 7 recipes in skills/, bootstrap, migrate-skills.ts",
+      "id": "pkg_skill_pack"
     },
     {
       "label": "Go scheduler daemon: 5.2MB linux/amd64, notify-bridge port 3849, maxDaemons=5",
@@ -3145,9 +3175,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_go_scheduler_daemon",
-      "community": 15,
-      "norm_label": "go scheduler daemon: 5.2mb linux/amd64, notify-bridge port 3849, maxdaemons=5"
+      "community": 18,
+      "norm_label": "go scheduler daemon: 5.2mb linux/amd64, notify-bridge port 3849, maxdaemons=5",
+      "id": "pkg_go_scheduler_daemon"
     },
     {
       "label": "Cluster 15: Always-on automations (daemon-runner, .daemons.yaml, crashloop)",
@@ -3158,9 +3188,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_always_on_cluster",
-      "community": 2,
-      "norm_label": "cluster 15: always-on automations (daemon-runner, .daemons.yaml, crashloop)"
+      "community": 1,
+      "norm_label": "cluster 15: always-on automations (daemon-runner, .daemons.yaml, crashloop)",
+      "id": "pkg_always_on_cluster"
     },
     {
       "label": "Filesystem Write vs Bash UID mismatch: bot writes root:600, container sandbox reads as 101000",
@@ -3171,9 +3201,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_filesystem_write_bash_uid",
-      "community": 0,
-      "norm_label": "filesystem write vs bash uid mismatch: bot writes root:600, container sandbox reads as 101000"
+      "community": 2,
+      "norm_label": "filesystem write vs bash uid mismatch: bot writes root:600, container sandbox reads as 101000",
+      "id": "pkg_filesystem_write_bash_uid"
     },
     {
       "label": "RF-DB migration: user-db microservice on localhost:3900 (242-FZ compliance)",
@@ -3184,9 +3214,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rf_db_migration",
-      "community": 11,
-      "norm_label": "rf-db migration: user-db microservice on localhost:3900 (242-fz compliance)"
+      "community": 3,
+      "norm_label": "rf-db migration: user-db microservice on localhost:3900 (242-fz compliance)",
+      "id": "pkg_rf_db_migration"
     },
     {
       "label": "Topic-parking MID: src/threads/ store/preFilter/triggers/classifier/manager",
@@ -3197,9 +3227,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_topic_parking",
-      "community": 0,
-      "norm_label": "topic-parking mid: src/threads/ store/prefilter/triggers/classifier/manager"
+      "community": 2,
+      "norm_label": "topic-parking mid: src/threads/ store/prefilter/triggers/classifier/manager",
+      "id": "pkg_topic_parking"
     },
     {
       "label": "P2 Security V-29..V-39: resume-hijack, transcript sanitize, vision daily limit, safeAppend, per-user cooldown",
@@ -3210,9 +3240,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_security_v29_v39",
-      "community": 0,
-      "norm_label": "p2 security v-29..v-39: resume-hijack, transcript sanitize, vision daily limit, safeappend, per-user cooldown"
+      "community": 2,
+      "norm_label": "p2 security v-29..v-39: resume-hijack, transcript sanitize, vision daily limit, safeappend, per-user cooldown",
+      "id": "pkg_security_v29_v39"
     },
     {
       "label": "proboi.site domain (primary, replaces ksenyaenbom.ru and jinru.pro)",
@@ -3223,9 +3253,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_proboi_site_domain",
-      "community": 20,
-      "norm_label": "proboi.site domain (primary, replaces ksenyaenbom.ru and jinru.pro)"
+      "community": 24,
+      "norm_label": "proboi.site domain (primary, replaces ksenyaenbom.ru and jinru.pro)",
+      "id": "pkg_proboi_site_domain"
     },
     {
       "label": "src/user-registry.ts: addUser, deleteUser cleanup",
@@ -3236,9 +3266,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_user_registry_ts",
-      "community": 2,
-      "norm_label": "src/user-registry.ts: adduser, deleteuser cleanup"
+      "community": 1,
+      "norm_label": "src/user-registry.ts: adduser, deleteuser cleanup",
+      "id": "pkg_user_registry_ts"
     },
     {
       "label": "src/dashboard-server.ts: embedded HTTP server port 3848",
@@ -3249,9 +3279,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_dashboard_server_ts",
-      "community": 2,
-      "norm_label": "src/dashboard-server.ts: embedded http server port 3848"
+      "community": 8,
+      "norm_label": "src/dashboard-server.ts: embedded http server port 3848",
+      "id": "pkg_dashboard_server_ts"
     },
     {
       "label": "src/containers/vault-quota.ts: 2GB soft quota, 60s TTL cache",
@@ -3262,9 +3292,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_vault_quota_ts",
-      "community": 9,
-      "norm_label": "src/containers/vault-quota.ts: 2gb soft quota, 60s ttl cache"
+      "community": 6,
+      "norm_label": "src/containers/vault-quota.ts: 2gb soft quota, 60s ttl cache",
+      "id": "pkg_vault_quota_ts"
     },
     {
       "label": "scripts/firewall/: setup.sh + docker-user-rules.sh (INPUT + DOCKER-USER chains)",
@@ -3275,9 +3305,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_firewall_scripts",
-      "community": 2,
-      "norm_label": "scripts/firewall/: setup.sh + docker-user-rules.sh (input + docker-user chains)"
+      "community": 1,
+      "norm_label": "scripts/firewall/: setup.sh + docker-user-rules.sh (input + docker-user chains)",
+      "id": "pkg_firewall_scripts"
     },
     {
       "label": "pollinations_mcp/server.ts: free image generation, per-user /tmp/pollinations/",
@@ -3288,9 +3318,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_pollinations_mcp",
-      "community": 10,
-      "norm_label": "pollinations_mcp/server.ts: free image generation, per-user /tmp/pollinations/"
+      "community": 1,
+      "norm_label": "pollinations_mcp/server.ts: free image generation, per-user /tmp/pollinations/",
+      "id": "pkg_pollinations_mcp"
     },
     {
       "label": "src/owner-alerts.ts: suspicious-cmd alerts, problem channel notifications",
@@ -3301,9 +3331,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_owner_alerts_ts",
-      "community": 2,
-      "norm_label": "src/owner-alerts.ts: suspicious-cmd alerts, problem channel notifications"
+      "community": 8,
+      "norm_label": "src/owner-alerts.ts: suspicious-cmd alerts, problem channel notifications",
+      "id": "pkg_owner_alerts_ts"
     },
     {
       "label": "src/templates/landing.ts + assets: proboi.site landing (1188 lines + 1975 lines assets)",
@@ -3314,9 +3344,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_landing_ts",
-      "community": 20,
-      "norm_label": "src/templates/landing.ts + assets: proboi.site landing (1188 lines + 1975 lines assets)"
+      "community": 24,
+      "norm_label": "src/templates/landing.ts + assets: proboi.site landing (1188 lines + 1975 lines assets)",
+      "id": "pkg_landing_ts"
     },
     {
       "label": "Rationale: Owner profile unified with paid guest to fix exit code 1 and orphan process bug",
@@ -3327,9 +3357,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_owner_unification",
-      "community": 11,
-      "norm_label": "rationale: owner profile unified with paid guest to fix exit code 1 and orphan process bug"
+      "community": 1,
+      "norm_label": "rationale: owner profile unified with paid guest to fix exit code 1 and orphan process bug",
+      "id": "pkg_rationale_owner_unification"
     },
     {
       "label": "Rationale: Timeweb migration for RF data localization (242-FZ)",
@@ -3340,9 +3370,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_timeweb_migration",
-      "community": 11,
-      "norm_label": "rationale: timeweb migration for rf data localization (242-fz)"
+      "community": 3,
+      "norm_label": "rationale: timeweb migration for rf data localization (242-fz)",
+      "id": "pkg_rationale_timeweb_migration"
     },
     {
       "label": "Rationale: FREE_DISALLOWED_TOOLS prevents token leak (free guest ran cat .env as root on host)",
@@ -3353,9 +3383,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_free_disallowed_tools",
-      "community": 2,
-      "norm_label": "rationale: free_disallowed_tools prevents token leak (free guest ran cat .env as root on host)"
+      "community": 1,
+      "norm_label": "rationale: free_disallowed_tools prevents token leak (free guest ran cat .env as root on host)",
+      "id": "pkg_rationale_free_disallowed_tools"
     },
     {
       "label": "Rationale: acceptEdits chosen over bypassPermissions (bypassPermissions causes CLI exit 1 in SDK 0.1.76)",
@@ -3366,9 +3396,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_accept_edits",
-      "community": 0,
-      "norm_label": "rationale: acceptedits chosen over bypasspermissions (bypasspermissions causes cli exit 1 in sdk 0.1.76)"
+      "community": 2,
+      "norm_label": "rationale: acceptedits chosen over bypasspermissions (bypasspermissions causes cli exit 1 in sdk 0.1.76)",
+      "id": "pkg_rationale_accept_edits"
     },
     {
       "label": "Rationale: Context compression removed because maxSegmentId=99 caused real responses to be erased",
@@ -3379,9 +3409,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_remove_context_compression",
-      "community": 0,
-      "norm_label": "rationale: context compression removed because maxsegmentid=99 caused real responses to be erased"
+      "community": 2,
+      "norm_label": "rationale: context compression removed because maxsegmentid=99 caused real responses to be erased",
+      "id": "pkg_rationale_remove_context_compression"
     },
     {
       "label": "Rationale: Memory analyzer must filter permission_denied errors to break toxic self-reinforcing loop",
@@ -3392,9 +3422,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_toxic_memory_filter",
-      "community": 4,
-      "norm_label": "rationale: memory analyzer must filter permission_denied errors to break toxic self-reinforcing loop"
+      "community": 10,
+      "norm_label": "rationale: memory analyzer must filter permission_denied errors to break toxic self-reinforcing loop",
+      "id": "pkg_rationale_toxic_memory_filter"
     },
     {
       "label": "Rationale: Guests route through native DeepSeek API (not OpenRouter) - OR sub-keys provisioning removed",
@@ -3405,9 +3435,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_deepseek_native_routing",
-      "community": 6,
-      "norm_label": "rationale: guests route through native deepseek api (not openrouter) - or sub-keys provisioning removed"
+      "community": 5,
+      "norm_label": "rationale: guests route through native deepseek api (not openrouter) - or sub-keys provisioning removed",
+      "id": "pkg_rationale_deepseek_native_routing"
     },
     {
       "label": "Rationale: userns-remap prevents UID 1000 host privilege escalation on kernel-CVE escape",
@@ -3418,9 +3448,957 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "pkg_rationale_userns_remap",
-      "community": 0,
-      "norm_label": "rationale: userns-remap prevents uid 1000 host privilege escalation on kernel-cve escape"
+      "community": 2,
+      "norm_label": "rationale: userns-remap prevents uid 1000 host privilege escalation on kernel-cve escape",
+      "id": "pkg_rationale_userns_remap"
+    },
+    {
+      "label": "Info-leak Security Hardening (2026-05-16 \u044d\u043a\u0441\u0442\u0440\u0435\u043d\u043d\u044b\u0439 \u0431\u0430\u0442\u0447)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 5",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "info-leak security hardening (2026-05-16 \u044d\u043a\u0441\u0442\u0440\u0435\u043d\u043d\u044b\u0438 \u0431\u0430\u0442\u0447)",
+      "id": "project_knowledge_graph_info_leak_security_hardening"
+    },
+    {
+      "label": "IP Leak Vulnerability: paid-guest \u0432\u044b\u043f\u043e\u043b\u043d\u044f\u043b curl ifconfig.me \u2192 \u0440\u0430\u0441\u043a\u0440\u044b\u0432\u0430\u043b 5.42.126.60",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 9",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "ip leak vulnerability: paid-guest \u0432\u044b\u043f\u043e\u043b\u043d\u044f\u043b curl ifconfig.me \u2192 \u0440\u0430\u0441\u043a\u0440\u044b\u0432\u0430\u043b 5.42.126.60",
+      "id": "project_knowledge_graph_ip_leak_vulnerability"
+    },
+    {
+      "label": "Container hostname fix: --hostname proboi-workspace (\u0431\u044b\u043b\u043e user-{userId})",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 15",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "container hostname fix: --hostname proboi-workspace (\u0431\u044b\u043b\u043e user-{userid})",
+      "id": "project_knowledge_graph_container_hostname_fix"
+    },
+    {
+      "label": "DNS blackhole --add-host \u0434\u043b\u044f 8 IP-check \u0441\u0435\u0440\u0432\u0438\u0441\u043e\u0432 \u2192 0.0.0.0",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 15",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "dns blackhole --add-host \u0434\u043b\u044f 8 ip-check \u0441\u0435\u0440\u0432\u0438\u0441\u043e\u0432 \u2192 0.0.0.0",
+      "id": "project_knowledge_graph_dns_blackhole"
+    },
+    {
+      "label": "Dockerfile.user: \u0443\u0431\u0440\u0430\u043d\u044b net-tools \u0438 dnsutils, \u043e\u0441\u0442\u0430\u043b\u0441\u044f iputils-ping",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 16",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "dockerfile.user: \u0443\u0431\u0440\u0430\u043d\u044b net-tools \u0438 dnsutils, \u043e\u0441\u0442\u0430\u043b\u0441\u044f iputils-ping",
+      "id": "project_knowledge_graph_dockerfile_net_tools_removal"
+    },
+    {
+      "label": "\u041f\u0440\u043e\u043c\u043f\u0442 (config.ts): \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d \u0431\u0430\u043d\u043b\u0438\u0441\u0442 20+ \u043a\u043e\u043c\u0430\u043d\u0434 (ip addr, hostname, curl ifconfig.me, printenv \u0438 \u0434\u0440.)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 17",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "\u043f\u0440\u043e\u043c\u043f\u0442 (config.ts): \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d \u0431\u0430\u043d\u043b\u0438\u0441\u0442 20+ \u043a\u043e\u043c\u0430\u043d\u0434 (ip addr, hostname, curl ifconfig.me, printenv \u0438 \u0434\u0440.)",
+      "id": "project_knowledge_graph_prompt_banlist_expansion"
+    },
+    {
+      "label": "API: \u043f\u043e\u043b\u0435 container: \u2192 resources: \u0432 /api/me \u0438 /api/admin/all (\u0443\u0431\u0438\u0440\u0430\u0435\u043c \u0441\u043b\u043e\u0432\u043e container \u0438\u0437 DevTools)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 18",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "api: \u043f\u043e\u043b\u0435 container: \u2192 resources: \u0432 /api/me \u0438 /api/admin/all (\u0443\u0431\u0438\u0440\u0430\u0435\u043c \u0441\u043b\u043e\u0432\u043e container \u0438\u0437 devtools)",
+      "id": "project_knowledge_graph_api_container_rename"
+    },
+    {
+      "label": "\u041c\u0438\u0433\u0440\u0430\u0446\u0438\u044f \u043f\u0440\u043e\u0434\u0430 \u043d\u0430 Timeweb 5.42.126.60 (proboi-bot-msk): Hetzner 89.167.125.175 \u0432\u044b\u0432\u0435\u0434\u0435\u043d",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 41",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "\u043c\u0438\u0433\u0440\u0430\u0446\u0438\u044f \u043f\u0440\u043e\u0434\u0430 \u043d\u0430 timeweb 5.42.126.60 (proboi-bot-msk): hetzner 89.167.125.175 \u0432\u044b\u0432\u0435\u0434\u0435\u043d",
+      "id": "project_knowledge_graph_timeweb_migration"
+    },
+    {
+      "label": "Owner profile merged into unified guest code-path (commit c24994e): \u0443\u0434\u0430\u043b\u0451\u043d \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0439 ownerProfile \u0431\u043b\u043e\u043a",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 47",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "owner profile merged into unified guest code-path (commit c24994e): \u0443\u0434\u0430\u043b\u0435\u043d \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0438 ownerprofile \u0431\u043b\u043e\u043a",
+      "id": "project_knowledge_graph_owner_profile_merged"
+    },
+    {
+      "label": "HTTPS_PROXY \u0434\u043b\u044f DeepSeek \u0447\u0435\u0440\u0435\u0437 Hetzner EU tinyproxy (WireGuard \u0442\u0443\u043d\u043d\u0435\u043b\u044c 10.200.0.1:3128)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 48",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "https_proxy \u0434\u043b\u044f deepseek \u0447\u0435\u0440\u0435\u0437 hetzner eu tinyproxy (wireguard \u0442\u0443\u043d\u043d\u0435\u043b\u044c 10.200.0.1:3128)",
+      "id": "project_knowledge_graph_https_proxy_deepseek"
+    },
+    {
+      "label": "\u0417\u0430\u0432\u0438\u0441\u0430\u043d\u0438\u0435 DeepSeek API \u043d\u0430 9 \u043c\u0438\u043d \u043d\u0430 \u043d\u043e\u0432\u043e\u043c Timeweb IP (\u0432\u043e\u0437\u043c\u043e\u0436\u043d\u044b\u0439 throttle)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 54",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "\u0437\u0430\u0432\u0438\u0441\u0430\u043d\u0438\u0435 deepseek api \u043d\u0430 9 \u043c\u0438\u043d \u043d\u0430 \u043d\u043e\u0432\u043e\u043c timeweb ip (\u0432\u043e\u0437\u043c\u043e\u0436\u043d\u044b\u0438 throttle)",
+      "id": "project_knowledge_graph_deepseek_api_hang"
+    },
+    {
+      "label": "Owner exit code 1: orphan-\u043f\u0440\u043e\u0446\u0435\u0441\u0441 \u0441 \u043d\u0435\u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u044b\u043c\u0438 \u0444\u043b\u0430\u0433\u0430\u043c\u0438 (--permission-mode default, \u043f\u0443\u0441\u0442\u043e\u0439 --setting-sources)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 55",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "owner exit code 1: orphan-\u043f\u0440\u043e\u0446\u0435\u0441\u0441 \u0441 \u043d\u0435\u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u044b\u043c\u0438 \u0444\u043b\u0430\u0433\u0430\u043c\u0438 (--permission-mode default, \u043f\u0443\u0441\u0442\u043e\u0438 --setting-sources)",
+      "id": "project_knowledge_graph_owner_exit_code_1"
+    },
+    {
+      "label": "Batch #2 Fix A: \u043e\u0434\u0438\u043d \u043f\u0443\u0437\u044b\u0440\u044c \u0441\u0442\u0430\u0442\u0443\u0441\u0430 \u2014 \u0443\u0434\u0430\u043b\u0435\u043d\u044b progressLines, \u0434\u0435\u0434\u0443\u043f \u00d7N, \u043c\u0430\u043f\u043f\u0438\u043d\u0433 \u2022",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 81",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 14,
+      "norm_label": "batch #2 fix a: \u043e\u0434\u0438\u043d \u043f\u0443\u0437\u044b\u0440\u044c \u0441\u0442\u0430\u0442\u0443\u0441\u0430 \u2014 \u0443\u0434\u0430\u043b\u0435\u043d\u044b progresslines, \u0434\u0435\u0434\u0443\u043f \u00d7n, \u043c\u0430\u043f\u043f\u0438\u043d\u0433 \u2022",
+      "id": "project_knowledge_graph_batch2_status_bubble"
+    },
+    {
+      "label": "Batch #2 Fix B: info-leak \u0432 env-check \u2014 \u0437\u0430\u043f\u0440\u0435\u0442 df, free, uname, cat /proc/*, lscpu \u0432 \u043f\u0440\u043e\u043c\u043f\u0442\u0430\u0445",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 82",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 34,
+      "norm_label": "batch #2 fix b: info-leak \u0432 env-check \u2014 \u0437\u0430\u043f\u0440\u0435\u0442 df, free, uname, cat /proc/*, lscpu \u0432 \u043f\u0440\u043e\u043c\u043f\u0442\u0430\u0445",
+      "id": "project_knowledge_graph_batch2_env_info_leak"
+    },
+    {
+      "label": "Batch #2 Fix E: Write\u2192Bash UID hook (PostToolUse: chownSync 101000:101000 + chmodSync 0o644)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 84",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "batch #2 fix e: write\u2192bash uid hook (posttooluse: chownsync 101000:101000 + chmodsync 0o644)",
+      "id": "project_knowledge_graph_batch2_write_bash_uid_hook"
+    },
+    {
+      "label": "Batch #2 Fix D: Composio OAuth polling \u2014 24\u00d75\u0441 \u043a Composio API, AbortController-\u0434\u0435\u0434\u0443\u043f",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 85",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 14,
+      "norm_label": "batch #2 fix d: composio oauth polling \u2014 24\u00d75\u0441 \u043a composio api, abortcontroller-\u0434\u0435\u0434\u0443\u043f",
+      "id": "project_knowledge_graph_batch2_composio_oauth_polling"
+    },
+    {
+      "label": "Batch #3: \u0442\u043e\u0447\u043d\u044b\u0439 \u0442\u0435\u043a\u0441\u0442 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f Composio (pre-snapshot Map<id,status>, GRACE_MS=10000)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 110",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 14,
+      "norm_label": "batch #3: \u0442\u043e\u0447\u043d\u044b\u0438 \u0442\u0435\u043a\u0441\u0442 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f composio (pre-snapshot map<id,status>, grace_ms=10000)",
+      "id": "project_knowledge_graph_batch3_composio_accuracy"
+    },
+    {
+      "label": "Batch #3: MCP mcp__connect-google__disconnect \u2014 DELETE /api/v3/connected_accounts/{id}",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 111",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 25,
+      "norm_label": "batch #3: mcp mcp__connect-google__disconnect \u2014 delete /api/v3/connected_accounts/{id}",
+      "id": "project_knowledge_graph_composio_disconnect_mcp"
+    },
+    {
+      "label": "Trace-\u0430\u043d\u0430\u043b\u0438\u0437: \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u0430\u044f \u0438\u043d\u0444\u0440\u0430 ~850\u043c\u0441, DeepSeek round-trip 5800-9100\u043c\u0441 \u0434\u043e first_tool",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 88",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "trace-\u0430\u043d\u0430\u043b\u0438\u0437: \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u0430\u044f \u0438\u043d\u0444\u0440\u0430 ~850\u043c\u0441, deepseek round-trip 5800-9100\u043c\u0441 \u0434\u043e first_tool",
+      "id": "project_knowledge_graph_deepseek_latency_trace"
+    },
+    {
+      "label": "Smoke-batch \u0437\u0430\u0434\u0435\u043f\u043b\u043e\u0435\u043d \u043d\u0430 jinru 2026-05-16, 12 \u0438\u0437 18 \u043f\u0443\u043d\u043a\u0442\u043e\u0432 \u0437\u0430\u043a\u0440\u044b\u0442\u043e",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 136",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "smoke-batch \u0437\u0430\u0434\u0435\u043f\u043b\u043e\u0435\u043d \u043d\u0430 jinru 2026-05-16, 12 \u0438\u0437 18 \u043f\u0443\u043d\u043a\u0442\u043e\u0432 \u0437\u0430\u043a\u0440\u044b\u0442\u043e",
+      "id": "project_knowledge_graph_smoke_batch_jinru"
+    },
+    {
+      "label": "DeepSeek blacklist: system/deepseek-blacklist.json \u2014 f1a7 \u043a\u043b\u044e\u0447 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0430\u0435\u0442\u0441\u044f",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 144",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "deepseek blacklist: system/deepseek-blacklist.json \u2014 f1a7 \u043a\u043b\u044e\u0447 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0430\u0435\u0442\u0441\u044f",
+      "id": "project_knowledge_graph_deepseek_blacklist"
+    },
+    {
+      "label": "\u0424\u0438\u043b\u044c\u0442\u0440 \u043f\u0430\u043c\u044f\u0442\u0438: regex \u0434\u043b\u044f \u0442\u0435\u0440\u043c\u0438\u043d\u043e\u0432 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438/\u0442\u0430\u0440\u0438\u0444\u0430 \u2014 \u0431\u043b\u043e\u043a\u0438\u0440\u0443\u0435\u0442 toxic-loop injection",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 144",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 15,
+      "norm_label": "\u0444\u0438\u043b\u044c\u0442\u0440 \u043f\u0430\u043c\u044f\u0442\u0438: regex \u0434\u043b\u044f \u0442\u0435\u0440\u043c\u0438\u043d\u043e\u0432 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438/\u0442\u0430\u0440\u0438\u0444\u0430 \u2014 \u0431\u043b\u043e\u043a\u0438\u0440\u0443\u0435\u0442 toxic-loop injection",
+      "id": "project_knowledge_graph_memory_filter_subscription"
+    },
+    {
+      "label": "Memory analyzer fixes: label_index ??= {}, try/catch code 1, debounce-scheduler 10 \u043c\u0438\u043d",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 145",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 15,
+      "norm_label": "memory analyzer fixes: label_index ??= {}, try/catch code 1, debounce-scheduler 10 \u043c\u0438\u043d",
+      "id": "project_knowledge_graph_memory_analyzer_fixes"
+    },
+    {
+      "label": "SUBSCRIPTION_PATTERN false positive: \u0441\u0442\u0430\u0440\u044b\u0439 regex \u043b\u043e\u0432\u0438\u043b \u00ab\u043f\u0440\u043e\u0444\u0438\u043b\u044c\u00bb, \u00ab\u0431\u0430\u0437\u043e\u0432\u044b\u0439\u00bb, \u00ab\u0441\u0442\u0443\u0434\u0438\u044f\u00bb \u2014 \u0443\u0436\u0435\u0441\u0442\u043e\u0447\u0451\u043d",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 153",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 15,
+      "norm_label": "subscription_pattern false positive: \u0441\u0442\u0430\u0440\u044b\u0438 regex \u043b\u043e\u0432\u0438\u043b \u00ab\u043f\u0440\u043e\u0444\u0438\u043b\u044c\u00bb, \u00ab\u0431\u0430\u0437\u043e\u0432\u044b\u0438\u00bb, \u00ab\u0441\u0442\u0443\u0434\u0438\u044f\u00bb \u2014 \u0443\u0436\u0435\u0441\u0442\u043e\u0447\u0435\u043d",
+      "id": "project_knowledge_graph_subscription_pattern_false_positive"
+    },
+    {
+      "label": "forceMemoryFlush double/triple-fire: boolean \u0438\u0437 flushPendingForUser \u0437\u0430\u0449\u0438\u0449\u0430\u0435\u0442 \u043e\u0442 \u043f\u0430\u0440\u0430\u043b\u043b\u0435\u043b\u044c\u043d\u044b\u0445 \u0437\u0430\u043f\u0443\u0441\u043a\u043e\u0432",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 154",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 35,
+      "norm_label": "forcememoryflush double/triple-fire: boolean \u0438\u0437 flushpendingforuser \u0437\u0430\u0449\u0438\u0449\u0430\u0435\u0442 \u043e\u0442 \u043f\u0430\u0440\u0430\u043b\u043b\u0435\u043b\u044c\u043d\u044b\u0445 \u0437\u0430\u043f\u0443\u0441\u043a\u043e\u0432",
+      "id": "project_knowledge_graph_force_memory_flush_double_fire"
+    },
+    {
+      "label": "permissionMode acceptEdits \u043f\u043e\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0442\u043e\u043b\u044c\u043a\u043e Write/Edit; Bash \u0438 mcp__container__Bash \u0442\u0440\u0435\u0431\u0443\u044e\u0442 allowedTools",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 182",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "permissionmode acceptedits \u043f\u043e\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0442\u043e\u043b\u044c\u043a\u043e write/edit; bash \u0438 mcp__container__bash \u0442\u0440\u0435\u0431\u0443\u044e\u0442 allowedtools",
+      "id": "project_knowledge_graph_paid_allowedtools_fix"
+    },
+    {
+      "label": "\u0422\u043e\u043a\u0441\u0438\u0447\u043d\u0430\u044f \u043f\u0435\u0442\u043b\u044f \u043f\u0430\u043c\u044f\u0442\u0438 \u0410\u0440\u0442\u0451\u043c\u0430: memory/analyzer.ts \u0437\u0430\u043f\u0438\u0441\u044b\u0432\u0430\u0435\u0442 \u0438\u043d\u0444\u0440\u0430-\u043e\u0448\u0438\u0431\u043a\u0438 \u2192 CLAUDE.md \u0447\u0438\u0442\u0430\u0435\u0442 \u2192 \u043c\u043e\u0434\u0435\u043b\u044c \u043f\u043e\u0432\u0442\u043e\u0440\u044f\u0435\u0442",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 187",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 15,
+      "norm_label": "\u0442\u043e\u043a\u0441\u0438\u0447\u043d\u0430\u044f \u043f\u0435\u0442\u043b\u044f \u043f\u0430\u043c\u044f\u0442\u0438 \u0430\u0440\u0442\u0435\u043c\u0430: memory/analyzer.ts \u0437\u0430\u043f\u0438\u0441\u044b\u0432\u0430\u0435\u0442 \u0438\u043d\u0444\u0440\u0430-\u043e\u0448\u0438\u0431\u043a\u0438 \u2192 claude.md \u0447\u0438\u0442\u0430\u0435\u0442 \u2192 \u043c\u043e\u0434\u0435\u043b\u044c \u043f\u043e\u0432\u0442\u043e\u0440\u044f\u0435\u0442",
+      "id": "project_knowledge_graph_toxic_memory_loop"
+    },
+    {
+      "label": "\u041f\u0430\u043c\u044f\u0442\u044c \u0410\u0440\u0442\u0451\u043c\u0430 (5615267984) \u043e\u0447\u0438\u0449\u0435\u043d\u0430 \u0434\u0432\u0430\u0436\u0434\u044b + CLI transcript \u043a\u044d\u0448 \u0443\u0434\u0430\u043b\u0451\u043d",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 187",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 15,
+      "norm_label": "\u043f\u0430\u043c\u044f\u0442\u044c \u0430\u0440\u0442\u0435\u043c\u0430 (5615267984) \u043e\u0447\u0438\u0449\u0435\u043d\u0430 \u0434\u0432\u0430\u0436\u0434\u044b + cli transcript \u043a\u044d\u0448 \u0443\u0434\u0430\u043b\u0435\u043d",
+      "id": "project_knowledge_graph_artem_memory_cleared"
+    },
+    {
+      "label": "B1 fix: free-tier \u2014 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d FREE_DISALLOWED_TOOLS + \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u0430\u044f buildFreeTierPrompt() \u0431\u0435\u0437 paid-capabilities",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 201",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "b1 fix: free-tier \u2014 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d free_disallowed_tools + \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u0430\u044f buildfreetierprompt() \u0431\u0435\u0437 paid-capabilities",
+      "id": "project_knowledge_graph_b1_free_tier_prompt"
+    },
+    {
+      "label": "B2 fix: \u0434\u0435\u0434\u0443\u043f \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441-\u043f\u0443\u0437\u044b\u0440\u044f \u2014 \u0435\u0434\u0438\u043d\u0430\u044f \u0441\u0442\u0440\u043e\u043a\u0430, A\u2192B\u2192A\u2192B \u0441\u0445\u043b\u043e\u043f\u044b\u0432\u0430\u0435\u0442\u0441\u044f",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 202",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 14,
+      "norm_label": "b2 fix: \u0434\u0435\u0434\u0443\u043f \u043f\u0440\u043e\u0433\u0440\u0435\u0441\u0441-\u043f\u0443\u0437\u044b\u0440\u044f \u2014 \u0435\u0434\u0438\u043d\u0430\u044f \u0441\u0442\u0440\u043e\u043a\u0430, a\u2192b\u2192a\u2192b \u0441\u0445\u043b\u043e\u043f\u044b\u0432\u0430\u0435\u0442\u0441\u044f",
+      "id": "project_knowledge_graph_b2_progress_dedup"
+    },
+    {
+      "label": "B3 fix: DASHBOARD_URL per-host env \u0432 config.ts, 4 \u0445\u0430\u0440\u0434\u043a\u043e\u0434\u0430 \u0432 commands.ts \u0437\u0430\u043c\u0435\u043d\u0435\u043d\u044b",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 203",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "b3 fix: dashboard_url per-host env \u0432 config.ts, 4 \u0445\u0430\u0440\u0434\u043a\u043e\u0434\u0430 \u0432 commands.ts \u0437\u0430\u043c\u0435\u043d\u0435\u043d\u044b",
+      "id": "project_knowledge_graph_b3_dashboard_url"
+    },
+    {
+      "label": "Paid-\u0440\u0435\u0436\u0438\u043c: permissionMode acceptEdits \u0432 SDK options \u0434\u043b\u044f tier=paid \u0432 session.ts",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 204",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "paid-\u0440\u0435\u0436\u0438\u043c: permissionmode acceptedits \u0432 sdk options \u0434\u043b\u044f tier=paid \u0432 session.ts",
+      "id": "project_knowledge_graph_acceptedits_sdk_fix"
+    },
+    {
+      "label": "Docker image claude-user-sandbox:latest \u043f\u0435\u0440\u0435\u0441\u043e\u0431\u0440\u0430\u043d \u043d\u0430 jinru (sha256:85315f91, 2.36GB)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 207",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "docker image claude-user-sandbox:latest \u043f\u0435\u0440\u0435\u0441\u043e\u0431\u0440\u0430\u043d \u043d\u0430 jinru (sha256:85315f91, 2.36gb)",
+      "id": "project_knowledge_graph_jinru_docker_rebuild"
+    },
+    {
+      "label": "Context compression \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e \u0443\u0434\u0430\u043b\u0435\u043d\u0430 \u0438\u0437 session.ts (commit 6a2f66c): maxSegmentId=99 \u0431\u0430\u0433",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 277",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "context compression \u043f\u043e\u043b\u043d\u043e\u0441\u0442\u044c\u044e \u0443\u0434\u0430\u043b\u0435\u043d\u0430 \u0438\u0437 session.ts (commit 6a2f66c): maxsegmentid=99 \u0431\u0430\u0433",
+      "id": "project_knowledge_graph_context_compression_removed"
+    },
+    {
+      "label": "\u0424\u0438\u043a\u0441 File access blocked: /root/.claude/projects/-opt-vault-{userId}/ \u0442\u0435\u043f\u0435\u0440\u044c \u0440\u0430\u0437\u0440\u0435\u0448\u0451\u043d \u0434\u043b\u044f Read-tool \u0433\u043e\u0441\u0442\u0435\u0439",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 279",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "\u0444\u0438\u043a\u0441 file access blocked: /root/.claude/projects/-opt-vault-{userid}/ \u0442\u0435\u043f\u0435\u0440\u044c \u0440\u0430\u0437\u0440\u0435\u0448\u0435\u043d \u0434\u043b\u044f read-tool \u0433\u043e\u0441\u0442\u0435\u0438",
+      "id": "project_knowledge_graph_file_access_blocked_fix"
+    },
+    {
+      "label": "Security hardening \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d: 27 \u0444\u0438\u043a\u0441\u043e\u0432 (V--2..V-34), \u0440\u043e\u0442\u0430\u0446\u0438\u044f \u043a\u043b\u044e\u0447\u0435\u0439 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430 (2026-05-14)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 292",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 19,
+      "norm_label": "security hardening \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d: 27 \u0444\u0438\u043a\u0441\u043e\u0432 (v--2..v-34), \u0440\u043e\u0442\u0430\u0446\u0438\u044f \u043a\u043b\u044e\u0447\u0435\u0438 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0430 (2026-05-14)",
+      "id": "project_knowledge_graph_security_hardening_27_fixes"
+    },
+    {
+      "label": "\u0420\u043e\u0442\u0430\u0446\u0438\u044f \u043a\u043b\u044e\u0447\u0435\u0439 2026-05-14: TG, OpenAI, OpenRouter, DeepSeek\u00d75, Composio \u2014 \u0432\u0441\u0435 5 \u0440\u043e\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u044b",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 295",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 19,
+      "norm_label": "\u0440\u043e\u0442\u0430\u0446\u0438\u044f \u043a\u043b\u044e\u0447\u0435\u0438 2026-05-14: tg, openai, openrouter, deepseek\u00d75, composio \u2014 \u0432\u0441\u0435 5 \u0440\u043e\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u044b",
+      "id": "project_knowledge_graph_key_rotation_2026_05_14"
+    },
+    {
+      "label": "Consent Gate (commit 8c62b1d): SQLite consent.ts, DOC_VERSION=2026-05-14, middleware \u0431\u043b\u043e\u043a\u0438\u0440\u0443\u0435\u0442 \u0432\u0441\u0451 \u0434\u043e \u0441\u043e\u0433\u043b\u0430\u0441\u0438\u044f",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 308",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 16,
+      "norm_label": "consent gate (commit 8c62b1d): sqlite consent.ts, doc_version=2026-05-14, middleware \u0431\u043b\u043e\u043a\u0438\u0440\u0443\u0435\u0442 \u0432\u0441\u0435 \u0434\u043e \u0441\u043e\u0433\u043b\u0430\u0441\u0438\u044f",
+      "id": "project_knowledge_graph_consent_gate"
+    },
+    {
+      "label": "DeepSeek Key Pool (commit 12233f2): least-busy selector \u0438\u0437 system/deepseek-keys.json, 6 \u043a\u043b\u044e\u0447\u0435\u0439 \u043d\u0430 \u0441\u0442\u0430\u0440\u0442\u0435",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 315",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "deepseek key pool (commit 12233f2): least-busy selector \u0438\u0437 system/deepseek-keys.json, 6 \u043a\u043b\u044e\u0447\u0435\u0438 \u043d\u0430 \u0441\u0442\u0430\u0440\u0442\u0435",
+      "id": "project_knowledge_graph_deepseek_key_pool"
+    },
+    {
+      "label": "\u042e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b: oferta.ts, privacy.ts, terms.ts \u2014 \u0418\u041f \u042d\u043d\u0431\u043e\u043c \u041a.\u0418., 152-\u0424\u0417, \u0417\u043e\u0417\u041f\u041f",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 322",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 16,
+      "norm_label": "\u044e\u0440\u0438\u0434\u0438\u0447\u0435\u0441\u043a\u0438\u0435 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b: oferta.ts, privacy.ts, terms.ts \u2014 \u0438\u043f \u044d\u043d\u0431\u043e\u043c \u043a.\u0438., 152-\u0444\u0437, \u0437\u043e\u0437\u043f\u043f",
+      "id": "project_knowledge_graph_legal_docs"
+    },
+    {
+      "label": "\u0422\u0440\u0438\u0433\u0433\u0435\u0440 security: \u0443\u0442\u0435\u0447\u043a\u0430 TELEGRAM_BOT_TOKEN \u0447\u0435\u0440\u0435\u0437 \u0410\u0440\u0442\u0451\u043c\u0430 (cat /opt/claude-tg-bot/.env \u043f\u043e\u0434 root)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 380",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 19,
+      "norm_label": "\u0442\u0440\u0438\u0433\u0433\u0435\u0440 security: \u0443\u0442\u0435\u0447\u043a\u0430 telegram_bot_token \u0447\u0435\u0440\u0435\u0437 \u0430\u0440\u0442\u0435\u043c\u0430 (cat /opt/claude-tg-bot/.env \u043f\u043e\u0434 root)",
+      "id": "project_knowledge_graph_telegram_token_leak"
+    },
+    {
+      "label": "V-26 userns-remap: UID 1000 \u0432 \u043a\u043e\u043d\u0442\u0435\u0439\u043d\u0435\u0440\u0435 \u2192 host UID 101000 (offset 100000), storage driver overlay2",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 344",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "v-26 userns-remap: uid 1000 \u0432 \u043a\u043e\u043d\u0442\u0435\u0438\u043d\u0435\u0440\u0435 \u2192 host uid 101000 (offset 100000), storage driver overlay2",
+      "id": "project_knowledge_graph_userns_remap_v26"
+    },
+    {
+      "label": "OOM fix 2026-05-13: AbortSignal.timeout(90000) \u043d\u0430 fetch, queryTimeoutMs=600000, memory cap 1024MB",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 430",
+      "source_url": null,
+      "captured_at": "2026-05-13",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "oom fix 2026-05-13: abortsignal.timeout(90000) \u043d\u0430 fetch, querytimeoutms=600000, memory cap 1024mb",
+      "id": "project_knowledge_graph_oom_fix_2026_05_13"
+    },
+    {
+      "label": "Per-user OpenRouter \u0441\u0443\u0431\u043a\u043b\u044e\u0447\u0438 (openrouter-provisioning.ts): $2 \u043b\u0438\u043c\u0438\u0442 \u043f\u0440\u0438 approve \u2014 \u043f\u043e\u0437\u0436\u0435 \u0443\u0434\u0430\u043b\u0435\u043d\u043e",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 439",
+      "source_url": null,
+      "captured_at": "2026-05-13",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "per-user openrouter \u0441\u0443\u0431\u043a\u043b\u044e\u0447\u0438 (openrouter-provisioning.ts): $2 \u043b\u0438\u043c\u0438\u0442 \u043f\u0440\u0438 approve \u2014 \u043f\u043e\u0437\u0436\u0435 \u0443\u0434\u0430\u043b\u0435\u043d\u043e",
+      "id": "project_knowledge_graph_openrouter_per_user_subkeys"
+    },
+    {
+      "label": "containerEnabled bugfix (commit 10c83d0): per-user \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u0435\u0435 tier-\u0434\u0435\u0444\u043e\u043b\u0442\u0430",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 464",
+      "source_url": null,
+      "captured_at": "2026-05-12",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "containerenabled bugfix (commit 10c83d0): per-user \u043d\u0430\u0441\u0442\u0440\u043e\u0438\u043a\u0430 \u043f\u0440\u0438\u043e\u0440\u0438\u0442\u0435\u0442\u043d\u0435\u0435 tier-\u0434\u0435\u0444\u043e\u043b\u0442\u0430",
+      "id": "project_knowledge_graph_container_enabled_bugfix"
+    },
+    {
+      "label": "UX hardening (commit e562cb0): \u0440\u0443\u0441\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f, \u0443\u0442\u0435\u0447\u043a\u0430 \u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u043a\u0438 \u0432 text.ts, video.ts \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0438\u0441\u044c",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 486",
+      "source_url": null,
+      "captured_at": "2026-05-12",
+      "author": null,
+      "contributor": null,
+      "community": 36,
+      "norm_label": "ux hardening (commit e562cb0): \u0440\u0443\u0441\u0438\u0444\u0438\u043a\u0430\u0446\u0438\u044f, \u0443\u0442\u0435\u0447\u043a\u0430 \u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u043a\u0438 \u0432 text.ts, video.ts \u043f\u0435\u0440\u0435\u0437\u0430\u043f\u0438\u0441\u044c",
+      "id": "project_knowledge_graph_ux_hardening_2026_05_12"
+    },
+    {
+      "label": "YuKassa payment flow: payments.ts, webhook, binding link, chargeExpiredTrials, /cancel \u043a\u043e\u043c\u0430\u043d\u0434\u0430",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 563",
+      "source_url": null,
+      "captured_at": "2026-05-11",
+      "author": null,
+      "contributor": null,
+      "community": 16,
+      "norm_label": "yukassa payment flow: payments.ts, webhook, binding link, chargeexpiredtrials, /cancel \u043a\u043e\u043c\u0430\u043d\u0434\u0430",
+      "id": "project_knowledge_graph_yukassa_payment_flow"
+    },
+    {
+      "label": "Claude Code Features: TodoMarkerParser, PlanMarkerParser, StreamingState.todoMsgId \u0432 session.ts",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 516",
+      "source_url": null,
+      "captured_at": "2026-05-12",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "claude code features: todomarkerparser, planmarkerparser, streamingstate.todomsgid \u0432 session.ts",
+      "id": "project_knowledge_graph_todo_list_plan_mode"
+    },
+    {
+      "label": "Composio Google Workspace MCP: /google \u0437\u0430\u043c\u0435\u043d\u0451\u043d \u043d\u0430 mcp__connect-google, OAuth-\u043a\u043d\u043e\u043f\u043a\u0438, 146+ \u0442\u0443\u043b\u0437\u043e\u0432",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 630",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 25,
+      "norm_label": "composio google workspace mcp: /google \u0437\u0430\u043c\u0435\u043d\u0435\u043d \u043d\u0430 mcp__connect-google, oauth-\u043a\u043d\u043e\u043f\u043a\u0438, 146+ \u0442\u0443\u043b\u0437\u043e\u0432",
+      "id": "project_knowledge_graph_composio_google_workspace"
+    },
+    {
+      "label": "parallel_mcp/server.ts: mcp__parallel__run \u0434\u043b\u044f DeepSeek-\u0441\u0435\u0441\u0441\u0438\u0439 \u0432\u043c\u0435\u0441\u0442\u043e Task",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 633",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "parallel_mcp/server.ts: mcp__parallel__run \u0434\u043b\u044f deepseek-\u0441\u0435\u0441\u0441\u0438\u0438 \u0432\u043c\u0435\u0441\u0442\u043e task",
+      "id": "project_knowledge_graph_parallel_mcp"
+    },
+    {
+      "label": "subscription.ts: \u0433\u0435\u0439\u0442 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438 \u043d\u0430 @ProBoiAI, \u043a\u0435\u0448 5\u043c\u0438\u043d \u043f\u043e\u0437\u0438\u0442\u0438\u0432\u043d\u044b\u0439 / 1\u043c\u0438\u043d \u043d\u0435\u0433\u0430\u0442\u0438\u0432\u043d\u044b\u0439",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 637",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "subscription.ts: \u0433\u0435\u0438\u0442 \u043f\u043e\u0434\u043f\u0438\u0441\u043a\u0438 \u043d\u0430 @proboiai, \u043a\u0435\u0448 5\u043c\u0438\u043d \u043f\u043e\u0437\u0438\u0442\u0438\u0432\u043d\u044b\u0438 / 1\u043c\u0438\u043d \u043d\u0435\u0433\u0430\u0442\u0438\u0432\u043d\u044b\u0438",
+      "id": "project_knowledge_graph_subscription_gate"
+    },
+    {
+      "label": "daemon-runner Go PID 1: \u043d\u0430\u0434\u0441\u043c\u043e\u0442\u0440\u0449\u0438\u043a \u043a\u043e\u043d\u0442\u0435\u0439\u043d\u0435\u0440\u043e\u0432, God Node \u0441 12 \u0440\u0451\u0431\u0440\u0430\u043c\u0438",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 606",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "daemon-runner go pid 1: \u043d\u0430\u0434\u0441\u043c\u043e\u0442\u0440\u0449\u0438\u043a \u043a\u043e\u043d\u0442\u0435\u0438\u043d\u0435\u0440\u043e\u0432, god node \u0441 12 \u0440\u0435\u0431\u0440\u0430\u043c\u0438",
+      "id": "project_knowledge_graph_daemon_runner"
+    },
+    {
+      "label": "\u041b\u0435\u043d\u0434\u0438\u043d\u0433 proboi.site (commit 3c046db): 17 \u0441\u0435\u043a\u0446\u0438\u0439, 3163 \u0441\u0442\u0440\u043e\u043a\u0438, \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u044b /how-to-setup \u0438 /assets/",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 641",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 37,
+      "norm_label": "\u043b\u0435\u043d\u0434\u0438\u043d\u0433 proboi.site (commit 3c046db): 17 \u0441\u0435\u043a\u0446\u0438\u0438, 3163 \u0441\u0442\u0440\u043e\u043a\u0438, \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u044b /how-to-setup \u0438 /assets/",
+      "id": "project_knowledge_graph_landing_proboi"
+    },
+    {
+      "label": "\u041c\u0435\u0442\u0435\u0440\u0438\u043d\u0433 \u0431\u0430\u0433\u0438 H1/H2/H3: \u043f\u043e\u0442\u0435\u0440\u0438 \u0442\u043e\u043a\u0435\u043d\u043e\u0432 \u043f\u0440\u0438 ask-user (break \u0434\u043e result), stop, memory analyzer",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 717",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "\u043c\u0435\u0442\u0435\u0440\u0438\u043d\u0433 \u0431\u0430\u0433\u0438 h1/h2/h3: \u043f\u043e\u0442\u0435\u0440\u0438 \u0442\u043e\u043a\u0435\u043d\u043e\u0432 \u043f\u0440\u0438 ask-user (break \u0434\u043e result), stop, memory analyzer",
+      "id": "project_knowledge_graph_metering_bugs"
+    },
+    {
+      "label": "Filesystem Write vs Bash UID mismatch: Write \u043e\u0442 \u0431\u043e\u0442\u0430 root:600, Bash \u0432 \u043a\u043e\u043d\u0442\u0435\u0439\u043d\u0435\u0440\u0435 sandbox(1000)\u2192host 101000",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 150",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "filesystem write vs bash uid mismatch: write \u043e\u0442 \u0431\u043e\u0442\u0430 root:600, bash \u0432 \u043a\u043e\u043d\u0442\u0435\u0438\u043d\u0435\u0440\u0435 sandbox(1000)\u2192host 101000",
+      "id": "project_knowledge_graph_filesystem_write_bash_uid_mismatch"
+    },
+    {
+      "label": "Topic-parking: src/threads/{store,preFilter,triggers,classifier,manager}.ts \u2014 \u0438\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044f \u0432 session.ts",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 235",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "topic-parking: src/threads/{store,prefilter,triggers,classifier,manager}.ts \u2014 \u0438\u043d\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u044f \u0432 session.ts",
+      "id": "project_knowledge_graph_topic_parking"
+    },
+    {
+      "label": "RF-DB migration (docs/arch-migration-rf-db.md): 242-\u0424\u0417, user-db microservice \u043d\u0430 localhost:3900",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 236",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 16,
+      "norm_label": "rf-db migration (docs/arch-migration-rf-db.md): 242-\u0444\u0437, user-db microservice \u043d\u0430 localhost:3900",
+      "id": "project_knowledge_graph_rf_db_migration"
+    },
+    {
+      "label": "\u041f\u0440\u043e\u0434-\u0441\u0435\u0440\u0432\u0435\u0440: Timeweb 5.42.126.60, hostname proboi-bot-msk, @proboiAI_bot",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 41",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "\u043f\u0440\u043e\u0434-\u0441\u0435\u0440\u0432\u0435\u0440: timeweb 5.42.126.60, hostname proboi-bot-msk, @proboiai_bot",
+      "id": "project_knowledge_graph_prod_server_timeweb"
+    },
+    {
+      "label": "\u0422\u0435\u0441\u0442-\u0441\u0435\u0440\u0432\u0435\u0440: jinru 5.223.82.96, @ORCH7_bot",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 73",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "\u0442\u0435\u0441\u0442-\u0441\u0435\u0440\u0432\u0435\u0440: jinru 5.223.82.96, @orch7_bot",
+      "id": "project_knowledge_graph_test_server_jinru"
+    },
+    {
+      "label": "Hetzner 89.167.125.175 (proboi-bot) \u0432\u044b\u0432\u0435\u0434\u0435\u043d \u0438\u0437 hot-standby \u043f\u043e\u0441\u043b\u0435 \u043c\u0438\u0433\u0440\u0430\u0446\u0438\u0438 \u043d\u0430 Timeweb",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 41",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "hetzner 89.167.125.175 (proboi-bot) \u0432\u044b\u0432\u0435\u0434\u0435\u043d \u0438\u0437 hot-standby \u043f\u043e\u0441\u043b\u0435 \u043c\u0438\u0433\u0440\u0430\u0446\u0438\u0438 \u043d\u0430 timeweb",
+      "id": "project_knowledge_graph_hetzner_decommissioned"
+    },
+    {
+      "label": "gVisor runtime \u0434\u043b\u044f \u043a\u043e\u043d\u0442\u0435\u0439\u043d\u0435\u0440\u043e\u0432 (runsc): \u0443\u0441\u0438\u043b\u0435\u043d\u043d\u0430\u044f \u0438\u0437\u043e\u043b\u044f\u0446\u0438\u044f syscall",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 344",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 38,
+      "norm_label": "gvisor runtime \u0434\u043b\u044f \u043a\u043e\u043d\u0442\u0435\u0438\u043d\u0435\u0440\u043e\u0432 (runsc): \u0443\u0441\u0438\u043b\u0435\u043d\u043d\u0430\u044f \u0438\u0437\u043e\u043b\u044f\u0446\u0438\u044f syscall",
+      "id": "project_knowledge_graph_gvisor_runtime"
+    },
+    {
+      "label": "LXCFS: 7 /proc/... bind-mount \u0434\u043b\u044f cgroup-aware free/top (512 MB \u0432\u0438\u0434\u0435\u043d \u043a\u0430\u043a \u043b\u0438\u043c\u0438\u0442)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 667",
+      "source_url": null,
+      "contributor": null,
+      "author": null,
+      "community": 9,
+      "norm_label": "lxcfs: 7 /proc/... bind-mount \u0434\u043b\u044f cgroup-aware free/top (512 mb \u0432\u0438\u0434\u0435\u043d \u043a\u0430\u043a \u043b\u0438\u043c\u0438\u0442)",
+      "id": "project_knowledge_graph_lxcfs_mounts"
+    },
+    {
+      "label": "Profiler marks: 6 \u0441\u043b\u0435\u043f\u044b\u0445 \u0437\u043e\u043d \u0432 src/profiler.ts, \u0432\u043a\u043b\u044e\u0447\u0430\u0435\u0442\u0441\u044f PROFILER_ENABLED=true",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 86",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 12,
+      "norm_label": "profiler marks: 6 \u0441\u043b\u0435\u043f\u044b\u0445 \u0437\u043e\u043d \u0432 src/profiler.ts, \u0432\u043a\u043b\u044e\u0447\u0430\u0435\u0442\u0441\u044f profiler_enabled=true",
+      "id": "project_knowledge_graph_profiler_marks"
+    },
+    {
+      "label": "src/config.ts: getUserProfile(), \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0435 \u043f\u0440\u043e\u043c\u043f\u0442\u044b, banlist, per-user profiles",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "src/config.ts: getuserprofile(), \u0441\u0438\u0441\u0442\u0435\u043c\u043d\u044b\u0435 \u043f\u0440\u043e\u043c\u043f\u0442\u044b, banlist, per-user profiles",
+      "id": "project_knowledge_graph_src_config_ts"
+    },
+    {
+      "label": "src/session.ts: ClaudeSession, sendMessageStreaming, SDK query() wrapper, allowedTools",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "src/session.ts: claudesession, sendmessagestreaming, sdk query() wrapper, allowedtools",
+      "id": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "label": "src/containers/spec.ts: buildRunArgs, hostname, --add-host DNS blackhole, CPU limits",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "src/containers/spec.ts: buildrunargs, hostname, --add-host dns blackhole, cpu limits",
+      "id": "project_knowledge_graph_src_containers_spec_ts"
+    },
+    {
+      "label": "src/handlers/streaming.ts: StreamingState, statusCallback, progress bubble, Composio polling",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "community": 14,
+      "norm_label": "src/handlers/streaming.ts: streamingstate, statuscallback, progress bubble, composio polling",
+      "id": "project_knowledge_graph_src_handlers_streaming_ts"
+    },
+    {
+      "label": "Rationale: Owner profile merged \u2014 owner exit code 1 \u0438\u0437-\u0437\u0430 orphan-\u043f\u0440\u043e\u0446\u0435\u0441\u0441\u043e\u0432 \u0441 \u043d\u0435\u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u044b\u043c\u0438 \u0444\u043b\u0430\u0433\u0430\u043c\u0438",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 55",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "rationale: owner profile merged \u2014 owner exit code 1 \u0438\u0437-\u0437\u0430 orphan-\u043f\u0440\u043e\u0446\u0435\u0441\u0441\u043e\u0432 \u0441 \u043d\u0435\u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u044b\u043c\u0438 \u0444\u043b\u0430\u0433\u0430\u043c\u0438",
+      "id": "project_knowledge_graph_rationale_owner_profile_merge"
+    },
+    {
+      "label": "Rationale: DNS blackhole \u2014 \u043f\u0440\u043e\u043c\u043f\u0442 \u0434\u0430\u0432\u0430\u043b \u0438\u043d\u0444\u0440\u0430-\u0434\u0435\u0442\u0430\u043b\u0438 \u0431\u043e\u0442\u0443, \u043d\u043e \u0437\u0430\u043f\u0440\u0435\u0449\u0430\u043b \u0440\u0430\u0441\u043a\u0440\u044b\u0432\u0430\u0442\u044c (\u043f\u0440\u043e\u0442\u0438\u0432\u043e\u0440\u0435\u0447\u0438\u0435)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 9",
+      "source_url": null,
+      "captured_at": "2026-05-16",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "rationale: dns blackhole \u2014 \u043f\u0440\u043e\u043c\u043f\u0442 \u0434\u0430\u0432\u0430\u043b \u0438\u043d\u0444\u0440\u0430-\u0434\u0435\u0442\u0430\u043b\u0438 \u0431\u043e\u0442\u0443, \u043d\u043e \u0437\u0430\u043f\u0440\u0435\u0449\u0430\u043b \u0440\u0430\u0441\u043a\u0440\u044b\u0432\u0430\u0442\u044c (\u043f\u0440\u043e\u0442\u0438\u0432\u043e\u0440\u0435\u0447\u0438\u0435)",
+      "id": "project_knowledge_graph_rationale_dns_blackhole"
+    },
+    {
+      "label": "Rationale: DeepSeek pool \u2014 \u043e\u0434\u0438\u043d \u0437\u0430\u0432\u0438\u0441\u0448\u0438\u0439 \u0437\u0430\u043f\u0440\u043e\u0441 \u0413\u043e\u0448\u0438 \u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043b \u0432\u0441\u0435\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0439 (OOM 1.3-1.6\u0413\u0411)",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 426",
+      "source_url": null,
+      "captured_at": "2026-05-13",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "rationale: deepseek pool \u2014 \u043e\u0434\u0438\u043d \u0437\u0430\u0432\u0438\u0441\u0448\u0438\u0438 \u0437\u0430\u043f\u0440\u043e\u0441 \u0433\u043e\u0448\u0438 \u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u043b \u0432\u0441\u0435\u0445 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435\u0438 (oom 1.3-1.6\u0433\u0431)",
+      "id": "project_knowledge_graph_rationale_deepseek_key_pool"
+    },
+    {
+      "label": "Rationale: Consent Gate \u2014 242-\u0424\u0417 \u0442\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043b\u043e\u043a\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u0438 \u041f\u0414\u043d \u0438 \u044f\u0432\u043d\u043e\u0433\u043e \u0441\u043e\u0433\u043b\u0430\u0441\u0438\u044f \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 308",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 16,
+      "norm_label": "rationale: consent gate \u2014 242-\u0444\u0437 \u0442\u0440\u0435\u0431\u043e\u0432\u0430\u043d\u0438\u044f \u043b\u043e\u043a\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u0438 \u043f\u0434\u043d \u0438 \u044f\u0432\u043d\u043e\u0433\u043e \u0441\u043e\u0433\u043b\u0430\u0441\u0438\u044f \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f",
+      "id": "project_knowledge_graph_rationale_consent_gate"
+    },
+    {
+      "label": "Rationale: \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0439 buildFreeTierPrompt() \u2014 free-\u044e\u0437\u0435\u0440 \u043f\u043e\u043b\u0443\u0447\u0430\u043b paid-\u043f\u0440\u043e\u043c\u043f\u0442 \u0441 \u00ab\u0443 \u0442\u0435\u0431\u044f \u0435\u0441\u0442\u044c Bash\u00bb \u2192 \u043f\u0440\u043e\u0441\u0438\u043b Approve",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 201",
+      "source_url": null,
+      "captured_at": "2026-05-15",
+      "author": null,
+      "contributor": null,
+      "community": 9,
+      "norm_label": "rationale: \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0438 buildfreetierprompt() \u2014 free-\u044e\u0437\u0435\u0440 \u043f\u043e\u043b\u0443\u0447\u0430\u043b paid-\u043f\u0440\u043e\u043c\u043f\u0442 \u0441 \u00ab\u0443 \u0442\u0435\u0431\u044f \u0435\u0441\u0442\u044c bash\u00bb \u2192 \u043f\u0440\u043e\u0441\u0438\u043b approve",
+      "id": "project_knowledge_graph_rationale_free_tier_prompt_separation"
+    },
+    {
+      "label": "Rationale: compactIfNeeded \u0443\u0434\u0430\u043b\u0435\u043d\u0430 \u2014 \u0443\u0441\u0442\u0430\u043d\u0430\u0432\u043b\u0438\u0432\u0430\u043b\u0430 maxSegmentId=99 \u0434\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u0430 \u2192 \u0441\u0442\u0438\u0440\u0430\u043b\u0430 \u0440\u0435\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0442\u0432\u0435\u0442",
+      "file_type": "document",
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 277",
+      "source_url": null,
+      "captured_at": "2026-05-14",
+      "author": null,
+      "contributor": null,
+      "community": 7,
+      "norm_label": "rationale: compactifneeded \u0443\u0434\u0430\u043b\u0435\u043d\u0430 \u2014 \u0443\u0441\u0442\u0430\u043d\u0430\u0432\u043b\u0438\u0432\u0430\u043b\u0430 maxsegmentid=99 \u0434\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u0430 \u2192 \u0441\u0442\u0438\u0440\u0430\u043b\u0430 \u0440\u0435\u0430\u043b\u044c\u043d\u044b\u0438 \u043e\u0442\u0432\u0435\u0442",
+      "id": "project_knowledge_graph_rationale_context_compression_removed"
     }
   ],
   "links": [
@@ -7095,7 +8073,791 @@
       "_tgt": "pkg_owner_alerts_ts",
       "source": "pkg_dashboard_server_ts",
       "target": "pkg_owner_alerts_ts"
+    },
+    {
+      "relation": "fixes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 5-18",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_info_leak_security_hardening",
+      "_tgt": "project_knowledge_graph_ip_leak_vulnerability",
+      "source": "project_knowledge_graph_info_leak_security_hardening",
+      "target": "project_knowledge_graph_ip_leak_vulnerability"
+    },
+    {
+      "relation": "includes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 15",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_info_leak_security_hardening",
+      "_tgt": "project_knowledge_graph_container_hostname_fix",
+      "source": "project_knowledge_graph_info_leak_security_hardening",
+      "target": "project_knowledge_graph_container_hostname_fix"
+    },
+    {
+      "relation": "includes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 15",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_info_leak_security_hardening",
+      "_tgt": "project_knowledge_graph_dns_blackhole",
+      "source": "project_knowledge_graph_info_leak_security_hardening",
+      "target": "project_knowledge_graph_dns_blackhole"
+    },
+    {
+      "relation": "includes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 16",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_info_leak_security_hardening",
+      "_tgt": "project_knowledge_graph_dockerfile_net_tools_removal",
+      "source": "project_knowledge_graph_info_leak_security_hardening",
+      "target": "project_knowledge_graph_dockerfile_net_tools_removal"
+    },
+    {
+      "relation": "includes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 17",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_info_leak_security_hardening",
+      "_tgt": "project_knowledge_graph_prompt_banlist_expansion",
+      "source": "project_knowledge_graph_info_leak_security_hardening",
+      "target": "project_knowledge_graph_prompt_banlist_expansion"
+    },
+    {
+      "relation": "includes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 18",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_info_leak_security_hardening",
+      "_tgt": "project_knowledge_graph_api_container_rename",
+      "source": "project_knowledge_graph_info_leak_security_hardening",
+      "target": "project_knowledge_graph_api_container_rename"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 9",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_ip_leak_vulnerability",
+      "_tgt": "project_knowledge_graph_rationale_dns_blackhole",
+      "source": "project_knowledge_graph_ip_leak_vulnerability",
+      "target": "project_knowledge_graph_rationale_dns_blackhole"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 15",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_container_hostname_fix",
+      "_tgt": "project_knowledge_graph_src_containers_spec_ts",
+      "source": "project_knowledge_graph_container_hostname_fix",
+      "target": "project_knowledge_graph_src_containers_spec_ts"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 15",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_dns_blackhole",
+      "_tgt": "project_knowledge_graph_src_containers_spec_ts",
+      "source": "project_knowledge_graph_dns_blackhole",
+      "target": "project_knowledge_graph_src_containers_spec_ts"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 17",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_prompt_banlist_expansion",
+      "_tgt": "project_knowledge_graph_src_config_ts",
+      "source": "project_knowledge_graph_prompt_banlist_expansion",
+      "target": "project_knowledge_graph_src_config_ts"
+    },
+    {
+      "relation": "results_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 41",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_timeweb_migration",
+      "_tgt": "project_knowledge_graph_prod_server_timeweb",
+      "source": "project_knowledge_graph_timeweb_migration",
+      "target": "project_knowledge_graph_prod_server_timeweb"
+    },
+    {
+      "relation": "causes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 41",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_timeweb_migration",
+      "_tgt": "project_knowledge_graph_hetzner_decommissioned",
+      "source": "project_knowledge_graph_timeweb_migration",
+      "target": "project_knowledge_graph_hetzner_decommissioned"
+    },
+    {
+      "relation": "causes",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 54",
+      "weight": 0.85,
+      "_src": "project_knowledge_graph_timeweb_migration",
+      "_tgt": "project_knowledge_graph_deepseek_api_hang",
+      "source": "project_knowledge_graph_timeweb_migration",
+      "target": "project_knowledge_graph_deepseek_api_hang"
+    },
+    {
+      "relation": "required_by",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 48",
+      "weight": 0.8,
+      "_src": "project_knowledge_graph_timeweb_migration",
+      "_tgt": "project_knowledge_graph_https_proxy_deepseek",
+      "source": "project_knowledge_graph_timeweb_migration",
+      "target": "project_knowledge_graph_https_proxy_deepseek"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 47-55",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_owner_profile_merged",
+      "_tgt": "project_knowledge_graph_rationale_owner_profile_merge",
+      "source": "project_knowledge_graph_owner_profile_merged",
+      "target": "project_knowledge_graph_rationale_owner_profile_merge"
+    },
+    {
+      "relation": "fixes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 55",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_owner_profile_merged",
+      "_tgt": "project_knowledge_graph_owner_exit_code_1",
+      "source": "project_knowledge_graph_owner_profile_merged",
+      "target": "project_knowledge_graph_owner_exit_code_1"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 47",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_owner_profile_merged",
+      "_tgt": "project_knowledge_graph_src_config_ts",
+      "source": "project_knowledge_graph_owner_profile_merged",
+      "target": "project_knowledge_graph_src_config_ts"
+    },
+    {
+      "relation": "diagnoses",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 88-104",
+      "weight": 0.75,
+      "_src": "project_knowledge_graph_deepseek_api_hang",
+      "_tgt": "project_knowledge_graph_deepseek_latency_trace",
+      "source": "project_knowledge_graph_deepseek_api_hang",
+      "target": "project_knowledge_graph_deepseek_latency_trace"
+    },
+    {
+      "relation": "prevents",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 430",
+      "weight": 0.85,
+      "_src": "project_knowledge_graph_deepseek_api_hang",
+      "_tgt": "project_knowledge_graph_oom_fix_2026_05_13",
+      "source": "project_knowledge_graph_deepseek_api_hang",
+      "target": "project_knowledge_graph_oom_fix_2026_05_13"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 81",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_batch2_status_bubble",
+      "_tgt": "project_knowledge_graph_src_handlers_streaming_ts",
+      "source": "project_knowledge_graph_batch2_status_bubble",
+      "target": "project_knowledge_graph_src_handlers_streaming_ts"
+    },
+    {
+      "relation": "refines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 202",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_batch2_status_bubble",
+      "_tgt": "project_knowledge_graph_b2_progress_dedup",
+      "source": "project_knowledge_graph_batch2_status_bubble",
+      "target": "project_knowledge_graph_b2_progress_dedup"
+    },
+    {
+      "relation": "partially_fixes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 0.9,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 84",
+      "weight": 0.9,
+      "_src": "project_knowledge_graph_batch2_write_bash_uid_hook",
+      "_tgt": "project_knowledge_graph_filesystem_write_bash_uid_mismatch",
+      "source": "project_knowledge_graph_batch2_write_bash_uid_hook",
+      "target": "project_knowledge_graph_filesystem_write_bash_uid_mismatch"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 84",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_batch2_write_bash_uid_hook",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_batch2_write_bash_uid_hook",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 85",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_batch2_composio_oauth_polling",
+      "_tgt": "project_knowledge_graph_src_handlers_streaming_ts",
+      "source": "project_knowledge_graph_batch2_composio_oauth_polling",
+      "target": "project_knowledge_graph_src_handlers_streaming_ts"
+    },
+    {
+      "relation": "improves",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 110",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_batch2_composio_oauth_polling",
+      "_tgt": "project_knowledge_graph_batch3_composio_accuracy",
+      "source": "project_knowledge_graph_batch2_composio_oauth_polling",
+      "target": "project_knowledge_graph_batch3_composio_accuracy"
+    },
+    {
+      "relation": "extended_by",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 111",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_composio_disconnect_mcp",
+      "_tgt": "project_knowledge_graph_composio_google_workspace",
+      "source": "project_knowledge_graph_composio_disconnect_mcp",
+      "target": "project_knowledge_graph_composio_google_workspace"
+    },
+    {
+      "relation": "enables",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 86-102",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_deepseek_latency_trace",
+      "_tgt": "project_knowledge_graph_profiler_marks",
+      "source": "project_knowledge_graph_deepseek_latency_trace",
+      "target": "project_knowledge_graph_profiler_marks"
+    },
+    {
+      "relation": "deployed_on",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 136",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_smoke_batch_jinru",
+      "_tgt": "project_knowledge_graph_test_server_jinru",
+      "source": "project_knowledge_graph_smoke_batch_jinru",
+      "target": "project_knowledge_graph_test_server_jinru"
+    },
+    {
+      "relation": "extends",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 144",
+      "weight": 0.9,
+      "_src": "project_knowledge_graph_deepseek_blacklist",
+      "_tgt": "project_knowledge_graph_deepseek_key_pool",
+      "source": "project_knowledge_graph_deepseek_blacklist",
+      "target": "project_knowledge_graph_deepseek_key_pool"
+    },
+    {
+      "relation": "triggers_fix_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 153",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_memory_filter_subscription",
+      "_tgt": "project_knowledge_graph_subscription_pattern_false_positive",
+      "source": "project_knowledge_graph_memory_filter_subscription",
+      "target": "project_knowledge_graph_subscription_pattern_false_positive"
+    },
+    {
+      "relation": "prevents",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 144",
+      "weight": 0.9,
+      "_src": "project_knowledge_graph_memory_filter_subscription",
+      "_tgt": "project_knowledge_graph_toxic_memory_loop",
+      "source": "project_knowledge_graph_memory_filter_subscription",
+      "target": "project_knowledge_graph_toxic_memory_loop"
+    },
+    {
+      "relation": "fixes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 145",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_memory_analyzer_fixes",
+      "_tgt": "project_knowledge_graph_toxic_memory_loop",
+      "source": "project_knowledge_graph_memory_analyzer_fixes",
+      "target": "project_knowledge_graph_toxic_memory_loop"
+    },
+    {
+      "relation": "supersedes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 182",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_paid_allowedtools_fix",
+      "_tgt": "project_knowledge_graph_acceptedits_sdk_fix",
+      "source": "project_knowledge_graph_paid_allowedtools_fix",
+      "target": "project_knowledge_graph_acceptedits_sdk_fix"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 183",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_paid_allowedtools_fix",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_paid_allowedtools_fix",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "causes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 187",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_toxic_memory_loop",
+      "_tgt": "project_knowledge_graph_artem_memory_cleared",
+      "source": "project_knowledge_graph_toxic_memory_loop",
+      "target": "project_knowledge_graph_artem_memory_cleared"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 201",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_b1_free_tier_prompt",
+      "_tgt": "project_knowledge_graph_rationale_free_tier_prompt_separation",
+      "source": "project_knowledge_graph_b1_free_tier_prompt",
+      "target": "project_knowledge_graph_rationale_free_tier_prompt_separation"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 201",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_b1_free_tier_prompt",
+      "_tgt": "project_knowledge_graph_src_config_ts",
+      "source": "project_knowledge_graph_b1_free_tier_prompt",
+      "target": "project_knowledge_graph_src_config_ts"
+    },
+    {
+      "relation": "required_by",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 203",
+      "weight": 0.8,
+      "_src": "project_knowledge_graph_b3_dashboard_url",
+      "_tgt": "project_knowledge_graph_prod_server_timeweb",
+      "source": "project_knowledge_graph_b3_dashboard_url",
+      "target": "project_knowledge_graph_prod_server_timeweb"
+    },
+    {
+      "relation": "required_by",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 203",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_b3_dashboard_url",
+      "_tgt": "project_knowledge_graph_test_server_jinru",
+      "source": "project_knowledge_graph_b3_dashboard_url",
+      "target": "project_knowledge_graph_test_server_jinru"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 204",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_acceptedits_sdk_fix",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_acceptedits_sdk_fix",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "requires",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 344",
+      "weight": 0.8,
+      "_src": "project_knowledge_graph_jinru_docker_rebuild",
+      "_tgt": "project_knowledge_graph_userns_remap_v26",
+      "source": "project_knowledge_graph_jinru_docker_rebuild",
+      "target": "project_knowledge_graph_userns_remap_v26"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 277",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_context_compression_removed",
+      "_tgt": "project_knowledge_graph_rationale_context_compression_removed",
+      "source": "project_knowledge_graph_context_compression_removed",
+      "target": "project_knowledge_graph_rationale_context_compression_removed"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 277",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_context_compression_removed",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_context_compression_removed",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 279",
+      "weight": 0.9,
+      "_src": "project_knowledge_graph_file_access_blocked_fix",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_file_access_blocked_fix",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "followed_by",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 295",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_security_hardening_27_fixes",
+      "_tgt": "project_knowledge_graph_key_rotation_2026_05_14",
+      "source": "project_knowledge_graph_security_hardening_27_fixes",
+      "target": "project_knowledge_graph_key_rotation_2026_05_14"
+    },
+    {
+      "relation": "triggers",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 380",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_security_hardening_27_fixes",
+      "_tgt": "project_knowledge_graph_telegram_token_leak",
+      "source": "project_knowledge_graph_security_hardening_27_fixes",
+      "target": "project_knowledge_graph_telegram_token_leak"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 308",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_consent_gate",
+      "_tgt": "project_knowledge_graph_rationale_consent_gate",
+      "source": "project_knowledge_graph_consent_gate",
+      "target": "project_knowledge_graph_rationale_consent_gate"
+    },
+    {
+      "relation": "depends_on",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 308",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_consent_gate",
+      "_tgt": "project_knowledge_graph_legal_docs",
+      "source": "project_knowledge_graph_consent_gate",
+      "target": "project_knowledge_graph_legal_docs"
+    },
+    {
+      "relation": "related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 283",
+      "weight": 0.75,
+      "_src": "project_knowledge_graph_consent_gate",
+      "_tgt": "project_knowledge_graph_rf_db_migration",
+      "source": "project_knowledge_graph_consent_gate",
+      "target": "project_knowledge_graph_rf_db_migration"
+    },
+    {
+      "relation": "related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 563",
+      "weight": 0.7,
+      "_src": "project_knowledge_graph_consent_gate",
+      "_tgt": "project_knowledge_graph_yukassa_payment_flow",
+      "source": "project_knowledge_graph_consent_gate",
+      "target": "project_knowledge_graph_yukassa_payment_flow"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 426",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_deepseek_key_pool",
+      "_tgt": "project_knowledge_graph_rationale_deepseek_key_pool",
+      "source": "project_knowledge_graph_deepseek_key_pool",
+      "target": "project_knowledge_graph_rationale_deepseek_key_pool"
+    },
+    {
+      "relation": "used_by",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 318",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_deepseek_key_pool",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_deepseek_key_pool",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "superseded_by",
+      "confidence": "EXTRACTED",
+      "confidence_score": 0.9,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 319",
+      "weight": 0.9,
+      "_src": "project_knowledge_graph_deepseek_key_pool",
+      "_tgt": "project_knowledge_graph_openrouter_per_user_subkeys",
+      "source": "project_knowledge_graph_deepseek_key_pool",
+      "target": "project_knowledge_graph_openrouter_per_user_subkeys"
+    },
+    {
+      "relation": "causes",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 344",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_userns_remap_v26",
+      "_tgt": "project_knowledge_graph_filesystem_write_bash_uid_mismatch",
+      "source": "project_knowledge_graph_userns_remap_v26",
+      "target": "project_knowledge_graph_filesystem_write_bash_uid_mismatch"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 434",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_oom_fix_2026_05_13",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_oom_fix_2026_05_13",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 474",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_container_enabled_bugfix",
+      "_tgt": "project_knowledge_graph_src_config_ts",
+      "source": "project_knowledge_graph_container_enabled_bugfix",
+      "target": "project_knowledge_graph_src_config_ts"
+    },
+    {
+      "relation": "implemented_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 517",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_todo_list_plan_mode",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_todo_list_plan_mode",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "used_by",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 633",
+      "weight": 0.9,
+      "_src": "project_knowledge_graph_parallel_mcp",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_parallel_mcp",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "active_on",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 686",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_subscription_gate",
+      "_tgt": "project_knowledge_graph_prod_server_timeweb",
+      "source": "project_knowledge_graph_subscription_gate",
+      "target": "project_knowledge_graph_prod_server_timeweb"
+    },
+    {
+      "relation": "manages",
+      "confidence": "INFERRED",
+      "confidence_score": 0.7,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 606",
+      "weight": 0.7,
+      "_src": "project_knowledge_graph_daemon_runner",
+      "_tgt": "project_knowledge_graph_lxcfs_mounts",
+      "source": "project_knowledge_graph_daemon_runner",
+      "target": "project_knowledge_graph_lxcfs_mounts"
+    },
+    {
+      "relation": "located_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 717",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_metering_bugs",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_metering_bugs",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "integrated_in",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 235",
+      "weight": 1.0,
+      "_src": "project_knowledge_graph_topic_parking",
+      "_tgt": "project_knowledge_graph_src_session_ts",
+      "source": "project_knowledge_graph_topic_parking",
+      "target": "project_knowledge_graph_src_session_ts"
+    },
+    {
+      "relation": "configured_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "graphify-input/project_knowledge_graph.md",
+      "source_location": "line 674",
+      "weight": 0.85,
+      "_src": "project_knowledge_graph_lxcfs_mounts",
+      "_tgt": "project_knowledge_graph_src_containers_spec_ts",
+      "source": "project_knowledge_graph_lxcfs_mounts",
+      "target": "project_knowledge_graph_src_containers_spec_ts"
     }
   ],
-  "hyperedges": []
+  "hyperedges": [
+    {
+      "id": "he_stream_marker_pattern",
+      "label": "Stream Marker Pattern: ring buffer + debounce + marker parsers used by Plan Mode and Todo-list",
+      "nodes": [
+        "stream_marker_buffer",
+        "todo_marker_parser",
+        "plan_marker_parser",
+        "telegram_edit_debounce"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "graphify-input/ROADMAP_CLAUDE_CODE_FEATURES.md"
+    },
+    {
+      "id": "he_session_compaction_memory",
+      "label": "Session summarization shared pattern: compactSession + save_session_memory + buildSummaryPrompt",
+      "nodes": [
+        "compaction_compact_session",
+        "save_session_memory",
+        "compaction_summary_prompt"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "graphify-input/ROADMAP_CLAUDE_CODE_FEATURES.md"
+    }
+  ]
 }

@@ -1223,7 +1223,7 @@ await Bun.write(`${TEMP_DIR}/.keep`, "");
  */
 export function inboxDirFor(userId: number): string {
   const profile = getUserProfile(userId);
-  if (profile.containerEnabled && !profile.isOwner) {
+  if (profile.containerEnabled) {
     return `${profile.workingDir}/inbox`;
   }
   if (profile.isGuest) {

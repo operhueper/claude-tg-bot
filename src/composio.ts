@@ -7,9 +7,8 @@
 
 import { proxyFetch } from "./proxy";
 
-// v2 (146 tools, GMAIL_FETCH_EMAILS/GMAIL_GET_ATTACHMENT removed — they have unsafe defaults
-// that blow context: include_payload=true, verbose=true return full bodies + base64 attachments).
-// Use GMAIL_LIST_THREADS + GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID instead.
+// v3 (63 tools): essential CRUD across Gmail, Calendar, Docs, Drive, Sheets.
+// Webhooks, Shared Drive management, revision tracking, and low-level formatting ops removed.
 export const COMPOSIO_GOOGLE_MCP_ID = "6e3516f8-92df-44e3-8261-2ba31bda5c78";
 export const COMPOSIO_BASE_URL = "https://backend.composio.dev";
 

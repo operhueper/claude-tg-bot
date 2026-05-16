@@ -11,7 +11,7 @@ type McpServersMap = Record<string, McpServerConfig>;
 export function mcpServersForProfile(profile: UserProfile): McpServersMap {
   // Composio Google Workspace MCP — only loaded when user has active connections.
   // googleConnected=true means at least one toolkit is ACTIVE (set by polling in streaming.ts).
-  // Skipped when undefined (never connected) to avoid injecting ~50K tokens of unused tool defs.
+  // Skipped when undefined (never connected) to avoid injecting unused tool defs into context.
   const composioApiKey = getComposioApiKey();
   const userNode = UserRegistry.getUser(profile.userId);
   const hasGoogleConnected = userNode?.googleConnected === true;
