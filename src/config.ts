@@ -1146,8 +1146,6 @@ const RATE_LIMIT_WINDOW_DEFAULT = parseInt(
 const RATE_LIMIT_ENABLED_DEFAULT =
   (process.env.RATE_LIMIT_ENABLED || "true").toLowerCase() === "true";
 
-const OWNER_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
-
 // Numeric Telegram user ID of the bot owner. Used as a privilege gate for
 // owner-only actions (e.g. invite approve/deny callbacks).
 export const OWNER_USER_ID = 292228713;
@@ -1223,174 +1221,106 @@ export function getUserProfile(userId: number): UserProfile {
   // session. That happened to user 188062855 (Марина) on 2026-05-07.
   const isOwnerById = node?.role === "owner";
 
-  if (!isOwnerById) {
-    // Auto-add to NEW_GUEST_USERS so any guest-only logic that still checks
-    // isNewGuest() (allowed-paths bootstrap, vault dir creation) keeps working.
-    if (!NEW_GUEST_USERS.includes(userId)) {
-      NEW_GUEST_USERS.push(userId);
-    }
+  // All users (owner and guests) go through the unified path below.
+  // Owner gets isOwner=true and owner-specific overrides (allowedCommands,
+  // extra API keys in deepseekEnv, containerEnabled forced on) but shares
+  // the same vault-based sandbox and DeepSeek routing as paid guests.
 
-    const vaultDir = getNewGuestVaultDir(userId);
-
-    // Маршрутизация гостей.
-    //   Если есть хотя бы один ключ в DeepSeek-пуле — идём через native DS API
-    //   (`api.deepseek.com/anthropic`). Конкретный ключ выбирается на каждый
-    //   запрос модулем deepseek-key-pool по принципу least-busy. В профиле
-    //   стоит маркер `pool`; session.ts подменяет его на реальный ключ перед
-    //   отправкой запроса и release() в finally.
-    //   Если пул пуст — fallback на OpenRouter (`deepseek/deepseek-chat`).
-    //   На native DS сейчас живут только deepseek-v4-flash и deepseek-v4-pro;
-    //   `deepseek-chat` — deprecated alias, который сам резолвится в v4-flash.
-    const dsPoolAvailable = hasAnyDeepSeekKey();
-    const deepseekApiKey = dsPoolAvailable ? DEEPSEEK_POOL_MARKER : undefined;
-    const deepseekEnv: Record<string, string> | undefined = dsPoolAvailable
-      ? {
-          ...buildGuestBaseEnv(),
-          ANTHROPIC_API_KEY: DEEPSEEK_POOL_MARKER,
-          ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
-          ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
-          ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
-          ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
-          ANTHROPIC_MODEL: "deepseek-chat",
-          // Нужен MCP `connect-google` (disconnect-тул дёргает Composio API
-          // напрямую из subprocess). Без этого process.env.COMPOSIO_API_KEY
-          // пустой и юзер получает «ключ не настроен на этой стороне».
-          ...(process.env.COMPOSIO_API_KEY ? { COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY } : {}),
-        }
-      : undefined;
-    const model = dsPoolAvailable
-      ? normaliseDeepSeekModel(node?.model, "deepseek-chat")
-      : (node?.model && !node.model.includes("/") ? "deepseek/deepseek-chat" : (node?.model ?? "deepseek/deepseek-chat"));
-    const complexModel = dsPoolAvailable
-      ? normaliseDeepSeekModel(node?.complexModel, "deepseek-reasoner")
-      : (node?.complexModel ?? "deepseek/deepseek-r1");
-    const lightModel = dsPoolAvailable
-      ? normaliseDeepSeekModel(node?.lightModel, "deepseek-chat")
-      : (node?.lightModel && !node.lightModel.includes("/") ? "deepseek/deepseek-chat" : (node?.lightModel ?? "deepseek/deepseek-chat"));
-    const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
-    const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`, `/tmp/pollinations/${userId}/`];
-
-    const rawTier: UserTier = (node?.tier === 'paid') ? 'paid' : 'free';
-    const tierConfig = TIER_CONFIGS[rawTier];
-
-    return {
-      userId,
-      isOwner: false,
-      isGuest: true,
-      workingDir: vaultDir,
-      memoryRoot: vaultDir,
-      allowedPaths,
-      settingSources: node?.settingSources ?? ["project"] as Array<"user" | "project" | "local">,
-      systemPrompt: buildNewGuestSafetyPrompt(vaultDir, userId, rawTier),
-      // Гости тратят токены владельца — лимит по умолчанию включён.
-      // Можно отключить точечно через node.rateLimitEnabled = false в users.json.
-      rateLimitEnabled: node?.rateLimitEnabled ?? true,
-      rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
-      rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
-      model,
-      complexModel,
-      lightModel,
-      visionModel,
-      sessionFile: `/tmp/claude-telegram-session-${userId}.json`,
-      allowedCommands: GUEST_COMMANDS,
-      label: node?.label ?? `guest-${userId}`,
-      timezone: node?.timezone ?? "Europe/Moscow",
-      deepseekApiKey,
-      deepseekEnv,
-      // Free-tier guests get NO container at all (DeepSeek text + vision +
-      // Whisper only). TIER_CONFIGS['free'].containerEnabled is false, which
-      // forces this to false regardless of what users.json says — older rows
-      // may still have containerEnabled=true from before this rule existed.
-      containerEnabled: tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false,
-      // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
-      // to prevent "does not support this tool_choice" errors.
-      // V-01 fix: free-tier guests also get the full FREE_DISALLOWED_TOOLS list so
-      // they cannot reach host files/shell while running without a Docker container.
-      disallowedTools: rawTier === 'free'
-        ? [...new Set([...FREE_DISALLOWED_TOOLS])]
-        : ["WebSearch"],
-      // Cap tool-call rounds for DeepSeek guests to prevent slow search loops.
-      // 20 turns covers complex coding tasks.
-      maxTurns: 20,
-      tier: rawTier,
-      tierConfig,
-    };
+  // Auto-add non-owner users to NEW_GUEST_USERS so any guest-only logic that
+  // still checks isNewGuest() (allowed-paths bootstrap, vault dir creation) keeps working.
+  if (!isOwnerById && !NEW_GUEST_USERS.includes(userId)) {
+    NEW_GUEST_USERS.push(userId);
   }
 
-  // Owner profile: registry overrides label, timezone, settingSources, model.
-  const ownerVaultDir = `/opt/vault/${userId}`;
-  const ownerModel = node?.model ?? OWNER_MODEL;
+  const vaultDir = getNewGuestVaultDir(userId);
 
-  // If owner is configured to use a DeepSeek model, inject the same env-vars
-  // that route Anthropic SDK calls through DeepSeek's compatible endpoint.
-  // Mirrors the guest branch so Task-tool subagents also stay on DeepSeek.
-  let ownerDeepseekApiKey: string | undefined;
-  let ownerDeepseekEnv: Record<string, string> | undefined;
-  let ownerDisallowedTools: string[] | undefined;
-  let ownerMaxTurns: number | undefined;
+  // Маршрутизация гостей.
+  //   Если есть хотя бы один ключ в DeepSeek-пуле — идём через native DS API
+  //   (`api.deepseek.com/anthropic`). Конкретный ключ выбирается на каждый
+  //   запрос модулем deepseek-key-pool по принципу least-busy. В профиле
+  //   стоит маркер `pool`; session.ts подменяет его на реальный ключ перед
+  //   отправкой запроса и release() в finally.
+  //   Если пул пуст — fallback на OpenRouter (`deepseek/deepseek-chat`).
+  //   На native DS сейчас живут только deepseek-v4-flash и deepseek-v4-pro;
+  //   `deepseek-chat` — deprecated alias, который сам резолвится в v4-flash.
+  const dsPoolAvailable = hasAnyDeepSeekKey();
+  const deepseekApiKey = dsPoolAvailable ? DEEPSEEK_POOL_MARKER : undefined;
+  const deepseekEnv: Record<string, string> | undefined = dsPoolAvailable
+    ? {
+        ...buildGuestBaseEnv(),
+        ANTHROPIC_API_KEY: DEEPSEEK_POOL_MARKER,
+        ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
+        ANTHROPIC_MODEL: "deepseek-chat",
+        // Нужен MCP `connect-google` (disconnect-тул дёргает Composio API
+        // напрямую из subprocess). Без этого process.env.COMPOSIO_API_KEY
+        // пустой и юзер получает «ключ не настроен на этой стороне».
+        ...(process.env.COMPOSIO_API_KEY ? { COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY } : {}),
+        ...(process.env.HETZNER_PROXY_URL ? { HTTPS_PROXY: process.env.HETZNER_PROXY_URL, HTTP_PROXY: process.env.HETZNER_PROXY_URL } : {}),
+        // Owner needs image generation (OPENROUTER_API_KEY) and voice transcription
+        // (OPENAI_API_KEY) available in subagents. Guests don't get these to prevent
+        // secret exposure across tenant boundaries.
+        ...(isOwnerById && process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}),
+        ...(isOwnerById && process.env.OPENROUTER_API_KEY ? { OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY } : {}),
+      }
+    : undefined;
+  const model = dsPoolAvailable
+    ? normaliseDeepSeekModel(node?.model, "deepseek-chat")
+    : (node?.model && !node.model.includes("/") ? "deepseek/deepseek-chat" : (node?.model ?? "deepseek/deepseek-chat"));
+  const complexModel = dsPoolAvailable
+    ? normaliseDeepSeekModel(node?.complexModel, "deepseek-reasoner")
+    : (node?.complexModel ?? "deepseek/deepseek-r1");
+  const lightModel = dsPoolAvailable
+    ? normaliseDeepSeekModel(node?.lightModel, "deepseek-chat")
+    : (node?.lightModel && !node.lightModel.includes("/") ? "deepseek/deepseek-chat" : (node?.lightModel ?? "deepseek/deepseek-chat"));
+  const visionModel = node?.visionModel ?? "google/gemini-2.5-flash";
+  const allowedPaths = [vaultDir, `/tmp/telegram-bot/${userId}/`, `/tmp/pollinations/${userId}/`];
 
-  if (ownerModel.startsWith("deepseek-")) {
-    if (!hasAnyDeepSeekKey()) {
-      throw new Error(
-        `Owner ${userId} requested model "${ownerModel}" but DeepSeek key pool is empty (check system/deepseek-keys.json and DEEPSEEK_API_KEY env)`
-      );
-    }
-    ownerDeepseekApiKey = DEEPSEEK_POOL_MARKER;
-    ownerDeepseekEnv = {
-      // Owner DeepSeek env: broader than guest — owner can use all integrations.
-      // Still don't blindly spread process.env; list keys explicitly.
-      ...buildGuestBaseEnv(),
-      ANTHROPIC_API_KEY: DEEPSEEK_POOL_MARKER,
-      ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
-      ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-chat",
-      ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
-      ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
-      ANTHROPIC_MODEL: "deepseek-chat",
-      // Owner may need image generation and voice tools in subagents
-      ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}),
-      ...(process.env.OPENROUTER_API_KEY ? { OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY } : {}),
-      ...(process.env.COMPOSIO_API_KEY ? { COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY } : {}),
-    };
-    // DeepSeek doesn't support Anthropic-native WebSearch.
-    ownerDisallowedTools = ["WebSearch"];
-    ownerMaxTurns = 20;
-  }
-
-  // Light model for background memory analyzer. When owner is on DeepSeek we
-  // pin it to deepseek-chat so metering records the real billed model — the
-  // env-vars in `ownerDeepseekEnv` would silently remap whatever we pass to
-  // deepseek-chat anyway, but the metering layer only sees the string we hand
-  // in. Without this, analyzer cost lands at $0 (no haiku price for DeepSeek).
-  const ownerLightModel = node?.lightModel
-    ?? (ownerDeepseekEnv ? "deepseek-chat" : undefined);
+  // Owner always gets paid tier; guests default to free unless users.json says paid.
+  const rawTier: UserTier = (isOwnerById || node?.tier === 'paid') ? 'paid' : 'free';
+  const tierConfig = TIER_CONFIGS[rawTier];
 
   return {
     userId,
-    isOwner: true,
-    isGuest: false,
-    workingDir: OWNER_WORKING_DIR,
-    memoryRoot: ownerVaultDir,
-    allowedPaths: [...OWNER_ALLOWED_PATHS, `/tmp/pollinations/${userId}/`],
-    settingSources: node?.settingSources ?? ["user", "project"],
-    systemPrompt: buildOwnerSafetyPrompt(OWNER_ALLOWED_PATHS, !!ownerDeepseekEnv),
-    // Owner сам себя ограничивать смысла нет — по умолчанию без лимита.
-    // Если нужен лимит — выставить node.rateLimitEnabled = true в users.json.
-    rateLimitEnabled: node?.rateLimitEnabled ?? false,
+    isOwner: isOwnerById,
+    isGuest: !isOwnerById,
+    workingDir: vaultDir,
+    memoryRoot: vaultDir,
+    allowedPaths,
+    settingSources: node?.settingSources ?? ["project"] as Array<"user" | "project" | "local">,
+    systemPrompt: buildNewGuestSafetyPrompt(vaultDir, userId, rawTier),
+    // Owner: no rate limit by default. Guests: rate limit on by default.
+    // Override per-user via node.rateLimitEnabled in users.json.
+    rateLimitEnabled: node?.rateLimitEnabled ?? (isOwnerById ? false : true),
     rateLimitRequests: RATE_LIMIT_REQUESTS_DEFAULT,
     rateLimitWindow: RATE_LIMIT_WINDOW_DEFAULT,
-    model: ownerModel,
-    lightModel: ownerLightModel,
+    model,
+    complexModel,
+    lightModel,
+    visionModel,
     sessionFile: `/tmp/claude-telegram-session-${userId}.json`,
-    allowedCommands: OWNER_COMMANDS,
-    label: node?.label ?? "owner",
-    timezone: node?.timezone ?? "Asia/Shanghai",
-    containerEnabled: node?.containerEnabled ?? false,
-    deepseekApiKey: ownerDeepseekApiKey,
-    deepseekEnv: ownerDeepseekEnv,
-    disallowedTools: ownerDisallowedTools,
-    maxTurns: ownerMaxTurns,
-    tier: 'paid' as UserTier,
-    tierConfig: TIER_CONFIGS['paid'],
+    // Owner gets admin commands; guests get the restricted set.
+    allowedCommands: isOwnerById ? OWNER_COMMANDS : GUEST_COMMANDS,
+    label: node?.label ?? (isOwnerById ? "owner" : `guest-${userId}`),
+    timezone: node?.timezone ?? (isOwnerById ? "Asia/Shanghai" : "Europe/Moscow"),
+    deepseekApiKey,
+    deepseekEnv,
+    // Owner always has a container; free-tier guests never do; paid guests follow users.json.
+    containerEnabled: isOwnerById ? true : (tierConfig.containerEnabled ? (node?.containerEnabled ?? true) : false),
+    // DeepSeek doesn't support Anthropic-native WebSearch — block it at the SDK level
+    // to prevent "does not support this tool_choice" errors.
+    // V-01 fix: free-tier guests also get the full FREE_DISALLOWED_TOOLS list so
+    // they cannot reach host files/shell while running without a Docker container.
+    disallowedTools: rawTier === 'free'
+      ? [...new Set([...FREE_DISALLOWED_TOOLS])]
+      : ["WebSearch"],
+    // Cap tool-call rounds for DeepSeek users to prevent slow search loops.
+    // 20 turns covers complex coding tasks.
+    maxTurns: 20,
+    tier: rawTier,
+    tierConfig,
   };
 }
 
