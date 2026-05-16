@@ -57,15 +57,16 @@ ENV BUN_INSTALL=/usr/local
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}"
 ENV PATH="/usr/local/bin:$PATH"
 
-# Node.js 20 LTS — direct binary from nodejs.org, no apt sources needed.
-# Avoids nodesource setup_20.x script which hangs on apt-get update in some envs.
-RUN NODE_VERSION=20.19.0 && \
-    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
-    | tar -xJ -C /usr/local --strip-components=1 \
+# Node.js 20 LTS — pre-downloaded tarball via COPY to avoid SSL timeout in
+# Docker build network on Timeweb (bridge MTU causes SSL handshake to hang).
+# Download on host before building: curl -fsSL https://nodejs.org/dist/v20.19.0/node-v20.19.0-linux-x64.tar.xz -o node-v20.19.0-linux-x64.tar.xz
+COPY node-v20.19.0-linux-x64.tar.xz /tmp/node.tar.xz
+RUN tar -xJ -C /usr/local --strip-components=1 -f /tmp/node.tar.xz \
+    && rm /tmp/node.tar.xz \
     && node --version && npm --version
 
-# Global tools (land in /usr/local/bin via BUN_INSTALL)
-RUN bun install -g typescript tsx pnpm
+# Note: typescript/tsx/pnpm not installed globally — bun runs .ts files natively.
+# Users can install per-project or use bunx. Avoids npm registry in Docker build.
 
 # nginx default config для пользовательских сайтов
 RUN echo 'server { listen 80; root /workspace/public; index index.html; location / { try_files $uri $uri/ =404; } }' \
