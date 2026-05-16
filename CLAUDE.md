@@ -169,7 +169,7 @@ Each guest gets a Docker container from `claude-user-sandbox:latest` (built from
 
 To rebuild after editing `Dockerfile.user`:
 ```bash
-ssh root@89.167.125.175 'cd /opt/claude-tg-bot && docker build -t claude-user-sandbox:latest -f Dockerfile.user .'
+ssh root@5.42.126.60 'cd /opt/claude-tg-bot && docker build -t claude-user-sandbox:latest -f Dockerfile.user .'
 ```
 Then either let containers pick up the new image lazily on next-message recreation, or `docker rm -f $(docker ps -aq --filter label=claude-bot-user)` + `systemctl restart claude-tg-bot` to force-recycle (always-on containers are revived automatically by `containerManager.init()`).
 
@@ -233,7 +233,7 @@ Persistence: rules are saved to `/etc/iptables/rules.v4` and re-applied on bot s
 
 ### Предусловия (оператор проверяет вручную)
 
-1. Скрипт запускается под root на Linux-хосте (`proboi-bot`, 89.167.125.175).
+1. Скрипт запускается под root на Linux-хосте (`proboi-bot-msk`, 5.42.126.60).
 2. Свободное место ≥ 6 ГБ: `df -h /var/lib/docker`.
 3. Этот шаг — **последний** в пакете фиксов V-26 (шаг 14 по `audit/2026-05-14-pre-rotation/FIX_PLAN.md`). Все остальные фиксы и smoke-тесты должны быть пройдены до запуска.
 4. `jq` установлен (опционально, но рекомендуется для safe-merge daemon.json). Без jq скрипт использует python3.
@@ -256,7 +256,7 @@ Persistence: rules are saved to `/etc/iptables/rules.v4` and re-applied on bot s
 
 **Adding a guest-only tool restriction**: add the tool name to `profile.disallowedTools` inside `getUserProfile()` in `src/config.ts`. The field is picked up automatically by `src/session.ts` and passed to SDK `query()`. Use this for tools that are structurally incompatible with a guest's model/endpoint (not for permission-level restrictions, which belong in `/root/.claude/settings.json`).
 
-**After code changes**: Restart the bot so changes can be tested. Locally use `bun run start` or `launchctl kickstart -k gui/$(id -u)/com.claude-telegram-ts`. On the server use `ssh root@89.167.125.175 'systemctl restart claude-tg-bot'` (see Production Deployment).
+**After code changes**: Restart the bot so changes can be tested. Locally use `bun run start` or `launchctl kickstart -k gui/$(id -u)/com.claude-telegram-ts`. On the server use `ssh root@5.42.126.60 'systemctl restart claude-tg-bot'` (see Production Deployment).
 
 ## Standalone Build
 
@@ -290,10 +290,10 @@ The bot runs as a systemd service on the prod server. This is the canonical runt
 
 | Role | Host | hostname | Telegram bot |
 |---|---|---|---|
-| **PROD** | `root@89.167.125.175` | `proboi-bot` | `@proboiAI_bot` |
+| **PROD** | `root@5.42.126.60` | `proboi-bot-msk` | `@proboiAI_bot` |
 | **TEST** | `root@5.223.82.96` | `jinru` | `@ORCH7_bot` (token `8678975502:...`) |
 
-> If you read `hostname` and see `proboi-bot` — you are on PROD. If `jinru` — you are on TEST. Don't trust folder names or env labels alone.
+> If you read `hostname` and see `proboi-bot-msk` — you are on PROD (Timeweb, Москва). If `jinru` — you are on TEST (Hetzner). Don't trust folder names or env labels alone.
 
 - Owner workspace: `CLAUDE_WORKING_DIR=/opt/claude-tg-bot/workspace/` (contains owner's `CLAUDE.md`)
 - Guest workdirs: `/opt/vault/{userId}/` — auto-bootstrapped per user, each with its own `CLAUDE.md`
@@ -309,10 +309,10 @@ The bot runs as a systemd service on the prod server. This is the canonical runt
 Deploy after local edits:
 
 ```bash
-# PROD (proboi-bot, @proboiAI_bot) — real users
+# PROD (proboi-bot-msk, Timeweb, @proboiAI_bot) — real users
 rsync -az --exclude node_modules --exclude .git --exclude .env --exclude 'metering.sqlite*' --exclude 'system/users.json' --exclude 'system/deepseek-keys.json' \
-  ./ root@89.167.125.175:/opt/claude-tg-bot/
-ssh root@89.167.125.175 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
+  ./ root@5.42.126.60:/opt/claude-tg-bot/
+ssh root@5.42.126.60 'cd /opt/claude-tg-bot && bun install && systemctl restart claude-tg-bot'
 
 # TEST (jinru, @ORCH7_bot) — staging, token configured on the server, never sync .env
 rsync -az --exclude node_modules --exclude .git --exclude .env --exclude 'metering.sqlite*' --exclude 'system/users.json' --exclude 'system/deepseek-keys.json' \
@@ -322,9 +322,9 @@ ssh root@5.223.82.96 'cd /opt/claude-tg-bot && bun install && systemctl restart 
 
 ⚠️ **Never rsync `.env`** — each server has its own token. Syncing `.env` overwrites the test server token with the prod token, causing 409 Conflict crash-loop on prod and restart-notification spam to all users.
 
-⚠️ **Never rsync `system/users.json`** — this file is the live user database, written by the bot on the server (invite approvals, payment webhooks, subscription state). Overwriting it from a local copy erases users and wipes paid subscriptions. It is excluded from rsync above. To inspect or restore it, access it directly on the server via `ssh root@89.167.125.175 'cat /opt/claude-tg-bot/system/users.json'`.
+⚠️ **Never rsync `system/users.json`** — this file is the live user database, written by the bot on the server (invite approvals, payment webhooks, subscription state). Overwriting it from a local copy erases users and wipes paid subscriptions. It is excluded from rsync above. To inspect or restore it, access it directly on the server via `ssh root@5.42.126.60 'cat /opt/claude-tg-bot/system/users.json'`.
 
-⚠️ **Never rsync `system/deepseek-keys.json`** — the local copy is often stale (DeepSeek dashboard revokes old keys when new ones are created). Overwriting the prod file with a stale local copy puts the bot into a 100% 401 state for every guest. To update prod keys: edit the file directly via `scp system/deepseek-keys.json root@89.167.125.175:/opt/claude-tg-bot/system/` + `systemctl restart claude-tg-bot`, after first verifying with `bun run scripts/ping-deepseek-keys.ts`. The file is excluded from rsync above and gitignored.
+⚠️ **Never rsync `system/deepseek-keys.json`** — the local copy is often stale (DeepSeek dashboard revokes old keys when new ones are created). Overwriting the prod file with a stale local copy puts the bot into a 100% 401 state for every guest. To update prod keys: edit the file directly via `scp system/deepseek-keys.json root@5.42.126.60:/opt/claude-tg-bot/system/` + `systemctl restart claude-tg-bot`, after first verifying with `bun run scripts/ping-deepseek-keys.ts`. The file is excluded from rsync above and gitignored.
 
 > **Historical note (resolved):** earlier versions of this bot relied on a manual musl→glibc binary swap inside `node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/claude`. The current SDK (`@anthropic-ai/claude-agent-sdk` 0.2.x+) bundles the binary in the main package and does NOT use an architecture-specific subpackage — `find /opt/claude-tg-bot/node_modules/@anthropic-ai/` shows only `claude-agent-sdk`. No swap needed. If you see this error path mentioned in old logs or memory, ignore it.
 
