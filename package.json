@@ -6,7 +6,8 @@
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --watch run src/index.ts",
-    "typecheck": "bun run --bun tsc --noEmit"
+    "typecheck": "bun run --bun tsc --noEmit",
+    "postinstall": "cp node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude node_modules/@anthropic-ai/claude-agent-sdk-linux-x64-musl/claude 2>/dev/null || true"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -626,6 +626,16 @@ export class ClaudeSession {
     if (isNewGuest(this.profile.userId)) {
       const deepseekKey = this.profile.deepseekApiKey;
 
+      if (!deepseekKey && !this.profile.deepseekEnv) {
+        // DeepSeek key pool is empty and no fallback env — cannot route this request.
+        // Return a friendly message instead of letting the CLI error leak to the user.
+        console.warn(`[${this.profile.label}] DeepSeek pool empty — no keys available`);
+        const noKeysMsg = "Сервис временно недоступен, попробуйте через несколько минут.";
+        await statusCallback("segment_end", noKeysMsg, 0);
+        await statusCallback("done", "");
+        return noKeysMsg;
+      }
+
       if (deepseekKey) {
         // Text messages: use DeepSeek via Anthropic-compatible API with native Claude CLI tools
         console.log(
