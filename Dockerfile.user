@@ -57,12 +57,12 @@ ENV BUN_INSTALL=/usr/local
 RUN curl -fsSL https://bun.sh/install | bash -s "bun-v${BUN_VERSION}"
 ENV PATH="/usr/local/bin:$PATH"
 
-# Node.js 20 LTS — pinned to major via nodesource setup script.
-# V-30G: nodesource setup_20.x pins to Node 20.x LTS; no curl-pipe for the
-# actual binary (apt handles verification via nodesource GPG key).
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/*
+# Node.js 20 LTS — direct binary from nodejs.org, no apt sources needed.
+# Avoids nodesource setup_20.x script which hangs on apt-get update in some envs.
+RUN NODE_VERSION=20.19.0 && \
+    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+    | tar -xJ -C /usr/local --strip-components=1 \
+    && node --version && npm --version
 
 # Global tools (land in /usr/local/bin via BUN_INSTALL)
 RUN bun install -g typescript tsx pnpm
