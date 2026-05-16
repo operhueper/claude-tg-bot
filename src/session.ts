@@ -352,7 +352,7 @@ export class ClaudeSession {
     currentMessage: string,
     mediaHint?: boolean
   ): OpenRouterMessage[] {
-    const HISTORY_LIMIT = 12; // last N turns (~6 user/assistant pairs)
+    const HISTORY_LIMIT = 8; // last N turns (~4 user/assistant pairs)
     const history: OpenRouterMessage[] = [];
     if (this.transcriptRecorder) {
       const turns = this.transcriptRecorder.getRecentTurns(HISTORY_LIMIT);
@@ -574,6 +574,14 @@ export class ClaudeSession {
         );
       }
       _profiler?.mark("memory_context_done");
+    }
+
+    // Suggest /new when session history is long to avoid context bloat
+    const SESSION_SUGGEST_NEW_AFTER = 16; // ~8 user/assistant pairs
+    const sessionTurnCount = this.transcriptRecorder?.turnCount ?? 0;
+    if (sessionTurnCount >= SESSION_SUGGEST_NEW_AFTER) {
+      systemPromptWithMemory = (systemPromptWithMemory || "") +
+        "\n\nNOTE: This conversation has had many exchanges and the context is getting long. At the very END of your response (after the main answer), add one brief natural line in Russian suggesting the user type /new to start a fresh session for faster replies. Example: 'Кстати, сессия уже длинная — /new начнёт всё заново и ускорит ответы.' Keep it casual, one sentence max.";
     }
 
     // ============== Universal vision routing: all users with mediaHint go via OpenRouter Gemini ==============
