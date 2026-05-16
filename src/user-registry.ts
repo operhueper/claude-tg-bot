@@ -54,6 +54,13 @@ export interface UserNode {
   expiry_warned_1d?: boolean;
   /** Флаг: downgrade уже объявлен пользователю (чтобы не дублировать). */
   downgrade_announced?: boolean;
+  /**
+   * True if user has at least one active Google Workspace connection via Composio.
+   * Controls whether the google-workspace MCP (146 tools, ~50K tokens) is loaded.
+   * Set to true when polling detects ACTIVE connection; false on disconnect.
+   * Undefined = never connected → MCP is NOT loaded (saves ~50K tokens per request).
+   */
+  googleConnected?: boolean;
 }
 
 const USERS_FILE = resolve(dirname(import.meta.dir), "system/users.json");

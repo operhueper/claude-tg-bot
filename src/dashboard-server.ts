@@ -17,6 +17,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { getUserProfile, ALLOWED_USERS, OWNER_USER_ID as OWNER_ID } from "./config";
+import { UserRegistry } from "./user-registry";
 import { isSubscribed, isSubscriptionGateEnabled } from "./subscription";
 
 const execFileAsync = promisify(execFile);
@@ -795,6 +796,15 @@ export function startDashboardServer(): void {
             } catch {
               // best-effort; caller will see partial count
             }
+          }
+
+          // Clear googleConnected flag so MCP is no longer loaded for this user
+          if (disconnected > 0) {
+            try {
+              const uid = parseInt(body.userId as string, 10);
+              const node = !isNaN(uid) ? UserRegistry.getUser(uid) : null;
+              if (node) UserRegistry.saveUser({ ...node, googleConnected: false });
+            } catch { /* non-fatal */ }
           }
 
           return jsonOk({ success: true, disconnected });

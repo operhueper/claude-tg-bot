@@ -20,6 +20,7 @@ import { getUserProfile } from "../config";
 import { isPathAllowedFor } from "../security";
 import { pickRandomPhrase, pickIdleEmoji } from "../idle-phrases";
 import { initiateGoogleConnections, getComposioApiKey, COMPOSIO_BASE_URL } from "../composio";
+import { UserRegistry } from "../user-registry";
 import { replyFriendly } from "../utils";
 
 // Активные polling-задачи: userId → AbortController. Защита от дублей при повторном клике.
@@ -104,6 +105,14 @@ async function startGoogleConnectionPolling(
             msg = `✅ Подключено: ${connectedNames.join(", ")}. Если нужны остальные (${missingNames.join(", ")}) — нажми их кнопки выше ещё раз.`;
           } else {
             msg = "✅ Google подключён.";
+          }
+
+          // Persist connection status so MCP is loaded on next session
+          try {
+            const node = UserRegistry.getUser(userId);
+            if (node) UserRegistry.saveUser({ ...node, googleConnected: true });
+          } catch (e) {
+            console.warn(`[google-polling] failed to persist googleConnected for ${userId}:`, e);
           }
 
           try {

@@ -4,20 +4,25 @@ import { MCP_SERVERS } from "../mcp-config";
 import type { UserProfile } from "./config";
 import { buildContainerBashMcp } from "./containers/bash-mcp";
 import { getComposioApiKey, buildGoogleMcpUrl } from "./composio";
+import { UserRegistry } from "./user-registry";
 
 type McpServersMap = Record<string, McpServerConfig>;
 
 export function mcpServersForProfile(profile: UserProfile): McpServersMap {
-  // Composio Google Workspace MCP — applied to BOTH owner and guests.
-  // Per-user isolation via ?user_id=tg_<id>. Skipped if COMPOSIO_API_KEY absent.
+  // Composio Google Workspace MCP — only loaded when user has active connections.
+  // googleConnected=true means at least one toolkit is ACTIVE (set by polling in streaming.ts).
+  // Skipped when undefined (never connected) to avoid injecting ~50K tokens of unused tool defs.
   const composioApiKey = getComposioApiKey();
-  const googleWorkspaceMcp: McpServerConfig | null = composioApiKey
-    ? ({
-        type: "http",
-        url: buildGoogleMcpUrl(profile.userId),
-        headers: { "x-api-key": composioApiKey },
-      } as McpServerConfig)
-    : null;
+  const userNode = UserRegistry.getUser(profile.userId);
+  const hasGoogleConnected = userNode?.googleConnected === true;
+  const googleWorkspaceMcp: McpServerConfig | null =
+    composioApiKey && hasGoogleConnected
+      ? ({
+          type: "http",
+          url: buildGoogleMcpUrl(profile.userId),
+          headers: { "x-api-key": composioApiKey },
+        } as McpServerConfig)
+      : null;
 
   // Owner gets the full external-MCP set + Google Workspace.
   // In-process container Bash is a guest-only feature (owner runs Bash on host directly).
