@@ -1162,16 +1162,21 @@ export class ClaudeSession {
               }
 
               if (cleanChunk) {
-                // Detect API auth errors surfaced as assistant text (e.g. DeepSeek 401).
+                // Build accumulated text to catch error phrases that DeepSeek/Claude CLI
+                // may split across multiple SSE chunks — checking cleanChunk alone misses them.
+                // These error texts are always the complete response (never mixed with valid content).
+                const accumulated = currentSegmentText + cleanChunk;
+
+                // Detect API auth errors surfaced as assistant text (e.g. DeepSeek 401/403).
                 // Throw immediately so replyFriendly can handle it instead of showing raw API errors.
                 // ВАЖНО: redactSecrets ДО throw — сообщение ошибки не должно содержать
                 // остаток ключа («api key: **xxxx») ни в логах сервера, ни в audit.
                 if (
-                  /Failed to authenticate|Authentication Fails|api key.*invalid|invalid api key/i.test(cleanChunk) &&
-                  /API Error:\s*40[13]/i.test(cleanChunk)
+                  /Failed to authenticate|Authentication Fails|api key.*invalid|invalid api key/i.test(accumulated) &&
+                  /API Error:\s*40[13]/i.test(accumulated)
                 ) {
                   throw new Error(
-                    `API authentication failed: ${redactSecrets(cleanChunk.slice(0, 120))}`
+                    `API authentication failed: ${redactSecrets(accumulated.slice(0, 120))}`
                   );
                 }
 
@@ -1181,9 +1186,16 @@ export class ClaudeSession {
                 // like "Run --model to pick a different model" — throw a generic
                 // error so replyFriendly delivers a clean message.
                 if (
-                  /issue with the selected model|may not exist or you may not have access|Run --model to pick|--model to pick a different/i.test(cleanChunk)
+                  /issue with the selected model|may not exist or you may not have access|Run --model to pick|--model to pick a different/i.test(accumulated)
                 ) {
                   throw new Error("Upstream model unavailable");
+                }
+
+                // Catch raw "API Error: NNN ..." responses that the upstream API returns
+                // as text (e.g. JSON parse errors, 400 Bad Request, etc.).
+                // These must never reach the user — they expose internal API details.
+                if (/^API Error:\s*\d{3}/i.test(accumulated.trimStart())) {
+                  throw new Error(`Upstream API error: ${accumulated.slice(0, 60)}`);
                 }
 
                 responseParts.push(cleanChunk);

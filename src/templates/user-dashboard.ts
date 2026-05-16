@@ -491,7 +491,7 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
       cacheReadTokens: 1234,
       cacheCreationTokens: 567
     },
-    container: {
+    resources: {
       exists: true,
       running: true,
       ram: { usedMb: 123, limitMb: 512, percent: 24 },
@@ -509,9 +509,9 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
   const MOCK_ADMIN = {
     ok: true,
     users: [
-      { label: 'Евгений', model: 'claude-sonnet-4-6', today: { inputTokens: 8200, outputTokens: 3100 }, total: { inputTokens: 12345, outputTokens: 6789, costUsd: 0.42 }, container: { exists: true, running: true, ram: { percent: 24 }, cpu: { percent: 12 }, disk: { usedMb: 47 } } },
-      { label: 'Ксения', model: 'claude-sonnet-4-6', today: { inputTokens: 0, outputTokens: 0 }, total: { inputTokens: 8100, outputTokens: 3200, costUsd: 0.27 }, container: { exists: true, running: false, ram: null, cpu: null, disk: null } },
-      { label: 'Гость #403', model: 'deepseek-chat', today: { inputTokens: 200, outputTokens: 80 }, total: { inputTokens: 2000, outputTokens: 800, costUsd: 0.003 }, container: { exists: false, running: false, ram: null, cpu: null, disk: null } }
+      { label: 'Евгений', model: 'claude-sonnet-4-6', today: { inputTokens: 8200, outputTokens: 3100 }, total: { inputTokens: 12345, outputTokens: 6789, costUsd: 0.42 }, resources: { exists: true, running: true, ram: { percent: 24 }, cpu: { percent: 12 }, disk: { usedMb: 47 } } },
+      { label: 'Ксения', model: 'claude-sonnet-4-6', today: { inputTokens: 0, outputTokens: 0 }, total: { inputTokens: 8100, outputTokens: 3200, costUsd: 0.27 }, resources: { exists: true, running: false, ram: null, cpu: null, disk: null } },
+      { label: 'Гость #403', model: 'deepseek-chat', today: { inputTokens: 200, outputTokens: 80 }, total: { inputTokens: 2000, outputTokens: 800, costUsd: 0.003 }, resources: { exists: false, running: false, ram: null, cpu: null, disk: null } }
     ],
     host: {
       cpu: { percent: 18.4, cores: 4 },
@@ -569,7 +569,7 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
   function renderMe(data) {
     var u = data.user;
     var t = data.today || {};
-    var c = data.container;
+    var c = data.resources;
 
     // Header
     document.getElementById('user-label').textContent = u.label || '';
@@ -683,7 +683,7 @@ export function renderDashboard(opts: { allowMock?: boolean } = {}): string {
     users.forEach(function(item) {
       var today = item.today || {};
       var total = item.total || {};
-      var c = item.container || {};
+      var c = item.resources || {};
       var ramPct = (c.ram && c.ram.percent != null) ? Math.round(c.ram.percent) + '%' : '—';
       var cpuPct = (c.cpu && c.cpu.percent != null) ? Math.round(c.cpu.percent) + '%' : '—';
       var diskMb = (c.disk && c.disk.usedMb != null) ? fmt(c.disk.usedMb) : '—';

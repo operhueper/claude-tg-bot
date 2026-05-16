@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip sqlite3 nginx \
     openssh-client rsync jq \
     nano vim-tiny less htop \
-    net-tools dnsutils iputils-ping \
+    iputils-ping \
     procps lsof \
     && rm -rf /var/lib/apt/lists/*
 

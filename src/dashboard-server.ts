@@ -34,7 +34,7 @@ import {
 import { getTodayCount, resetIfNewDay, nextResetAt } from "./daily-limit";
 import { getUserSubscriptionExpiry, handleYuKassaWebhook } from "./payments.js";
 
-import { renderLanding, renderHowToSetup } from "./templates/landing";
+import { renderLanding, renderHowToSetup, renderSecurity } from "./templates/landing";
 import { renderDashboard } from "./templates/user-dashboard";
 import { renderOferta } from "./templates/oferta";
 import { renderPrivacy } from "./templates/privacy";
@@ -396,7 +396,7 @@ async function handleApiMe(req: Request): Promise<Response> {
       cacheReadTokens: today.cacheReadTokens,
       cacheCreationTokens: today.cacheCreationTokens,
     },
-    container: {
+    resources: {
       exists: container.containerExists,
       running: container.containerRunning,
       ram: container.ram,
@@ -492,7 +492,7 @@ async function handleApiAdminAll(req: Request): Promise<Response> {
           cacheReadTokens: today.cacheReadTokens,
           cacheCreationTokens: today.cacheCreationTokens,
         },
-        container: c
+        resources: c
           ? {
               exists: c.containerExists,
               running: c.containerRunning,
@@ -708,6 +708,10 @@ export function startDashboardServer(): void {
           (pathname === "/how-to-setup.html" || pathname === "/how-to-setup")
         ) {
           return htmlResponse(renderHowToSetup());
+        }
+
+        if (safeRead && pathname === "/security") {
+          return htmlResponse(renderSecurity());
         }
 
         if (safeRead && pathname.startsWith("/assets/")) {

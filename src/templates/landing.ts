@@ -61,6 +61,7 @@ const NAV_HTML = `
   <nav class="nav__links">
     <a href="/#features">Возможности</a>
     <a href="/how-to-setup.html">Как настроить</a>
+    <a href="/security">Безопасность</a>
     <a href="/#faq">Вопросы</a>
   </nav>
   <a class="nav__cta" href="${TG_URL}" target="_blank" rel="noopener">
@@ -82,6 +83,7 @@ const FOOTER_HTML = `
       <a href="${TG_URL}" target="_blank" rel="noopener">@proboiAI_bot</a>
       <a href="${OWNER_TG}" target="_blank" rel="noopener">@ev_mironoff</a>
       <a href="/how-to-setup.html">как настроить</a>
+      <a href="/security">безопасность</a>
     </div>
   </div>
   <div class="footer__row footer__row--legal">
@@ -1949,6 +1951,635 @@ ${SHARED_LOGO_SVG}
 <footer class="g-footer">
   <span>© 2026 · Proboi · <a href="https://proboi.site/">proboi.site</a></span>
   <span style="margin-left: 12px;">
+    <a href="/oferta">Публичная оферта</a> ·
+    <a href="/privacy">Политика конфиденциальности</a> ·
+    <a href="/terms">Пользовательское соглашение</a>
+  </span>
+</footer>
+
+</body>
+</html>`;
+}
+
+export function renderSecurity(): string {
+  return `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Безопасность Proboi — архитектура защиты данных</title>
+<meta name="description" content="Архитектурный подход к защите данных и инфраструктуры Proboi: изоляция окружений, gVisor, сетевая сегментация, управление секретами." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700;800&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ── Reset ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  --paper:   #F1ECE0;
+  --paper-2: #E8E1D2;
+  --ink:     #14130F;
+  --ink-2:   #2A2823;
+  --muted:   #6F695C;
+  --lime:    #D8FF36;
+  --lime-2:  #B7E022;
+  --coral:   #FF4F2E;
+  --cream:   #FFF9EC;
+  --line:    #1A1814;
+  --r-md:    14px;
+  --r-lg:    22px;
+  --r-xl:    32px;
+  --f-display: "Unbounded", system-ui, sans-serif;
+  --f-body:    "Onest", system-ui, sans-serif;
+  --f-mono:    "JetBrains Mono", ui-monospace, monospace;
+
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Nav ───────────────────────────────────────────── */
+.s-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 32px;
+  border-bottom: 1.5px solid var(--ink);
+  position: sticky; top: 0; z-index: 100;
+  background: var(--paper);
+}
+.s-nav__brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: var(--ink);
+  font-family: var(--f-display); font-weight: 700; font-size: 15px;
+}
+.s-nav__cta {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--lime); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: 999px;
+  padding: 9px 20px; font-family: var(--f-body); font-weight: 600;
+  font-size: 14px; text-decoration: none;
+  transition: background .18s, transform .14s;
+}
+.s-nav__cta:hover { background: var(--lime-2); transform: translateY(-1px); }
+
+/* ── Hero ──────────────────────────────────────────── */
+.s-hero {
+  max-width: 1100px; margin: 0 auto;
+  padding: 64px 32px 48px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 40px;
+  align-items: center;
+}
+.s-hero__left { min-width: 0; }
+.s-hero__badge {
+  display: inline-block;
+  background: var(--lime); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: 999px;
+  font-family: var(--f-mono); font-size: 11px; font-weight: 500;
+  padding: 5px 14px; letter-spacing: .05em;
+  margin-bottom: 28px;
+}
+.s-hero__title {
+  font-family: var(--f-display); font-weight: 800;
+  font-size: clamp(30px, 5vw, 54px);
+  line-height: 1.06; letter-spacing: -.03em;
+  color: var(--ink);
+  margin-bottom: 20px;
+}
+.s-hero__title em { font-style: normal; color: var(--coral); }
+.s-hero__sub {
+  font-size: 17px; color: var(--ink-2);
+  line-height: 1.6; max-width: 52ch;
+}
+.s-hero__diagram { flex-shrink: 0; }
+
+/* ── Stats bar ─────────────────────────────────────── */
+.s-stats {
+  max-width: 1100px; margin: 0 auto 64px;
+  padding: 0 32px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.s-stat {
+  background: var(--cream);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--r-md);
+  padding: 24px 28px;
+}
+.s-stat__num {
+  font-family: var(--f-display); font-weight: 800;
+  font-size: 40px; line-height: 1;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.s-stat__label {
+  font-size: 14px; color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ── Section title ─────────────────────────────────── */
+.s-section {
+  max-width: 1100px; margin: 0 auto 64px;
+  padding: 0 32px;
+}
+.s-section__heading {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: clamp(20px, 3vw, 28px);
+  letter-spacing: -.02em; color: var(--ink);
+  margin-bottom: 32px;
+  padding-bottom: 12px;
+  border-bottom: 1.5px solid var(--ink);
+}
+
+/* ── Layer cards (6-grid) ──────────────────────────── */
+.s-layers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.s-layer {
+  background: var(--cream);
+  border: 1.5px solid var(--ink);
+  border-radius: var(--r-lg);
+  padding: 28px 24px;
+}
+.s-layer__icon {
+  width: 44px; height: 44px;
+  margin-bottom: 16px;
+}
+.s-layer__title {
+  font-family: var(--f-display); font-weight: 600;
+  font-size: 15px; letter-spacing: -.01em;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.s-layer__desc {
+  font-size: 14px; color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── Flow diagram wrapper ──────────────────────────── */
+.s-flow {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+/* ── Mode comparison ───────────────────────────────── */
+.s-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.s-modes__col {
+  padding: 28px 32px;
+}
+.s-modes__col--paid {
+  background: var(--cream);
+  border-left: 1.5px solid var(--ink);
+}
+.s-modes__col-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 24px;
+}
+.s-modes__col-title {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: 16px; color: var(--ink);
+}
+.s-modes__badge {
+  background: var(--lime); color: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: 999px;
+  font-family: var(--f-mono); font-size: 10px; font-weight: 500;
+  padding: 3px 10px; letter-spacing: .04em;
+}
+.s-modes__row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--paper-2);
+  font-size: 14px; color: var(--ink-2);
+}
+.s-modes__row:first-of-type { border-top: none; }
+.s-modes__check {
+  width: 20px; height: 20px; flex-shrink: 0;
+}
+.s-modes__accent {
+  margin-top: 20px;
+  padding: 14px 18px;
+  background: var(--paper-2);
+  border-radius: var(--r-md);
+  font-size: 13px; color: var(--ink);
+  font-weight: 600;
+  font-family: var(--f-mono);
+  border: 1.5px solid var(--ink);
+}
+
+/* ── Limits (coral border cards) ──────────────────── */
+.s-limits {
+  display: flex; flex-direction: column; gap: 12px;
+}
+.s-limit {
+  background: var(--cream);
+  border: 1.5px solid var(--ink);
+  border-left: 4px solid var(--coral);
+  border-radius: var(--r-md);
+  padding: 20px 24px;
+}
+.s-limit__title {
+  font-family: var(--f-display); font-weight: 700;
+  font-size: 15px; color: var(--ink);
+  margin-bottom: 6px;
+}
+.s-limit__text {
+  font-size: 14px; color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── User responsibility ───────────────────────────── */
+.s-resp__list {
+  list-style: none; padding: 0;
+  display: flex; flex-direction: column; gap: 12px;
+  margin-bottom: 24px;
+}
+.s-resp__list li {
+  display: flex; gap: 12px;
+  font-size: 15px; color: var(--ink-2);
+  line-height: 1.5;
+}
+.s-resp__list li::before {
+  content: "—";
+  color: var(--coral);
+  flex-shrink: 0; font-weight: 600;
+  margin-top: 1px;
+}
+.s-rule {
+  background: var(--cream);
+  border: 1.5px solid var(--lime-2);
+  border-radius: var(--r-md);
+  padding: 20px 24px;
+  font-size: 15px; color: var(--ink-2);
+}
+.s-rule strong { color: var(--ink); }
+
+/* ── Footer ────────────────────────────────────────── */
+.s-footer {
+  border-top: 1.5px solid var(--ink);
+  padding: 24px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+  color: var(--muted); font-size: 13px;
+}
+.s-footer a {
+  color: var(--muted); text-decoration: none;
+}
+.s-footer a:hover { color: var(--ink); }
+
+/* ── Responsive ────────────────────────────────────── */
+@media (max-width: 600px) {
+  .s-nav { padding: 14px 20px; }
+  .s-hero {
+    grid-template-columns: 1fr;
+    padding: 40px 20px 32px;
+    gap: 32px;
+  }
+  .s-hero__diagram { display: flex; justify-content: center; }
+  .s-stats {
+    grid-template-columns: 1fr;
+    padding: 0 20px;
+    margin-bottom: 48px;
+  }
+  .s-section { padding: 0 20px; margin-bottom: 48px; }
+  .s-layers { grid-template-columns: 1fr; }
+  .s-modes {
+    grid-template-columns: 1fr;
+  }
+  .s-modes__col--paid { border-left: none; border-top: 1.5px solid var(--ink); }
+  .s-footer { padding: 20px; flex-direction: column; align-items: flex-start; }
+}
+@media (min-width: 601px) and (max-width: 900px) {
+  .s-layers { grid-template-columns: repeat(2, 1fr); }
+  .s-stats { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ────────────────────────────────────────── -->
+<nav class="s-nav">
+  <a class="s-nav__brand" href="/">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="var(--ink)"/>
+      <path d="M16 6 L26 11 L26 18 C26 22.5 21.5 26.5 16 28 C10.5 26.5 6 22.5 6 18 L6 11 Z" stroke="var(--lime)" stroke-width="1.8" fill="none" stroke-linejoin="round"/>
+      <path d="M12 16 L15 19 L20 13" stroke="var(--lime)" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Proboi
+  </a>
+  <a class="s-nav__cta" href="${TG_URL}" target="_blank" rel="noopener">
+    @proboiAI_bot
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </a>
+</nav>
+
+<!-- ── HERO ───────────────────────────────────────── -->
+<div class="s-hero">
+  <div class="s-hero__left">
+    <div class="s-hero__badge">БЕЗОПАСНОСТЬ · ИЮНЬ 2026</div>
+    <h1 class="s-hero__title">Ваши данные —<br /><em>под замком.</em></h1>
+    <p class="s-hero__sub">Это не декларация о намерениях. Это архитектура.</p>
+  </div>
+  <div class="s-hero__diagram">
+    <!-- SVG: луковица изоляции -->
+    <svg width="320" height="320" viewBox="0 0 320 320" fill="none" aria-label="Слои изоляции Proboi">
+      <!-- Внешнее кольцо: Сетевой файрволл -->
+      <circle cx="160" cy="160" r="148" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <!-- Кольцо 2: gVisor -->
+      <circle cx="160" cy="160" r="116" stroke="var(--ink-2)" stroke-width="2"/>
+      <!-- Кольцо 3: User namespaces -->
+      <circle cx="160" cy="160" r="86" stroke="var(--ink)" stroke-width="2.5"/>
+      <!-- Кольцо 4: cgroups -->
+      <circle cx="160" cy="160" r="58" stroke="var(--ink)" stroke-width="3"/>
+      <!-- Центр: ваш код -->
+      <circle cx="160" cy="160" r="32" fill="var(--lime)" stroke="var(--ink)" stroke-width="2"/>
+      <!-- Текст центра -->
+      <text x="160" y="155" text-anchor="middle" font-family="Onest, sans-serif" font-size="9" font-weight="600" fill="var(--ink)">ваш</text>
+      <text x="160" y="166" text-anchor="middle" font-family="Onest, sans-serif" font-size="9" font-weight="600" fill="var(--ink)">код</text>
+
+      <!-- Метки колец -->
+      <text x="160" y="18" text-anchor="middle" font-family="Onest, sans-serif" font-size="10" fill="var(--muted)">Сетевой файрволл</text>
+      <text x="160" y="50" text-anchor="middle" font-family="Onest, sans-serif" font-size="10" fill="var(--ink-2)">gVisor</text>
+      <text x="160" y="79" text-anchor="middle" font-family="Onest, sans-serif" font-size="10" fill="var(--ink)">User namespaces</text>
+      <text x="160" y="107" text-anchor="middle" font-family="Onest, sans-serif" font-size="10" fill="var(--ink)">cgroups</text>
+
+      <!-- Стрелка "атакующий" снаружи → отбивается -->
+      <path d="M300 70 L248 98" stroke="var(--coral)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr-coral)"/>
+      <text x="302" y="66" font-family="Onest, sans-serif" font-size="10" fill="var(--coral)" text-anchor="start">атака</text>
+
+      <!-- Deflect marker на кольце 1 -->
+      <path d="M248 98 L258 80" stroke="var(--coral)" stroke-width="1.5" stroke-linecap="round"/>
+
+      <defs>
+        <marker id="arr-coral" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0 0 L6 3 L0 6" stroke="var(--coral)" stroke-width="1.2" fill="none"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<!-- ── STATS BAR ───────────────────────────────────── -->
+<div class="s-stats">
+  <div class="s-stat">
+    <div class="s-stat__num">27</div>
+    <div class="s-stat__label">исправлений закрыто в последнем аудите безопасности</div>
+  </div>
+  <div class="s-stat">
+    <div class="s-stat__num">5 мин</div>
+    <div class="s-stat__label">интервал внешнего мониторинга доступности</div>
+  </div>
+  <div class="s-stat">
+    <div class="s-stat__num">2</div>
+    <div class="s-stat__label">независимых уровня сетевой фильтрации</div>
+  </div>
+</div>
+
+<!-- ── СЛОИ ЗАЩИТЫ ────────────────────────────────── -->
+<div class="s-section">
+  <h2 class="s-section__heading">Что именно защищает вас</h2>
+  <div class="s-layers">
+
+    <!-- 1 Изоляция ядра -->
+    <div class="s-layer">
+      <svg class="s-layer__icon" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <rect x="4" y="4" width="36" height="36" rx="8" stroke="var(--ink)" stroke-width="1.5"/>
+        <rect x="10" y="10" width="24" height="24" rx="5" stroke="var(--ink)" stroke-width="1.5"/>
+        <rect x="16" y="16" width="12" height="12" rx="3" fill="var(--lime)" stroke="var(--ink)" stroke-width="1.5"/>
+      </svg>
+      <div class="s-layer__title">Изоляция ядра</div>
+      <div class="s-layer__desc">User namespaces Linux. При прорыве контейнера атакующий получает аккаунт без прав — не хост.</div>
+    </div>
+
+    <!-- 2 gVisor -->
+    <div class="s-layer">
+      <svg class="s-layer__icon" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <path d="M22 4 L38 12 L38 24 C38 32 30 39 22 42 C14 39 6 32 6 24 L6 12 Z" stroke="var(--ink)" stroke-width="1.5" stroke-linejoin="round"/>
+        <text x="22" y="26" text-anchor="middle" font-family="Unbounded, sans-serif" font-weight="700" font-size="12" fill="var(--ink)">G</text>
+      </svg>
+      <div class="s-layer__title">gVisor</div>
+      <div class="s-layer__desc">Технология Google. Системные вызовы проходят через посредника — не напрямую к ядру Linux.</div>
+    </div>
+
+    <!-- 3 Сеть -->
+    <div class="s-layer">
+      <svg class="s-layer__icon" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <rect x="14" y="6" width="16" height="12" rx="4" stroke="var(--ink)" stroke-width="1.5"/>
+        <rect x="4" y="26" width="14" height="12" rx="4" stroke="var(--ink)" stroke-width="1.5"/>
+        <rect x="26" y="26" width="14" height="12" rx="4" stroke="var(--ink)" stroke-width="1.5"/>
+        <path d="M22 18 L11 26 M22 18 L33 26" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3 2"/>
+        <!-- замок поверх -->
+        <rect x="19" y="28" width="6" height="5" rx="1" fill="var(--lime)" stroke="var(--ink)" stroke-width="1"/>
+        <path d="M20 28 L20 26 C20 24.3 24 24.3 24 26 L24 28" stroke="var(--ink)" stroke-width="1" fill="none"/>
+      </svg>
+      <div class="s-layer__title">Сеть</div>
+      <div class="s-layer__desc">Два независимых уровня фильтрации. Гости изолированы друг от друга и от инфраструктуры.</div>
+    </div>
+
+    <!-- 4 Ресурсы -->
+    <div class="s-layer">
+      <svg class="s-layer__icon" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <rect x="6" y="28" width="6" height="10" rx="2" fill="var(--lime)" stroke="var(--ink)" stroke-width="1.5"/>
+        <rect x="15" y="20" width="6" height="18" rx="2" fill="var(--lime)" stroke="var(--ink)" stroke-width="1.5"/>
+        <rect x="24" y="14" width="6" height="24" rx="2" stroke="var(--ink)" stroke-width="1.5"/>
+        <rect x="33" y="8" width="6" height="30" rx="2" stroke="var(--ink)" stroke-width="1.5"/>
+        <path d="M4 38 L40 38" stroke="var(--ink)" stroke-width="1.5" stroke-linecap="round"/>
+        <!-- крышка-ограничитель -->
+        <path d="M4 14 L40 14" stroke="var(--coral)" stroke-width="2" stroke-linecap="round" stroke-dasharray="4 2"/>
+      </svg>
+      <div class="s-layer__title">Ресурсы</div>
+      <div class="s-layer__desc">Лимиты памяти, процессов и диска на уровне cgroups. Resource exhaustion атаки заблокированы.</div>
+    </div>
+
+    <!-- 5 Секреты -->
+    <div class="s-layer">
+      <svg class="s-layer__icon" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <rect x="14" y="20" width="16" height="14" rx="4" stroke="var(--ink)" stroke-width="1.5"/>
+        <path d="M17 20 L17 16 C17 11.6 27 11.6 27 16 L27 20" stroke="var(--ink)" stroke-width="1.5" fill="none"/>
+        <circle cx="22" cy="27" r="2" fill="var(--ink)"/>
+        <!-- зачёркивание -->
+        <path d="M8 8 L36 36" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M36 8 L8 36" stroke="var(--coral)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="s-layer__title">Секреты</div>
+      <div class="s-layer__desc">Токены и ключи маскируются в журналах автоматически. Утечка через лог физически невозможна.</div>
+    </div>
+
+    <!-- 6 Аудит -->
+    <div class="s-layer">
+      <svg class="s-layer__icon" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="12" stroke="var(--ink)" stroke-width="1.5"/>
+        <path d="M29 29 L38 38" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M15 20 L18 23 L24 17" stroke="var(--lime-2)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="s-layer__title">Аудит</div>
+      <div class="s-layer__desc">Регулярные циклы внутреннего review с документированным реестром найденных и закрытых проблем.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── КАК РАБОТАЕТ ИЗОЛЯЦИЯ (flow) ───────────────── -->
+<div class="s-section">
+  <h2 class="s-section__heading">Как проходит ваш запрос</h2>
+  <div class="s-flow">
+    <svg width="860" height="160" viewBox="0 0 860 160" fill="none" aria-label="Схема прохождения запроса">
+      <!-- Узлы -->
+      <!-- [Вы] -->
+      <rect x="20" y="56" width="110" height="48" rx="12" stroke="var(--ink)" stroke-width="1.5" fill="var(--cream)"/>
+      <text x="75" y="84" text-anchor="middle" font-family="Unbounded, sans-serif" font-weight="700" font-size="12" fill="var(--ink)">Вы</text>
+
+      <!-- [Telegram] -->
+      <rect x="220" y="56" width="130" height="48" rx="12" stroke="var(--ink)" stroke-width="1.5" fill="var(--cream)"/>
+      <text x="285" y="84" text-anchor="middle" font-family="Unbounded, sans-serif" font-weight="700" font-size="12" fill="var(--ink)">Telegram</text>
+
+      <!-- [Proboi] -->
+      <rect x="445" y="56" width="130" height="48" rx="12" stroke="var(--ink)" stroke-width="1.5" fill="var(--lime)"/>
+      <text x="510" y="84" text-anchor="middle" font-family="Unbounded, sans-serif" font-weight="700" font-size="12" fill="var(--ink)">Proboi</text>
+
+      <!-- [Нейросеть] -->
+      <rect x="670" y="56" width="150" height="48" rx="12" stroke="var(--ink)" stroke-width="1.5" fill="var(--cream)"/>
+      <text x="745" y="84" text-anchor="middle" font-family="Unbounded, sans-serif" font-weight="700" font-size="12" fill="var(--ink)">Нейросеть</text>
+
+      <!-- Стрелки dashed -->
+      <!-- Вы → Telegram -->
+      <path d="M130 80 L220 80" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-ink-flow)"/>
+      <!-- Telegram → Proboi -->
+      <path d="M350 80 L445 80" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-ink-flow)"/>
+      <!-- Proboi → Нейросеть -->
+      <path d="M575 80 L670 80" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arr-ink-flow)"/>
+
+      <!-- Надписи над стрелками -->
+      <text x="175" y="68" text-anchor="middle" font-family="Onest, sans-serif" font-size="10" fill="var(--muted)">TLS</text>
+      <text x="397" y="68" text-anchor="middle" font-family="Onest, sans-serif" font-size="10" fill="var(--muted)">Маскирование секретов</text>
+      <text x="622" y="68" text-anchor="middle" font-family="Onest, sans-serif" font-size="10" fill="var(--muted)">Без обучения на данных</text>
+
+      <defs>
+        <marker id="arr-ink-flow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0 0 L6 3 L0 6" stroke="var(--ink)" stroke-width="1.2" fill="none"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<!-- ── РЕЖИМЫ ─────────────────────────────────────── -->
+<div class="s-section">
+  <h2 class="s-section__heading">Бесплатный и платный: разница в правах</h2>
+  <div class="s-modes">
+    <div class="s-modes__col">
+      <div class="s-modes__col-header">
+        <div class="s-modes__col-title">Бесплатный</div>
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--ink)" stroke-width="1.5"/><path d="M6 10 L9 13 L14 7" stroke="var(--lime-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Разговор с ИИ
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--muted)" stroke-width="1.5"/><path d="M6 14 L14 6 M6 6 L14 14" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Файловая система
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--muted)" stroke-width="1.5"/><path d="M6 14 L14 6 M6 6 L14 14" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Выполнение кода
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--muted)" stroke-width="1.5"/><path d="M6 14 L14 6 M6 6 L14 14" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Браузер / интернет
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--muted)" stroke-width="1.5"/><path d="M6 14 L14 6 M6 6 L14 14" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Google Workspace
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--muted)" stroke-width="1.5"/><path d="M6 14 L14 6 M6 6 L14 14" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Изолированный контейнер
+      </div>
+      <div class="s-modes__accent">Блокировка на уровне архитектуры — промпт-инъекция не поможет</div>
+    </div>
+    <div class="s-modes__col s-modes__col--paid">
+      <div class="s-modes__col-header">
+        <div class="s-modes__col-title">Платный</div>
+        <span class="s-modes__badge">PRO</span>
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--ink)" stroke-width="1.5"/><path d="M6 10 L9 13 L14 7" stroke="var(--lime-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Разговор с ИИ
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--ink)" stroke-width="1.5"/><path d="M6 10 L9 13 L14 7" stroke="var(--lime-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Файловая система
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--ink)" stroke-width="1.5"/><path d="M6 10 L9 13 L14 7" stroke="var(--lime-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Выполнение кода
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--ink)" stroke-width="1.5"/><path d="M6 10 L9 13 L14 7" stroke="var(--lime-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Браузер / интернет
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--ink)" stroke-width="1.5"/><path d="M6 10 L9 13 L14 7" stroke="var(--lime-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Google Workspace
+      </div>
+      <div class="s-modes__row">
+        <svg class="s-modes__check" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" stroke="var(--ink)" stroke-width="1.5"/><path d="M6 10 L9 13 L14 7" stroke="var(--lime-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Изолированный контейнер
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ЧЕСТНЫЕ ПРЕДЕЛЫ ────────────────────────────── -->
+<div class="s-section">
+  <h2 class="s-section__heading">Честные пределы</h2>
+  <div class="s-limits">
+    <div class="s-limit">
+      <div class="s-limit__title">End-to-end шифрования нет ни у кого</div>
+      <div class="s-limit__text">Модели требуется открытый текст для обработки. Канал, в котором даже провайдер не видит содержания запроса, существовать не может в принципе — ни у Proboi, ни у ChatGPT, ни у кого другого.</div>
+    </div>
+    <div class="s-limit">
+      <div class="s-limit__title">0-day защита не 100%</div>
+      <div class="s-limit__text">Слоистая архитектура снижает вероятность успешной атаки и ограничивает её радиус. Но 100% защиту от ещё не известных уязвимостей не предоставляет никто и нигде, включая крупнейших облачных провайдеров.</div>
+    </div>
+    <div class="s-limit">
+      <div class="s-limit__title">SOC 2 / ISO 27001 нет</div>
+      <div class="s-limit__text">Эти сертификации актуальны для корпоративных контрактов и не отражают реальное качество технической защиты. Ресурсы направляются в реализацию мер защиты, а не в подготовку аудиторской отчётности.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── ОТВЕТСТВЕННОСТЬ ПОЛЬЗОВАТЕЛЯ ──────────────── -->
+<div class="s-section">
+  <h2 class="s-section__heading">Что зависит от вас</h2>
+  <ul class="s-resp__list">
+    <li>Не передавайте паспортные данные, СНИЛС, медицинские записи, реквизиты карт, пароли и биометрию.</li>
+    <li>Документ коллеги, отправленный боту, — ваш правовой риск. Помните об ответственности за чужие персональные данные.</li>
+    <li>При случайной передаче чувствительной информации очищайте контекст командами <code>/forget</code> и <code>/new</code>.</li>
+    <li>Относитесь к чату с ИИ как к любому облачному сервису: не отправляйте то, что не отправили бы в корпоративный email.</li>
+  </ul>
+  <div class="s-rule">
+    <strong>Простое правило:</strong> если бы вы не отправили это в ChatGPT — не отправляйте и в Proboi.
+  </div>
+</div>
+
+<!-- ── FOOTER ─────────────────────────────────────── -->
+<footer class="s-footer">
+  <span>© 2026 · Proboi · <a href="https://proboi.site/">proboi.site</a></span>
+  <span>
     <a href="/oferta">Публичная оферта</a> ·
     <a href="/privacy">Политика конфиденциальности</a> ·
     <a href="/terms">Пользовательское соглашение</a>

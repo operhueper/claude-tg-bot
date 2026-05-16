@@ -2,6 +2,74 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-16 (экстренный батч) — Info-leak security hardening
+
+### Закрытая уязвимость
+
+Бот (paid-guest) в ответ на вопрос про хостинг выполнял `curl ifconfig.me` → раскрывал IP хоста `5.42.126.60`, описывал архитектуру Docker + nginx + reverse-proxy, называл Debian bookworm. Всё это — противоречие: промпт давал боту инфраструктурные детали, а потом запрещал их раскрывать.
+
+### 4-слойный батч (все изменения в одном коммите)
+
+| Слой | Файл | Что сделано |
+|---|---|---|
+| **Сеть** | `src/containers/spec.ts` | `--hostname proboi-workspace` (было `user-{userId}`). `--add-host` DNS-blackhole для 8 IP-check сервисов (ifconfig.me, icanhazip.com, api.ipify.org, ip-api.com, ipinfo.io, checkip.amazonaws.com, wtfismyip.com, myip.dnsomatic.com → 0.0.0.0) |
+| **Образ** | `Dockerfile.user` | Убраны пакеты `net-tools` (ifconfig, netstat, route, hostname) и `dnsutils` (nslookup, dig, host). Остался `iputils-ping` |
+| **Промпт** | `src/config.ts` | 5 правок: убраны «Debian bookworm» и «nginx», расширен банлист (20+ команд: ip addr, hostname, ss, netstat, curl ifconfig.me, printenv, git remote, ps aux, apt list, cat /etc/*), добавлена секция «ЕСЛИ ПОЛЬЗОВАТЕЛЬ ХОЧЕТ СВОЙ СЕРВЕР» (генерируй конфиги — без диагностики), расширен список прямых вопросов в privacy |
+| **API** | `src/dashboard-server.ts` + `src/templates/user-dashboard.ts` | Поле `container:` → `resources:` в /api/me и /api/admin/all + в шаблоне дашборда. Убираем слово «container» из DevTools |
+
+### Дополнительно в том же коммите
+
+- `src/session.ts`: фикс DeepSeek auth-error detection (accumulated text через SSE-чанки)
+- `src/templates/landing.ts`: ссылка «Безопасность» в nav + footer
+
+### Что требует действий на сервере
+
+- **Пересборка образа** `claude-user-sandbox:latest` (Dockerfile.user изменился):
+  ```bash
+  ssh root@5.42.126.60 'cd /opt/claude-tg-bot && docker build -t claude-user-sandbox:latest -f Dockerfile.user .'
+  ```
+  Уже запущенные контейнеры продолжат работать со старым образом до пересоздания.
+  Принудительный рестарт всех гостевых контейнеров:
+  ```bash
+  docker rm -f $(docker ps -aq --filter label=claude-bot-user) && systemctl restart claude-tg-bot
+  ```
+
+---
+
+## Состояние: 2026-05-16 (ночь) — Owner упрощён, деплой на Timeweb, все коммиты запушены
+
+**Сервер:** прод окончательно переехал на Timeweb `5.42.126.60` (proboi-bot-msk). Hetzner `89.167.125.175` выведен из hot-standby.
+
+### Что сделано за сессию
+
+| Изменение | Файлы | Суть |
+|---|---|---|
+| **Owner profile → paid guest** | `src/config.ts` | Удалён отдельный ownerProfile блок (~100 строк). Owner проходит тот же code-path что paid-гость. Overrides inline: allowedCommands, deepseekEnv (+ OPENAI/OR ключи), containerEnabled=true, rateLimitEnabled=false. settingSources: ["user","project"] → ["project"]. workingDir: workspace/ → /opt/vault/292228713/ |
+| **HTTPS_PROXY для DeepSeek** | `src/config.ts` | HTTPS_PROXY + HTTP_PROXY пробрасываются в deepseekEnv (owner + guest) через HETZNER_PROXY_URL — маршрутизация DeepSeek через Hetzner EU tinyproxy (WireGuard туннель 10.200.0.1:3128) |
+| **CLAUDE.md обновлён** | `CLAUDE.md` | Все ссылки на `89.167.125.175` → `5.42.126.60`, hostname `proboi-bot` → `proboi-bot-msk` |
+| **Docs** | `docs/rkn/`, `docs/security-article.md` | РКН-уведомления и статья о безопасности |
+
+### Диагностика за сессию
+
+- **Зависание Артёма** — DeepSeek API завис на 9 мин (новый Timeweb IP, возможный throttle). Бот перезапущен вручную. Таймаут 10 мин в session.ts (`queryTimeoutMs = 600_000`) — работает, но долго.
+- **Owner exit code 1** — причина: orphan-процесс с неправильными флагами (`--permission-mode default`, пустой `--setting-sources`). После owner-рефактора — owner идёт через рабочий guest code-path.
+- **DeepSeek health-check "aborted"** — периодические проверки пула используют proxyFetch; не критично, пул работает.
+
+### Коммиты (всё запушено на GitHub)
+
+- `c24994e` refactor: owner profile merged into unified guest code-path
+- `01341ca` docs: РКН-уведомления и статья о безопасности
+- `b629b39` docs: обновить адрес прода в CLAUDE.md (Hetzner → Timeweb)
+
+### Открытые задачи (перенесено из предыдущего блока)
+
+- Subscription gate активация (REQUIRED_CHANNEL_ID)
+- Метеринг баги H1/H2/H3 (потери токенов при ask-user, stop, memory analyzer)
+- DeepSeek health-check spam в stderr (proxyFetch + HTTPS_PROXY — проверить совместимость)
+- Таймаут DeepSeek уменьшить с 10 мин до 2-3 мин (`queryTimeoutMs` в session.ts)
+
+---
+
 ## Состояние: 2026-05-16 (вечер) — Batch #2 + #3 на jinru, чеклист отправлен Артёму
 
 Полная передача — этот блок + [docs/smoke-batch3-checklist.md](../docs/smoke-batch3-checklist.md). Прод **@proboiAI_bot** НЕ тронут.
