@@ -18,6 +18,7 @@ import { checkCommandSafety, isPathAllowedFor } from "../security";
 import { alertSuspiciousCommand } from "../owner-alerts";
 import type { StatusCallback } from "../types";
 import { getActiveProfiler } from "../profiler";
+import { proxyFetch } from "../proxy";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -436,7 +437,7 @@ export async function executeToolAsync(
       try {
         const encodedPrompt = encodeURIComponent(prompt);
         const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&nologo=true&model=flux`;
-        const resp = await fetch(url, { signal: AbortSignal.timeout(30_000) });
+        const resp = await proxyFetch(url, { signal: AbortSignal.timeout(30_000) });
         if (!resp.ok) return `Error: Pollinations returned ${resp.status}`;
         const buffer = await resp.arrayBuffer();
         const imgDir = "/tmp/openrouter_images";
@@ -563,7 +564,7 @@ async function openRouterRequest(
     ? AbortSignal.any([abortSignal, timeoutSignal])
     : timeoutSignal;
 
-  const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const resp = await proxyFetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,

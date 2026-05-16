@@ -2,6 +2,55 @@
 
 > Граф строится через `/graphify graphify-input`. Этот файл — место для ручных заметок между запусками graphify.
 
+## Состояние: 2026-05-16 (ночь) — МИГРАЦИЯ HETZNER → TIMEWEB
+
+Полный cutover прода с Hetzner FI на Timeweb Москва. **Только инфраструктура**: код бота, handlers, MCP, security, тарифы — без изменений.
+
+### Старая → новая инфраструктура
+
+| Роль | Было (до 2026-05-16) | Стало (с 2026-05-16) |
+|---|---|---|
+| **Прод** | Hetzner `89.167.125.175`, hostname `proboi-bot`, EU | Timeweb Cloud `5.42.126.60`, hostname `proboi-bot-msk`, Москва |
+| Тех. характеристики | — | 4 vCPU / 8 GB RAM / ~78 GB NVMe / Ubuntu 22.04.5 |
+| Docker | 28.x, userns-remap (V-26) | **29.5.0**, userns-remap default + **gvisor `runsc` runtime** для гостевых контейнеров |
+| Registry | docker.io напрямую (rate-limit'ы) | `mirror.gcr.io` в `/etc/docker/daemon.json` |
+| Runtime | Node 20 + Bun 1.3.x + Claude CLI 2.1.126 | Node 20 LTS + **Bun 1.3.14** + Claude CLI 2.1.126 |
+| Бот | @proboiAI_bot | @proboiAI_bot (тот же токен) |
+| Домен | proboi.site → Hetzner | proboi.site → Timeweb (nginx + LE-cert перенесён) |
+| **Все ПДн / vault / metering** | Германия | **РФ (Москва) — 242-ФЗ закрыт идеально** |
+| **Тест** | jinru `5.223.82.96` (Hetzner) | jinru `5.223.82.96` (Hetzner) — **не меняется**, @ORCH7_bot |
+
+Старый Hetzner-прод — в hot-standby ~48ч, потом shutdown.
+
+### Почему мигрировали (важный технический факт)
+
+1. Изначальный план: гибрид — бот в EU + user-db микросервис в РФ на Timeweb VPS (заготовка в `user-db/`, deployment работал).
+2. **TCP-блок Hetzner ↔ Timeweb**: пара IP `89.167.125.175` ↔ `5.42.126.60` имеет двунаправленный TCP-block ПОСЛЕ TLS handshake. Handshake проходит, прикладные данные режутся. Все порты (80/443/3900/22).
+3. ICMP идёт. С Timeweb к LE — идёт. С Hetzner к Yandex — идёт. Только эта конкретная пара не разговаривает. Скорее всего — РФ-провайдер Timeweb режет hetzner-подсеть как анти-VPN-абуз.
+4. Решение: всё перенести в РФ. user-db микросервис **отменён** — бот сам читает `users.json` и `metering.sqlite` локально.
+5. Прямой rsync Hetzner→Timeweb невозможен → перенос через ноут владельца как relay (РФ-IP видит обе стороны). Docker-образ пересобрали нативно на Timeweb через mirror.gcr.io.
+
+### Новые элементы изоляции
+
+- **gvisor `runsc` runtime** — второй слой sandbox поверх userns-remap. Гостевые контейнеры запускаются с `--runtime=runsc` (user-space syscall interpreter, защита от kernel-CVE escape).
+- **mirror.gcr.io** в `/etc/docker/daemon.json` — обход Docker Hub rate-limit, полезный pattern.
+
+### Что НЕ изменилось
+
+- `src/` бота — ноль изменений
+- `src/user-db-client.ts` остаётся в репо, но `USER_DB_URL` пуст в `.env` → клиент молчит. Удалить можно в следующей чистке, не сейчас.
+- Все коды/тарифы/гейты/Composio/MCP — без правок
+- jinru-тест не тронут
+
+### Что осталось доделать
+
+- 48ч hot-standby Hetzner → потом полный shutdown
+- Удалить `src/user-db-client.ts` (после стабильной работы Timeweb)
+- Обновить `CLAUDE.md` репо (адрес прода) — **после успешного cutover**, отдельной задачей
+- Roadmap May 2026: контейнеризация ✅ закрыта (gvisor), локализация ПДн ✅ закрыта
+
+---
+
 ## Состояние: 2026-05-16 (вечер) — Batch #2 + #3 на jinru, чеклист отправлен Артёму
 
 Полная передача — этот блок + [docs/smoke-batch3-checklist.md](../docs/smoke-batch3-checklist.md). Прод **@proboiAI_bot** НЕ тронут.

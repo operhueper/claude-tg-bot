@@ -15,12 +15,13 @@ import {
   TRANSCRIPTION_PROMPT,
   TRANSCRIPTION_AVAILABLE,
 } from "./config";
+import { getProxyFetchOptions } from "./proxy";
 
 // ============== OpenAI Client ==============
 
 let openaiClient: OpenAI | null = null;
 if (OPENAI_API_KEY && TRANSCRIPTION_AVAILABLE) {
-  openaiClient = new OpenAI({ apiKey: OPENAI_API_KEY });
+  openaiClient = new OpenAI({ apiKey: OPENAI_API_KEY, ...getProxyFetchOptions() });
 }
 
 // ============== Audit Logging ==============

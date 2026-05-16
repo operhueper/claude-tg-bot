@@ -5,6 +5,8 @@
  * Each guest gets their own isolated MCP URL: ?user_id=tg_<userId>
  */
 
+import { proxyFetch } from "./proxy";
+
 // v2 (146 tools, GMAIL_FETCH_EMAILS/GMAIL_GET_ATTACHMENT removed — they have unsafe defaults
 // that blow context: include_payload=true, verbose=true return full bodies + base64 attachments).
 // Use GMAIL_LIST_THREADS + GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID instead.
@@ -63,7 +65,7 @@ export async function initiateGoogleConnections(
   const results = await Promise.all(
     toolkits.map(async (toolkit) => {
       const authConfigId = COMPOSIO_AUTH_CONFIGS[toolkit];
-      const response = await fetch(
+      const response = await proxyFetch(
         `${COMPOSIO_BASE_URL}/api/v3/connected_accounts`,
         {
           method: "POST",
