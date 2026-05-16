@@ -273,6 +273,14 @@ export function bootstrapNewGuestDir(userId: number): void {
       console.log(`Created ${claudeMd}`);
     }
 
+    // MEMORY.md — top-level freeform memory index auto-injected into system prompt.
+    // The assistant appends entries here as it learns stable facts about the user.
+    const memoryMd = `${vaultDir}/MEMORY.md`;
+    if (!existsSync(memoryMd)) {
+      writeFileSync(memoryMd, `# Память\n\nЗаметки появятся по ходу общения.\n`);
+      console.log(`Created ${memoryMd}`);
+    }
+
     // dashboard.html — starter Mini App dashboard, fully customisable by the user
     const dashboardFile = `${vaultDir}/dashboard.html`;
     if (!existsSync(dashboardFile)) {
@@ -658,11 +666,46 @@ function buildFreeTierPrompt(userId: number): string {
 Будь полезным в рамках разговора — отвечай на любые вопросы по сути, делись знаниями, помогай разобраться. Бесплатный тариф — это полноценный собеседник, а не «отказчик».`;
 }
 
+/**
+ * Load persistent memory context for a paid guest.
+ * Reads profile.md (stable user facts) and MEMORY.md (freeform index).
+ * Both files are skipped if they contain only the bootstrap stub.
+ * Called at system-prompt build time so no extra tool calls are needed at session start.
+ */
+function loadGuestMemory(vaultDir: string, userId: number): string {
+  const sections: string[] = [];
+
+  try {
+    const profilePath = `${vaultDir}/memory/${userId}/profile.md`;
+    if (existsSync(profilePath)) {
+      const raw = readFileSync(profilePath, "utf-8").trim();
+      if (raw.split("\n").length > 3) {
+        sections.push(`### Профиль пользователя\n${raw}`);
+      }
+    }
+  } catch { /* ignore */ }
+
+  try {
+    const memoryMdPath = `${vaultDir}/MEMORY.md`;
+    if (existsSync(memoryMdPath)) {
+      const raw = readFileSync(memoryMdPath, "utf-8").trim();
+      if (raw.split("\n").length > 3) {
+        const capped = raw.length > 2000 ? raw.slice(0, 2000) + "\n…(сокращено)" : raw;
+        sections.push(`### Заметки о пользователе\n${capped}`);
+      }
+    }
+  } catch { /* ignore */ }
+
+  if (sections.length === 0) return "";
+  return `---\n## 📖 Память (автозагружена)\n${sections.join("\n\n")}\n---\n\n`;
+}
+
 function buildNewGuestSafetyPrompt(vaultDir: string, userId: number, tier: 'free' | 'paid' = 'free'): string {
   if (tier === 'free') {
     return buildFreeTierPrompt(userId);
   }
-  return `Always respond in the same language the user writes in. If the user writes in Russian — respond in Russian. If in English — respond in English. Never switch languages mid-conversation unless the user does.
+  const memoryContext = loadGuestMemory(vaultDir, userId);
+  return `${memoryContext}Always respond in the same language the user writes in. If the user writes in Russian — respond in Russian. If in English — respond in English. Never switch languages mid-conversation unless the user does.
 Отвечай на языке пользователя: если пишет по-русски — отвечай по-русски, если по-английски — по-английски.
 
 # Identity
@@ -721,6 +764,8 @@ All memory files live in ${vaultDir}/memory/${userId}/.
 - Write: after a meaningful conversation (5+ messages or important facts). Filename: memory/${userId}/sessions/YYYY-MM-DD-HHmm-topic.md. Then update topics-index.md.
 - Stable facts (name, stack, preferences) → profile.md + graph.json. Ephemeral → session only. "Remember this" / "important" / "insight" → always save to file. Better to read and confirm than re-ask what was already discussed.
 
+**MEMORY.md** (at \`${vaultDir}/MEMORY.md\`) — your top-level freeform memory index, automatically injected into this conversation at startup. Free-form sections: «Проекты», «Предпочтения», «Навыки и стиль работы», «Важные факты». Update after any session where stable new facts emerged. Keep entries short and specific: not «интересуется Python», but «пишет на Python 3, деплоит FastAPI на VPS, использует pandas для обработки Excel». Use Write/Edit tool to update. Stable structured facts also go to profile.md + graph.json.
+
 # Skills
 At every request: check for a matching skill with \`ls ${vaultDir}/skills/\` — if found, read it and apply it. Skills override default behavior. When user says "remember how to", "whenever X", "add a skill", "here's an instruction" — save the skill to ${vaultDir}/skills/<name>.md and confirm in one line. Check skills/ for ready-made recipes for common tasks (PDF conversion, spreadsheets, OCR, etc.).
 
@@ -760,6 +805,7 @@ Any task taking >10 seconds → launch Tasks in parallel (multiple Task calls in
 - Long tasks (>60s): run in background via mcp__container__Bash with nohup, write status/logs to ${vaultDir}/.tasks/. Tell user "working on it, will notify when done." See skills/ for the exact nohup pattern.
 - Daemons (always-on programs): register in ${vaultDir}/.daemons.yaml (max 3 user slots; bot-scheduler is reserved, don't remove it). See skills/ for format. Test the command manually first before setting enabled: true. Logs: ${vaultDir}/logs/<name>.log.
 - Schedules (cron from chat): register in ${vaultDir}/.schedule.yaml. Cron syntax, runs forever (no 7-day or monthly expiry). See skills/ for format. Execution logs: ${vaultDir}/.schedule-runs/<name>-YYYY-MM-DD.log.
+- Raw shell loops: NEVER start \`while true\`, \`until\`, or detached \`nohup cmd &\` loops as freestanding background processes. They die silently on container restart, cannot be monitored, and consume shared resources undetected. For always-on → .daemons.yaml. For scheduled → .schedule.yaml. For one-off long tasks → background_tasks skill (nohup + .tasks/ status file). "Monitoring page that updates every minute" is a daemon, not a loop.
 
 # Isolation & Privacy
 - Only access ${vaultDir}. Never read files of other users or system directories outside your working folder.
