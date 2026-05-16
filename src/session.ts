@@ -778,6 +778,11 @@ export class ClaudeSession {
       const settingsSourcesForSubtasks = (
         this.profile.settingSources ?? ["project"]
       ).join(",");
+      // Propagate permission mode so child queries don't block on interactive prompts.
+      // Without this, dochild subtasks default to "default" mode and hang on Bash/MCP calls.
+      const allowedToolsForSubtasks = needsAcceptEdits
+        ? PAID_ALLOWED_TOOLS.filter((t) => t !== "mcp__parallel__run").join(",")
+        : "";
 
       options.env = {
         ...(options.env ?? {}),
@@ -787,9 +792,9 @@ export class ClaudeSession {
         TELEGRAM_PARALLEL_DISALLOWED_TOOLS: disallowedToolsForSubtasks,
         TELEGRAM_PARALLEL_SETTINGS_SOURCES: settingsSourcesForSubtasks,
         TELEGRAM_PARALLEL_IS_GUEST: this.profile.isOwner ? "0" : "1",
-        TELEGRAM_PARALLEL_MAX_TURNS: String(
-          this.profile.maxTurns ?? 10
-        ),
+        TELEGRAM_PARALLEL_MAX_TURNS: String(this.profile.maxTurns ?? 10),
+        TELEGRAM_PARALLEL_PERMISSION_MODE: needsAcceptEdits ? "acceptEdits" : "",
+        TELEGRAM_PARALLEL_ALLOWED_TOOLS: allowedToolsForSubtasks,
       };
     }
 

@@ -140,6 +140,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const maxTurns = process.env.TELEGRAM_PARALLEL_MAX_TURNS
     ? parseInt(process.env.TELEGRAM_PARALLEL_MAX_TURNS, 10)
     : 10;
+  const permissionModeRaw = process.env.TELEGRAM_PARALLEL_PERMISSION_MODE;
+  const permissionMode =
+    permissionModeRaw === "acceptEdits" ? ("acceptEdits" as const) : undefined;
+  const allowedToolsRaw = process.env.TELEGRAM_PARALLEL_ALLOWED_TOOLS;
+  const allowedTools = allowedToolsRaw
+    ? allowedToolsRaw.split(",").filter(Boolean)
+    : undefined;
 
   // Restrictive system prompt for guest subtasks: prevents sandbox escape without
   // requiring the full parent prompt (which is too large for env transmission).
@@ -209,6 +216,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             disallowedTools: childDisallowedTools,
             // Cap tool-call rounds (propagated from parent profile.maxTurns)
             maxTurns,
+            // Propagate permission mode so child queries don't block on interactive prompts.
+            // Without permissionMode+allowedTools, Bash/MCP calls require UI confirmation
+            // which the bot subprocess cannot provide — subtask hangs indefinitely.
+            ...(permissionMode ? { permissionMode, allowedTools } : {}),
           },
         });
 
