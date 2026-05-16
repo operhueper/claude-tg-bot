@@ -12,11 +12,31 @@ const SUBSCRIPTION_PATTERN =
   /подписк|тариф|безлимит|499\s*₽|₽\s*\/?\s*мес|subscription|paid\s*tier|trial\s*period/i;
 
 /**
+ * Defense-in-depth: даже если analyzer почему-то записал в граф ноду про
+ * отказ/попытку обхода/системные пути — не показываем её модели при
+ * инжекции памяти. Это защищает от:
+ *  1) Старых графов, отравленных до апдейта analyzer-фильтра
+ *  2) Русских/мультиязычных формулировок, которые analyzer мог пропустить
+ *  3) Раскрытия в ответе «что ты помнишь обо мне» того, что юзер пытался
+ *     обходить ограничения (приватность других гостей в shared контексте).
+ */
+const REFUSAL_PATTERN =
+  /отказан|отклонен|требуется\s*тариф|требует\s*тариф|недоступн\w*\s*на\s*бесплатн|бесплатн\w*\s*тариф|попытка\s*(чтения|запуска|выполн)|запрос\s*sha\d|запрос(ы|)\s*команд|запуск\s*bash|чтение\s*системн|\/etc\/(passwd|shadow|hosts)|\/proc\/|\/sys\//i;
+
+/**
  * Возвращает true если строка содержит бизнес-данные о тарифе/подписке.
  * Используется для фильтрации нод из графа памяти перед инжектом в промпт.
  */
 function containsSubscriptionData(s: string): boolean {
   return SUBSCRIPTION_PATTERN.test(s);
+}
+
+/**
+ * Возвращает true если в ноде содержатся следы refusal/обхода (label либо
+ * любое data-значение). Используется как backstop поверх analyzer-фильтра.
+ */
+function containsRefusalData(s: string): boolean {
+  return REFUSAL_PATTERN.test(s);
 }
 
 /** Strip prompt-injection patterns before splicing node content into a system prompt. */
@@ -97,6 +117,13 @@ export function buildMemoryContext(
       // ошибочные данные из памяти иначе заставляют модель отвечать
       // про «активную подписку» пользователю, у которого её уже нет.
       if (containsSubscriptionData(node.label)) continue;
+      // Backstop поверх analyzer-фильтра: ноды про отказы/попытки обхода/
+      // системные пути нельзя показывать модели как «факты о пользователе».
+      // Они либо просочились в граф до апдейта analyzer-фильтра, либо
+      // выскользнули из новой формулировки. Дроп на уровне инжекции.
+      if (containsRefusalData(node.label)) continue;
+      const dataValuesText = Object.values(node.data).map(v => String(v ?? "")).join(" ");
+      if (dataValuesText && containsRefusalData(dataValuesText)) continue;
       const dataEntries = Object.entries(node.data).filter(
         ([, v]) => !containsSubscriptionData(String(v ?? ""))
       );

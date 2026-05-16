@@ -129,6 +129,31 @@ const TOXIC_SUBSTRINGS = [
   "rate_limit",
   "401 unauthorized",
   "no such file or directory",
+  // Refusal-events from free-tier blocks — pollute graph with «попытки обхода»
+  "отказано",
+  "отказан —",
+  "отклонено",
+  "отклонен —",
+  "требуется тариф",
+  "требует тариф",
+  "недоступно на бесплатн",
+  "недоступен на бесплатн",
+  "бесплатный тариф",
+  // System-file probe patterns (free-tier обходы)
+  "/etc/passwd",
+  "/etc/shadow",
+  "/etc/hosts",
+  "/proc/",
+  "/sys/",
+  "попытка чтения",
+  "попытка запуска",
+  "попытка выполн",
+  "запрос sha256",
+  "запросы команд",
+  "запрос команд",
+  "запрос на bash",
+  "запуск bash",
+  "чтение системн",
 ];
 
 function containsToxic(value: unknown): boolean {
