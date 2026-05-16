@@ -87,7 +87,11 @@ process.on('unhandledRejection', (reason) => {
 });
 
 // Create bot instance
-const bot = new Bot(TELEGRAM_TOKEN);
+const bot = new Bot(TELEGRAM_TOKEN, {
+  client: process.env.HETZNER_PROXY_URL
+    ? { baseFetchConfig: { proxy: process.env.HETZNER_PROXY_URL } as object }
+    : undefined,
+});
 registerAlertBot(bot);
 registerDashboardBot(bot);
 
