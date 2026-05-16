@@ -1270,11 +1270,10 @@ export function getUserProfile(userId: number): UserProfile {
         ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-reasoner",
         ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
         ANTHROPIC_MODEL: "deepseek-chat",
-        // Нужен MCP `connect-google` (disconnect-тул дёргает Composio API
-        // напрямую из subprocess). Без этого process.env.COMPOSIO_API_KEY
-        // пустой и юзер получает «ключ не настроен на этой стороне».
-        ...(process.env.COMPOSIO_API_KEY ? { COMPOSIO_API_KEY: process.env.COMPOSIO_API_KEY } : {}),
-        ...(process.env.HETZNER_PROXY_URL ? { HTTPS_PROXY: process.env.HETZNER_PROXY_URL, HTTP_PROXY: process.env.HETZNER_PROXY_URL } : {}),
+        // COMPOSIO_API_KEY intentionally NOT passed here — the disconnect tool
+        // now proxies through POST /api/composio/disconnect on 127.0.0.1 so the
+        // key never lives in subprocess env.
+...(process.env.HETZNER_PROXY_URL ? { HTTPS_PROXY: process.env.HETZNER_PROXY_URL, HTTP_PROXY: process.env.HETZNER_PROXY_URL } : {}),
         // Owner needs image generation (OPENROUTER_API_KEY) and voice transcription
         // (OPENAI_API_KEY) available in subagents. Guests don't get these to prevent
         // secret exposure across tenant boundaries.

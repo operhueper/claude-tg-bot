@@ -31,16 +31,6 @@ const server = new Server(
   }
 );
 
-const COMPOSIO_BASE_URL = "https://backend.composio.dev";
-
-const SLUG_TO_NAME: Record<string, string> = {
-  googledocs: "Docs",
-  googledrive: "Drive",
-  googlesheets: "Sheets",
-  gmail: "Gmail",
-  googlecalendar: "Calendar",
-};
-
 // List available tools
 server.setRequestHandler(ListToolsRequestSchema, async () => {
   return {
@@ -119,18 +109,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (request.params.name === "disconnect") {
-    const apiKey = process.env.COMPOSIO_API_KEY || "";
-    if (!apiKey) {
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Composio API key not configured — невозможно удалить подключения.",
-          },
-        ],
-        isError: true,
-      };
-    }
     if (!userId) {
       return {
         content: [
@@ -143,41 +121,56 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    // Fetch all connected accounts for this user
-    let items: Array<{ id?: string; status?: string; toolkit?: { slug?: string } }> = [];
+    // Proxy through the bot's internal HTTP endpoint so COMPOSIO_API_KEY
+    // never needs to live in the subprocess environment.
+    const dashboardPort = process.env.DASHBOARD_PORT || "3848";
+    const proxyUrl = `http://127.0.0.1:${dashboardPort}/api/composio/disconnect`;
+
+    let result: { success: boolean; disconnected?: number; error?: string };
     try {
-      const listResp = await fetch(
-        `${COMPOSIO_BASE_URL}/api/v3/connected_accounts?user_id=tg_${userId}`,
-        { headers: { "x-api-key": apiKey } }
-      );
-      if (!listResp.ok) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Не удалось получить список подключений (HTTP ${listResp.status}).`,
-            },
-          ],
-          isError: true,
-        };
-      }
-      const data = (await listResp.json()) as {
-        items?: Array<{ id?: string; status?: string; toolkit?: { slug?: string } }>;
-      };
-      items = data.items ?? [];
+      const resp = await fetch(proxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      result = (await resp.json()) as typeof result;
     } catch (e) {
       return {
         content: [
           {
             type: "text" as const,
-            text: `Ошибка при получении списка подключений: ${String(e)}`,
+            text: `Ошибка при обращении к прокси disconnect: ${String(e)}`,
           },
         ],
         isError: true,
       };
     }
 
-    if (items.length === 0) {
+    if (!result.success) {
+      if (result.error === "Composio not configured") {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Composio API key not configured — невозможно удалить подключения.",
+            },
+          ],
+          isError: true,
+        };
+      }
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Не удалось удалить подключения: ${result.error ?? "unknown error"}.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    const count = result.disconnected ?? 0;
+    if (count === 0) {
       return {
         content: [
           {
@@ -188,41 +181,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       };
     }
 
-    // Delete each connected account
-    const deleted: string[] = [];
-    const failed: string[] = [];
-    for (const item of items) {
-      if (!item.id) continue;
-      const slug = item.toolkit?.slug ?? "";
-      const name = SLUG_TO_NAME[slug] ?? (slug || item.id);
-      try {
-        const delResp = await fetch(
-          `${COMPOSIO_BASE_URL}/api/v3/connected_accounts/${item.id}`,
-          { method: "DELETE", headers: { "x-api-key": apiKey } }
-        );
-        if (delResp.ok) {
-          deleted.push(name);
-        } else {
-          failed.push(`${name} (HTTP ${delResp.status})`);
-        }
-      } catch (e) {
-        failed.push(`${name} (${String(e)})`);
-      }
-    }
-
-    const parts: string[] = [];
-    if (deleted.length > 0) {
-      parts.push(`Удалено ${deleted.length} подключений: ${deleted.join(", ")}.`);
-    }
-    if (failed.length > 0) {
-      parts.push(`Не удалось удалить: ${failed.join(", ")}.`);
-    }
-
     return {
       content: [
         {
           type: "text" as const,
-          text: parts.join(" "),
+          text: `Удалено ${count} подключений.`,
         },
       ],
     };

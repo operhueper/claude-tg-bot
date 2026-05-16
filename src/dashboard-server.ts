@@ -739,6 +739,67 @@ export function startDashboardServer(): void {
           return await handleYuKassaWebhookRoute(req);
         }
 
+        // -----------------------------------------------------------------------
+        // Internal: Composio disconnect proxy (localhost-only, no auth needed)
+        // MCP subprocess calls this instead of hitting Composio API directly so
+        // COMPOSIO_API_KEY never has to live in the subprocess env.
+        // -----------------------------------------------------------------------
+        if (method === "POST" && pathname === "/api/composio/disconnect") {
+          const apiKey = process.env.COMPOSIO_API_KEY || "";
+          if (!apiKey) {
+            return jsonOk({ success: false, error: "Composio not configured" });
+          }
+
+          let body: { userId?: unknown };
+          try {
+            const parsed = await req.json();
+            if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+              return jsonOk({ success: false, error: "bad_request" });
+            }
+            body = parsed as { userId?: unknown };
+          } catch {
+            return jsonOk({ success: false, error: "bad_request" });
+          }
+
+          if (typeof body.userId !== "string" || !body.userId) {
+            return jsonOk({ success: false, error: "userId required" });
+          }
+
+          const composioBase = "https://backend.composio.tools";
+          const composioUserId = `tg_${body.userId}`;
+
+          let items: Array<{ id?: string }> = [];
+          try {
+            const listResp = await fetch(
+              `${composioBase}/api/v3/connected_accounts?user_id=${composioUserId}`,
+              { headers: { "x-api-key": apiKey } }
+            );
+            if (!listResp.ok) {
+              return jsonOk({ success: false, error: `list HTTP ${listResp.status}` });
+            }
+            const data = (await listResp.json()) as { items?: Array<{ id?: string }> };
+            items = data.items ?? [];
+          } catch (e) {
+            return jsonOk({ success: false, error: String(e) });
+          }
+
+          let disconnected = 0;
+          for (const item of items) {
+            if (!item.id) continue;
+            try {
+              const delResp = await fetch(
+                `${composioBase}/api/v3/connected_accounts/${item.id}`,
+                { method: "DELETE", headers: { "x-api-key": apiKey } }
+              );
+              if (delResp.ok) disconnected++;
+            } catch {
+              // best-effort; caller will see partial count
+            }
+          }
+
+          return jsonOk({ success: true, disconnected });
+        }
+
         if (safeRead && pathname === "/subscribe") {
           return handleSubscribePage(req);
         }
