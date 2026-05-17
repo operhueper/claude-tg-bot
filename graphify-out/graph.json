@@ -4,48 +4,31 @@
   "graph": {
     "hyperedges": [
       {
-        "id": "project_knowledge_graph_token_optimization_hyperedge",
-        "label": "Token Optimization Bundle (2026-05-16)",
+        "id": "he_stream_marker_pattern",
+        "label": "Stream Marker Pattern: ring buffer + debounce + marker parsers used by Plan Mode and Todo-list",
         "nodes": [
-          "project_knowledge_graph_history_limit_reduction",
-          "project_knowledge_graph_system_prompt_shrink",
-          "project_knowledge_graph_auto_suggest_new",
-          "project_knowledge_graph_conditional_composio_load"
+          "stream_marker_buffer",
+          "todo_marker_parser",
+          "plan_marker_parser",
+          "telegram_edit_debounce"
         ],
-        "relation": "jointly_reduce_token_cost",
-        "confidence": "EXTRACTED",
-        "confidence_score": 1.0,
-        "source_file": "graphify-input/project_knowledge_graph.md"
+        "relation": "participate_in",
+        "confidence": "INFERRED",
+        "confidence_score": 0.8,
+        "source_file": "graphify-input/ROADMAP_CLAUDE_CODE_FEATURES.md"
       },
       {
-        "id": "project_knowledge_graph_info_leak_hardening_hyperedge",
-        "label": "Info-leak Security Hardening Bundle",
+        "id": "he_session_compaction_memory",
+        "label": "Session summarization shared pattern: compactSession + save_session_memory + buildSummaryPrompt",
         "nodes": [
-          "project_knowledge_graph_container_hostname_blackhole",
-          "project_knowledge_graph_dockerfile_net_tools_removal",
-          "project_knowledge_graph_prompt_banlist_expansion",
-          "project_knowledge_graph_api_container_field_rename"
+          "compaction_compact_session",
+          "save_session_memory",
+          "compaction_summary_prompt"
         ],
-        "relation": "jointly_prevent_host_ip_leak",
-        "confidence": "EXTRACTED",
-        "confidence_score": 1.0,
-        "source_file": "graphify-input/project_knowledge_graph.md"
-      },
-      {
-        "id": "project_knowledge_graph_batch2_fixes_hyperedge",
-        "label": "Batch #2 Fixes Bundle (jinru 2026-05-16)",
-        "nodes": [
-          "project_knowledge_graph_batch2_single_status_bubble",
-          "project_knowledge_graph_batch2_env_check_info_leak",
-          "project_knowledge_graph_batch2_new_instant_ack",
-          "project_knowledge_graph_batch2_write_bash_uid_hook",
-          "project_knowledge_graph_batch2_composio_oauth_polling",
-          "project_knowledge_graph_batch2_profiler_marks"
-        ],
-        "relation": "deployed_together_on_jinru",
-        "confidence": "EXTRACTED",
-        "confidence_score": 1.0,
-        "source_file": "graphify-input/project_knowledge_graph.md"
+        "relation": "participate_in",
+        "confidence": "INFERRED",
+        "confidence_score": 0.85,
+        "source_file": "graphify-input/ROADMAP_CLAUDE_CODE_FEATURES.md"
       }
     ]
   },
@@ -4426,9 +4409,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_composio_slim_mcp",
       "community": 13,
-      "norm_label": "composio google mcp slim (v3)"
+      "norm_label": "composio google mcp slim (v3)",
+      "id": "project_knowledge_graph_composio_slim_mcp"
     },
     {
       "label": "Token Cost Reduction Initiative (2026-05-16)",
@@ -4439,9 +4422,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_token_cost_reduction",
       "community": 13,
-      "norm_label": "token cost reduction initiative (2026-05-16)"
+      "norm_label": "token cost reduction initiative (2026-05-16)",
+      "id": "project_knowledge_graph_token_cost_reduction"
     },
     {
       "label": "HISTORY_LIMIT 12\u21928 Reduction",
@@ -4452,9 +4435,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_history_limit_reduction",
       "community": 13,
-      "norm_label": "history_limit 12\u21928 reduction"
+      "norm_label": "history_limit 12\u21928 reduction",
+      "id": "project_knowledge_graph_history_limit_reduction"
     },
     {
       "label": "System Prompt 15K\u21924K Tokens (-73%)",
@@ -4465,9 +4448,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_system_prompt_shrink",
       "community": 13,
-      "norm_label": "system prompt 15k\u21924k tokens (-73%)"
+      "norm_label": "system prompt 15k\u21924k tokens (-73%)",
+      "id": "project_knowledge_graph_system_prompt_shrink"
     },
     {
       "label": "Auto-suggest /new After 16 Turns",
@@ -4478,9 +4461,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_auto_suggest_new",
       "community": 13,
-      "norm_label": "auto-suggest /new after 16 turns"
+      "norm_label": "auto-suggest /new after 16 turns",
+      "id": "project_knowledge_graph_auto_suggest_new"
     },
     {
       "label": "Conditional Composio MCP Loading (googleConnected flag)",
@@ -4491,9 +4474,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_conditional_composio_load",
       "community": 13,
-      "norm_label": "conditional composio mcp loading (googleconnected flag)"
+      "norm_label": "conditional composio mcp loading (googleconnected flag)",
+      "id": "project_knowledge_graph_conditional_composio_load"
     },
     {
       "label": "googleConnected Flag in UserNode",
@@ -4504,9 +4487,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_google_connected_flag",
       "community": 13,
-      "norm_label": "googleconnected flag in usernode"
+      "norm_label": "googleconnected flag in usernode",
+      "id": "project_knowledge_graph_google_connected_flag"
     },
     {
       "label": "Container Hostname + DNS Blackhole for IP-check Services",
@@ -4517,9 +4500,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_container_hostname_blackhole",
       "community": 5,
-      "norm_label": "container hostname + dns blackhole for ip-check services"
+      "norm_label": "container hostname + dns blackhole for ip-check services",
+      "id": "project_knowledge_graph_container_hostname_blackhole"
     },
     {
       "label": "API container\u2192resources Field Rename",
@@ -4530,9 +4513,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_api_container_field_rename",
       "community": 5,
-      "norm_label": "api container\u2192resources field rename"
+      "norm_label": "api container\u2192resources field rename",
+      "id": "project_knowledge_graph_api_container_field_rename"
     },
     {
       "label": "Owner Profile Merged into Unified Guest Code-path",
@@ -4543,9 +4526,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_owner_profile_simplified",
       "community": 11,
-      "norm_label": "owner profile merged into unified guest code-path"
+      "norm_label": "owner profile merged into unified guest code-path",
+      "id": "project_knowledge_graph_owner_profile_simplified"
     },
     {
       "label": "HTTPS_PROXY for DeepSeek via Hetzner WireGuard Tunnel",
@@ -4556,9 +4539,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_hetzner_proxy_deepseek",
       "community": 11,
-      "norm_label": "https_proxy for deepseek via hetzner wireguard tunnel"
+      "norm_label": "https_proxy for deepseek via hetzner wireguard tunnel",
+      "id": "project_knowledge_graph_hetzner_proxy_deepseek"
     },
     {
       "label": "Batch #2 Fix A: Single Status Bubble",
@@ -4569,9 +4552,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_batch2_single_status_bubble",
       "community": 14,
-      "norm_label": "batch #2 fix a: single status bubble"
+      "norm_label": "batch #2 fix a: single status bubble",
+      "id": "project_knowledge_graph_batch2_single_status_bubble"
     },
     {
       "label": "Batch #2 Fix B: Env-check Info-leak Fix",
@@ -4582,9 +4565,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_batch2_env_check_info_leak",
       "community": 13,
-      "norm_label": "batch #2 fix b: env-check info-leak fix"
+      "norm_label": "batch #2 fix b: env-check info-leak fix",
+      "id": "project_knowledge_graph_batch2_env_check_info_leak"
     },
     {
       "label": "Batch #2 Fix C: /new Instant Ack",
@@ -4595,9 +4578,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_batch2_new_instant_ack",
       "community": 41,
-      "norm_label": "batch #2 fix c: /new instant ack"
+      "norm_label": "batch #2 fix c: /new instant ack",
+      "id": "project_knowledge_graph_batch2_new_instant_ack"
     },
     {
       "label": "Batch #2 Fix F: Profiler Marks (6 blind spots)",
@@ -4608,9 +4591,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_batch2_profiler_marks",
       "community": 28,
-      "norm_label": "batch #2 fix f: profiler marks (6 blind spots)"
+      "norm_label": "batch #2 fix f: profiler marks (6 blind spots)",
+      "id": "project_knowledge_graph_batch2_profiler_marks"
     },
     {
       "label": "Batch #3: Accurate Google Connection Text",
@@ -4621,9 +4604,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_batch3_accurate_connection_text",
       "community": 14,
-      "norm_label": "batch #3: accurate google connection text"
+      "norm_label": "batch #3: accurate google connection text",
+      "id": "project_knowledge_graph_batch3_accurate_connection_text"
     },
     {
       "label": "Batch #3: mcp__connect-google__disconnect Tool",
@@ -4634,9 +4617,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_batch3_disconnect_tool",
       "community": 21,
-      "norm_label": "batch #3: mcp__connect-google__disconnect tool"
+      "norm_label": "batch #3: mcp__connect-google__disconnect tool",
+      "id": "project_knowledge_graph_batch3_disconnect_tool"
     },
     {
       "label": "DeepSeek Latency Trace Analysis (10 Artyom requests)",
@@ -4647,9 +4630,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_deepseek_latency_analysis",
       "community": 28,
-      "norm_label": "deepseek latency trace analysis (10 artyom requests)"
+      "norm_label": "deepseek latency trace analysis (10 artyom requests)",
+      "id": "project_knowledge_graph_deepseek_latency_analysis"
     },
     {
       "label": "Docker userns-remap Migration (V-26)",
@@ -4660,9 +4643,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_userns_remap_migration",
       "community": 11,
-      "norm_label": "docker userns-remap migration (v-26)"
+      "norm_label": "docker userns-remap migration (v-26)",
+      "id": "project_knowledge_graph_userns_remap_migration"
     },
     {
       "label": "src/mcp-filter.ts: Conditional MCP Injection",
@@ -4673,9 +4656,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_mcp_filter_ts",
       "community": 13,
-      "norm_label": "src/mcp-filter.ts: conditional mcp injection"
+      "norm_label": "src/mcp-filter.ts: conditional mcp injection",
+      "id": "project_knowledge_graph_mcp_filter_ts"
     },
     {
       "label": "src/user-registry.ts: UserNode with googleConnected",
@@ -4686,9 +4669,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_user_registry_ts",
       "community": 13,
-      "norm_label": "src/user-registry.ts: usernode with googleconnected"
+      "norm_label": "src/user-registry.ts: usernode with googleconnected",
+      "id": "project_knowledge_graph_user_registry_ts"
     },
     {
       "label": "src/dashboard-server.ts: Disconnect Resets googleConnected",
@@ -4699,9 +4682,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_dashboard_server_ts",
       "community": 13,
-      "norm_label": "src/dashboard-server.ts: disconnect resets googleconnected"
+      "norm_label": "src/dashboard-server.ts: disconnect resets googleconnected",
+      "id": "project_knowledge_graph_dashboard_server_ts"
     },
     {
       "label": "src/handlers/streaming.ts: OAuth Polling + Status Bubble",
@@ -4712,9 +4695,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_streaming_ts",
       "community": 14,
-      "norm_label": "src/handlers/streaming.ts: oauth polling + status bubble"
+      "norm_label": "src/handlers/streaming.ts: oauth polling + status bubble",
+      "id": "project_knowledge_graph_streaming_ts"
     },
     {
       "label": "src/session.ts: PostToolUse Hook for Write\u2192Bash UID",
@@ -4725,9 +4708,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_session_ts_posttooluse",
       "community": 6,
-      "norm_label": "src/session.ts: posttooluse hook for write\u2192bash uid"
+      "norm_label": "src/session.ts: posttooluse hook for write\u2192bash uid",
+      "id": "project_knowledge_graph_session_ts_posttooluse"
     },
     {
       "label": "connect_google_mcp/server.ts: disconnect Tool Added",
@@ -4738,9 +4721,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_connect_google_mcp",
       "community": 21,
-      "norm_label": "connect_google_mcp/server.ts: disconnect tool added"
+      "norm_label": "connect_google_mcp/server.ts: disconnect tool added",
+      "id": "project_knowledge_graph_connect_google_mcp"
     },
     {
       "label": "Unit Economics: $4-5/user/month (DeepSeek), heavy user $11/month loss",
@@ -4751,9 +4734,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_unit_economics",
       "community": 13,
-      "norm_label": "unit economics: $4-5/user/month (deepseek), heavy user $11/month loss"
+      "norm_label": "unit economics: $4-5/user/month (deepseek), heavy user $11/month loss",
+      "id": "project_knowledge_graph_unit_economics"
     },
     {
       "label": "Planned: 5h Rolling Window Limit (25 msg/5h) for paid",
@@ -4764,9 +4747,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_rolling_window_limit",
       "community": 13,
-      "norm_label": "planned: 5h rolling window limit (25 msg/5h) for paid"
+      "norm_label": "planned: 5h rolling window limit (25 msg/5h) for paid",
+      "id": "project_knowledge_graph_rolling_window_limit"
     },
     {
       "label": "PAID_ALLOWED_TOOLS List (17 tools including disconnect)",
@@ -4777,9 +4760,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_paid_allowed_tools",
       "community": 21,
-      "norm_label": "paid_allowed_tools list (17 tools including disconnect)"
+      "norm_label": "paid_allowed_tools list (17 tools including disconnect)",
+      "id": "project_knowledge_graph_paid_allowed_tools"
     },
     {
       "label": "Composio OAuth Grace Period (GRACE_MS=10000ms)",
@@ -4790,9 +4773,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_compose_oauth_grace_period",
       "community": 14,
-      "norm_label": "composio oauth grace period (grace_ms=10000ms)"
+      "norm_label": "composio oauth grace period (grace_ms=10000ms)",
+      "id": "project_knowledge_graph_compose_oauth_grace_period"
     },
     {
       "label": "docs/smoke-batch3-checklist.md: Test Checklist",
@@ -4803,9 +4786,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_smoke_batch3_checklist",
       "community": 11,
-      "norm_label": "docs/smoke-batch3-checklist.md: test checklist"
+      "norm_label": "docs/smoke-batch3-checklist.md: test checklist",
+      "id": "project_knowledge_graph_smoke_batch3_checklist"
     },
     {
       "label": "src/config.ts: Owner Profile + Prompt Changes",
@@ -4816,9 +4799,9 @@
       "captured_at": "2026-05-16",
       "author": null,
       "contributor": null,
-      "id": "project_knowledge_graph_config_ts",
       "community": 13,
-      "norm_label": "src/config.ts: owner profile + prompt changes"
+      "norm_label": "src/config.ts: owner profile + prompt changes",
+      "id": "project_knowledge_graph_config_ts"
     }
   ],
   "links": [
@@ -9561,48 +9544,31 @@
   ],
   "hyperedges": [
     {
-      "id": "project_knowledge_graph_token_optimization_hyperedge",
-      "label": "Token Optimization Bundle (2026-05-16)",
+      "id": "he_stream_marker_pattern",
+      "label": "Stream Marker Pattern: ring buffer + debounce + marker parsers used by Plan Mode and Todo-list",
       "nodes": [
-        "project_knowledge_graph_history_limit_reduction",
-        "project_knowledge_graph_system_prompt_shrink",
-        "project_knowledge_graph_auto_suggest_new",
-        "project_knowledge_graph_conditional_composio_load"
+        "stream_marker_buffer",
+        "todo_marker_parser",
+        "plan_marker_parser",
+        "telegram_edit_debounce"
       ],
-      "relation": "jointly_reduce_token_cost",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "graphify-input/project_knowledge_graph.md"
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.8,
+      "source_file": "graphify-input/ROADMAP_CLAUDE_CODE_FEATURES.md"
     },
     {
-      "id": "project_knowledge_graph_info_leak_hardening_hyperedge",
-      "label": "Info-leak Security Hardening Bundle",
+      "id": "he_session_compaction_memory",
+      "label": "Session summarization shared pattern: compactSession + save_session_memory + buildSummaryPrompt",
       "nodes": [
-        "project_knowledge_graph_container_hostname_blackhole",
-        "project_knowledge_graph_dockerfile_net_tools_removal",
-        "project_knowledge_graph_prompt_banlist_expansion",
-        "project_knowledge_graph_api_container_field_rename"
+        "compaction_compact_session",
+        "save_session_memory",
+        "compaction_summary_prompt"
       ],
-      "relation": "jointly_prevent_host_ip_leak",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "graphify-input/project_knowledge_graph.md"
-    },
-    {
-      "id": "project_knowledge_graph_batch2_fixes_hyperedge",
-      "label": "Batch #2 Fixes Bundle (jinru 2026-05-16)",
-      "nodes": [
-        "project_knowledge_graph_batch2_single_status_bubble",
-        "project_knowledge_graph_batch2_env_check_info_leak",
-        "project_knowledge_graph_batch2_new_instant_ack",
-        "project_knowledge_graph_batch2_write_bash_uid_hook",
-        "project_knowledge_graph_batch2_composio_oauth_polling",
-        "project_knowledge_graph_batch2_profiler_marks"
-      ],
-      "relation": "deployed_together_on_jinru",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "graphify-input/project_knowledge_graph.md"
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "graphify-input/ROADMAP_CLAUDE_CODE_FEATURES.md"
     }
   ]
 }
