@@ -292,8 +292,11 @@ export async function checkPendingSendFileRequests(
         try { unlinkSync(filepath); } catch { /* ignore */ }
       } catch (sendError) {
         console.error(`Failed to send file ${filePath}:`, sendError);
+        // Delete the request JSON so this failure doesn't repeat on every
+        // subsequent message (the file is gone or permanently inaccessible).
+        try { unlinkSync(filepath); } catch { /* ignore */ }
         await ctx.reply(
-          `Failed to send file: ${filePath.split("/").pop() || "unknown"}`
+          `Не удалось отправить файл: ${filePath.split("/").pop() || "unknown"}. Попробуй попросить сохранить его в твою рабочую папку.`
         );
       }
     } catch (error) {
@@ -645,6 +648,26 @@ export function createStatusCallback(
     }
     heartbeat.tick();
     try {
+      if (statusType === "suppress_pre_tool" && segmentId !== undefined) {
+        // Pre-tool narration: delete any already-visible message for this segment
+        // and route the text to the heartbeat bubble instead. The bubble disappears
+        // at done, keeping the final answer clean.
+        const existingMsg = state.textMessages.get(segmentId);
+        if (existingMsg) {
+          try {
+            await ctx.api.deleteMessage(existingMsg.chat.id, existingMsg.message_id);
+          } catch { /* ignore — already deleted or rate limited */ }
+          state.textMessages.delete(segmentId);
+          state.lastContent.delete(segmentId);
+          state.lastEditTimes.delete(segmentId);
+          if (state.maxSegmentId === segmentId) state.maxSegmentId = segmentId - 1;
+        }
+        const phrase = content.replace(/\n+/g, ' ').trim().slice(0, 140);
+        if (phrase) {
+          try { await heartbeat.setContext(phrase); } catch { /* ignore */ }
+        }
+        return;
+      }
       if (statusType === "todo_init" || statusType === "todo_update") {
         // Parse and store todo state for potential future use, but don't render
         // a separate Telegram message — progress bubble is the single UI widget.

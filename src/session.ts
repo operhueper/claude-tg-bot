@@ -196,7 +196,11 @@ class TodoMarkerParser {
       cleanLines.push(line);
     }
 
-    return [cleanLines.join('\n'), action];
+    // Each element in `lines` was terminated by \n in the original stream.
+    // join('\n') would lose that terminator on the last element — causing the
+    // next chunk to be concatenated without any separator. Add the trailing \n
+    // back so adjacent chunks don't bleed together ("маяКакой" bug).
+    return [cleanLines.length > 0 ? cleanLines.join('\n') + '\n' : '', action];
   }
 
   flush(): string {
@@ -241,7 +245,8 @@ class PlanMarkerParser {
       cleanLines.push(line);
     }
 
-    return cleanLines.join('\n');
+    // Same trailing-\n fix as TodoMarkerParser (see comment there).
+    return cleanLines.length > 0 ? cleanLines.join('\n') + '\n' : '';
   }
 
   flush(): string {
@@ -1053,20 +1058,19 @@ export class ClaudeSession {
                 }
               }
 
-              // Если модель уже что-то написала перед tool_use — закрываем
-              // этот текстовый сегмент как «анонс плана» (sid=0 сохранится
-              // в `done` по существующей логике streaming.ts).
-              // Fallback: если первый tool_use, а текста нет — синтезируем
-              // generic-анонс, чтобы пользователь не сидел в тишине, пока
-              // DeepSeek проигнорировал инструкцию из системного промпта.
+              // Если модель написала текст перед tool_use — это анонс/нарратив.
+              // Вместо создания постоянного сообщения (которое потом нужно удалять)
+              // роутим текст в пузырь статуса (heartbeat context) — он исчезнет
+              // вместе с heartbeat при done. Сегмент 0 остаётся для финального ответа.
               if (currentSegmentText) {
                 await statusCallback(
-                  "segment_end",
+                  "suppress_pre_tool",
                   currentSegmentText,
                   currentSegmentId
                 );
-                currentSegmentId++;
                 currentSegmentText = "";
+                // Не инкрементируем currentSegmentId: финальный ответ пойдёт
+                // в тот же сегмент 0, который станет единственным видимым сообщением.
               }
 
               // Контекст для idle-heartbeat (короткая серьёзная фраза о том,
@@ -1398,6 +1402,16 @@ export class ClaudeSession {
 
     _profiler?.mark("done");
     await statusCallback("done", "");
+
+    // Final send-file flush: the in-stream poll (200ms window per tool_use event)
+    // can miss files created near the very end of the stream — the MCP subprocess
+    // may not have written the JSON yet when we checked. One extra pass after the
+    // stream fully closes catches these stragglers without waiting for the next
+    // user message.
+    if (ctx && chatId && !askUserTriggered) {
+      await new Promise<void>(r => setTimeout(r, 500));
+      await checkPendingSendFileRequests(ctx, chatId, this.profile.userId);
+    }
 
     // Record this turn in the transcript
     const fullResponse = responseParts.join("");
